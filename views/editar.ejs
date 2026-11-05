@@ -90,13 +90,12 @@
             </div>
 
             <div class="campo">
-              <label for="fecha_registro">Fecha del registro</label>
+              <label for="fecha_nacimiento">Fecha de nacimiento</label>
               <input
-                type="datetime-local"
-                id="fecha_registro"
-                name="fecha_registro"
-                step="1"
-                value="<%= valores.fecha_registro || '' %>"
+                type="date"
+                id="fecha_nacimiento"
+                name="fecha_nacimiento"
+                value="<%= (valores.fecha_nacimiento || '').slice(0, 10) %>"
               >
               <p class="ayuda">Si se deja vacía, se conserva la fecha actual del registro.</p>
             </div>

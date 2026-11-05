@@ -98,12 +98,12 @@
               </div>
 
               <div class="campo">
-                <label for="fecha_registro">Fecha del registro</label>
+                <label for="fecha_nacimiento">Fecha de nacimiento</label>
                 <input
-                  type="datetime-local"
-                  id="fecha_registro"
-                  name="fecha_registro"
-                  value="<%= valores.fecha_registro || '' %>"
+                  type="date"
+                  id="fecha_nacimiento"
+                  name="fecha_nacimiento"
+                  value="<%= (valores.fecha_nacimiento || '').slice(0, 10) %>"
                 >
               </div>
             </div>
@@ -251,7 +251,7 @@
                     <span><%= registro.nombres %></span>
                   </td>
                   <td class="col-sector"><%= registro.sector_nombre || 'Sin sector' %></td>
-                  <td class="col-fecha"><%= formatoFecha(registro.fecha_registro) %></td>
+                  <td class="col-fecha"><%= formatoFecha(registro.fecha_nacimiento) %></td>
                   <td class="col-extras">
                     <% if (registro.extras.length) { %>
                       <details class="detalle-extras">

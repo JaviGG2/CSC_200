@@ -11,7 +11,7 @@ const RUTA_ESQUEMA = path.join(__dirname, 'sql', 'neon_schema.sql');
 function obtenerPendientes() {
   return db
     .prepare(`
-      SELECT r.id, r.cedula, r.nombres, r.apellidos, r.fecha_registro,
+      SELECT r.id, r.cedula, r.nombres, r.apellidos, r.fecha_nacimiento,
              r.datos_extras, COALESCE(s.nombre, '') AS sector
       FROM registros_censo r
       LEFT JOIN sectores s ON s.id = r.sector_id
@@ -30,7 +30,7 @@ function construirInsercion(lote) {
       registro.cedula,
       registro.nombres,
       registro.apellidos,
-      registro.fecha_registro,
+      registro.fecha_nacimiento,
       registro.datos_extras,
       registro.sector
     );
@@ -40,13 +40,13 @@ function construirInsercion(lote) {
 
   const texto = `
     INSERT INTO registros_censo
-      (cedula, nombres, apellidos, fecha_registro, datos_extras, sector)
+      (cedula, nombres, apellidos, fecha_nacimiento, datos_extras, sector)
     VALUES
       ${filas.join(', ')}
     ON CONFLICT (cedula) DO UPDATE SET
       nombres = EXCLUDED.nombres,
       apellidos = EXCLUDED.apellidos,
-      fecha_registro = EXCLUDED.fecha_registro,
+      fecha_nacimiento = EXCLUDED.fecha_nacimiento,
       datos_extras = EXCLUDED.datos_extras,
       sector = EXCLUDED.sector
     RETURNING cedula

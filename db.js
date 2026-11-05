@@ -19,7 +19,7 @@ db.exec(`
     cedula TEXT NOT NULL UNIQUE,
     nombres TEXT NOT NULL,
     apellidos TEXT NOT NULL,
-    fecha_registro TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    fecha_nacimiento TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     datos_extras TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(datos_extras)),
     sector_id INTEGER,
     sincronizado INTEGER NOT NULL DEFAULT 0 CHECK (sincronizado IN (0, 1)),
@@ -53,8 +53,13 @@ db.exec(`
 
 function asegurarColumnaSector() {
   const columnas = db.prepare('PRAGMA table_info(registros_censo)').all();
+  const nombres = columnas.map((columna) => columna.name);
 
-  if (!columnas.some((columna) => columna.name === 'sector_id')) {
+  if (nombres.includes('fecha_registro') && !nombres.includes('fecha_nacimiento')) {
+    db.exec('ALTER TABLE registros_censo RENAME COLUMN fecha_registro TO fecha_nacimiento');
+  }
+
+  if (!nombres.includes('sector_id')) {
     db.exec('ALTER TABLE registros_censo ADD COLUMN sector_id INTEGER');
   }
 
@@ -173,7 +178,7 @@ const CLAVES_RESERVADAS = [
   'cedula',
   'nombres',
   'apellidos',
-  'fecha_registro',
+  'fecha_nacimiento',
   'datos_extras',
   'sincronizado',
   'sincronizado_en',
@@ -373,7 +378,7 @@ function insertarRegistro({ cedula, nombres, apellidos, fechaRegistro, extras, s
   const resultado = db
     .prepare(`
       INSERT INTO registros_censo
-        (cedula, nombres, apellidos, fecha_registro, datos_extras, sector_id)
+        (cedula, nombres, apellidos, fecha_nacimiento, datos_extras, sector_id)
       VALUES
         (?, ?, ?, COALESCE(?, datetime('now', 'localtime')), ?, ?)
     `)
@@ -397,7 +402,7 @@ function actualizarRegistro({
       SET cedula = ?,
           nombres = ?,
           apellidos = ?,
-          fecha_registro = COALESCE(?, fecha_registro),
+          fecha_nacimiento = COALESCE(?, fecha_nacimiento),
           datos_extras = ?,
           sector_id = ?,
           sincronizado = 0,

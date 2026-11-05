@@ -261,7 +261,7 @@ function enviarCsv(res, nombre, registros) {
     registro.cedula,
     registro.nombres,
     registro.apellidos,
-    formatearFecha(registro.fecha_registro),
+    formatearFecha(registro.fecha_nacimiento),
     ...campos.map((campo) => registro.valores[campo.clave] || ''),
     registro.sincronizado ? 'Sincronizado' : 'Pendiente',
   ]);
@@ -359,8 +359,8 @@ function renderizarEdicion(
     cedula: registro.cedula,
     nombres: registro.nombres,
     apellidos: registro.apellidos,
-    fecha_registro: registro.fecha_registro
-      ? registro.fecha_registro.replace(' ', 'T')
+    fecha_nacimiento: registro.fecha_nacimiento
+      ? registro.fecha_nacimiento.replace(' ', 'T')
       : '',
     sector_id: registro.sector_id,
     ...registro.valores,
@@ -494,9 +494,9 @@ function validarRegistro(valores, { sectorPermitidoId = null } = {}) {
     return { error: 'Los nombres y apellidos no pueden superar los 120 caracteres.' };
   }
 
-  const fechaRegistro = normalizarFecha(valores.fecha_registro);
+  const fechaRegistro = normalizarFecha(valores.fecha_nacimiento);
   if (fechaRegistro === false) {
-    return { error: 'La fecha de registro no es válida.' };
+    return { error: 'La fecha de nacimiento no es válida.' };
   }
 
   const sectorId = Number(valorSimple(valores.sector_id));

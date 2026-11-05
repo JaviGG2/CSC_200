@@ -127,7 +127,7 @@
                       <td><span class="cedula"><%= registro.cedula %></span></td>
                       <td><%= registro.nombres %></td>
                       <td><%= registro.apellidos %></td>
-                      <td class="col-fecha"><%= formatoFecha(registro.fecha_registro) %></td>
+                      <td class="col-fecha"><%= formatoFecha(registro.fecha_nacimiento) %></td>
                       <% campos.forEach(function (campo) { %>
                         <td class="col-dato"><%= registro.valores[campo.clave] || '—' %></td>
                       <% }); %>
@@ -196,7 +196,7 @@
                     <td><span class="cedula"><%= registro.cedula %></span></td>
                     <td><%= registro.nombres %></td>
                     <td><%= registro.apellidos %></td>
-                    <td class="col-fecha"><%= formatoFecha(registro.fecha_registro) %></td>
+                    <td class="col-fecha"><%= formatoFecha(registro.fecha_nacimiento) %></td>
                     <% campos.forEach(function (campo) { %>
                       <td class="col-dato"><%= registro.valores[campo.clave] || '—' %></td>
                     <% }); %>
