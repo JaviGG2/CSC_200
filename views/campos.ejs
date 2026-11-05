@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Administrar campos | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="contenedor topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">C200</span>
+        <div class="brand-text">
+          <h1>Comuna Carabobo 200</h1>
+          <p>Censo sociodemográfico y médico</p>
+        </div>
+      </div>
+      <nav class="topbar-nav" aria-label="Secciones">
+        <a href="/" class="topbar-link">Censo</a>
+        <a href="/sectores" class="topbar-link">Sectores</a>
+      </nav>
+      <span class="offline">
+        <span class="offline-dot" aria-hidden="true"></span>
+        Modo offline
+      </span>
+    </div>
+  </header>
+
+  <main class="contenedor pagina">
+    <div class="pagina-cabecera">
+      <div>
+        <h1>Administrar campos</h1>
+        <p>Agregue, edite, oculte o elimine los campos del formulario del censo.</p>
+      </div>
+      <a href="/" class="boton boton--secundario">Volver al censo</a>
+    </div>
+
+    <% if (ok) { %>
+      <div class="alerta alerta--exito" role="status"><%= ok %></div>
+    <% } %>
+
+    <% if (error) { %>
+      <div class="alerta alerta--error" role="alert"><%= error %></div>
+    <% } %>
+
+    <div class="resumen">
+      <span><strong><%= stats.total %></strong> campos</span>
+      <span><strong><%= stats.activos %></strong> visibles</span>
+      <span><strong><%= stats.ocultos %></strong> ocultos</span>
+    </div>
+
+    <div class="gestion">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Agregar campo</h2>
+          <p>El campo se agregará al final del formulario.</p>
+        </div>
+
+        <form action="/campos" method="post" class="formulario" data-bloquear>
+          <input type="hidden" name="origen" value="campos">
+
+          <div class="campos">
+            <div class="campo">
+              <label for="nuevo-etiqueta">Nombre del campo <span class="requerido">*</span></label>
+              <input
+                type="text"
+                id="nuevo-etiqueta"
+                name="etiqueta"
+                value="<%= valoresCampo.etiqueta || '' %>"
+                maxlength="80"
+                placeholder="Ej.: Discapacidad"
+                required
+              >
+            </div>
+
+            <div class="campo">
+              <label for="nuevo-tipo">Tipo de campo</label>
+              <select id="nuevo-tipo" name="tipo" required>
+                <% tiposCampo.forEach(function (tipo) { %>
+                  <option value="<%= tipo.valor %>" <% if ((valoresCampo.tipo || 'text') === tipo.valor) { %>selected<% } %>><%= tipo.etiqueta %></option>
+                <% }); %>
+              </select>
+            </div>
+
+            <div class="campo bloque-opciones" id="nuevo-bloque-opciones" <% if ((valoresCampo.tipo || 'text') !== 'select') { %>hidden<% } %>>
+              <label for="nuevo-opciones">Opciones</label>
+              <textarea
+                id="nuevo-opciones"
+                name="opciones"
+                rows="3"
+                placeholder="Sí&#10;No&#10;No sabe"
+              ><%= valoresCampo.opciones || '' %></textarea>
+              <p class="ayuda">Una opción por línea o separadas por comas.</p>
+            </div>
+
+            <label class="check">
+              <input type="checkbox" name="requerido" value="1" <% if (valoresCampo.requerido) { %>checked<% } %>>
+              Campo obligatorio
+            </label>
+          </div>
+
+          <div class="acciones-form">
+            <button type="submit" class="boton boton--primario">Agregar campo</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" id="campos">
+        <div class="panel-head panel-head--fila">
+          <div>
+            <h2>Campos del formulario</h2>
+            <p>Ocultar un campo no borra los datos ya registrados.</p>
+          </div>
+          <span class="contador"><%= stats.total %></span>
+        </div>
+
+        <div class="lista-campos">
+          <% if (!campos.length) { %>
+            <div class="lista-vacia">
+              <strong>No hay campos dinámicos.</strong>
+              <span>Agregue el primero desde el formulario.</span>
+            </div>
+          <% } %>
+
+          <% campos.forEach(function (campo) { %>
+            <article
+              class="campo-admin<% if (!campo.activo) { %> campo-admin--inactivo<% } %><% if (nuevoCampo === campo.clave) { %> campo-admin--nuevo<% } %>"
+              id="campo-admin-<%= campo.clave %>"
+            >
+              <div class="campo-admin-info">
+                <div class="campo-admin-titulo">
+                  <strong><%= campo.etiqueta %></strong>
+                  <span class="estado <%= campo.activo ? 'estado--activo' : 'estado--oculto' %>">
+                    <%= campo.activo ? 'Visible' : 'Oculto' %>
+                  </span>
+                  <% if (campo.requerido) { %>
+                    <span class="estado estado--requerido">Obligatorio</span>
+                  <% } %>
+                </div>
+                <p class="campo-admin-meta">
+                  <code><%= campo.clave %></code>
+                  <span>·</span>
+                  <%= etiquetaTipo(campo.tipo) %>
+                  <% if (campo.opciones.length) { %>
+                    <span>·</span>
+                    <%= campo.opciones.join(', ') %>
+                  <% } %>
+                </p>
+              </div>
+
+              <div class="campo-admin-acciones">
+                <button
+                  type="button"
+                  class="boton boton--mini"
+                  data-editar-campo
+                  data-id="<%= campo.id %>"
+                  data-etiqueta="<%= campo.etiqueta %>"
+                  data-tipo="<%= campo.tipo %>"
+                  data-opciones="<%= JSON.stringify(campo.opciones) %>"
+                  data-requerido="<%= campo.requerido ? '1' : '0' %>"
+                >Editar</button>
+
+                <form method="post" action="/campos/<%= campo.id %>/estado">
+                  <button type="submit" class="boton boton--mini">
+                    <%= campo.activo ? 'Ocultar' : 'Mostrar' %>
+                  </button>
+                </form>
+
+                <form
+                  method="post"
+                  action="/campos/<%= campo.id %>/eliminar"
+                  data-confirmar="¿Eliminar el campo &quot;<%= campo.etiqueta %>&quot;? Los datos ya registrados se conservarán."
+                >
+                  <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                </form>
+              </div>
+            </article>
+          <% }); %>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      Comuna Socialista Carabobo 200 · Censo local
+    </div>
+  </footer>
+
+  <dialog class="dialogo" id="dialogo-editar" data-abrir="<%= abrirEdicion ? 'true' : 'false' %>">
+    <form
+      method="post"
+      action="<%= edicionId ? '/campos/' + edicionId + '/editar' : '' %>"
+      class="dialogo-form"
+      id="form-editar-campo"
+      data-bloquear
+    >
+      <div class="dialogo-head">
+        <h2>Editar campo</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <% if (errorEdicion) { %>
+        <div class="alerta alerta--error" role="alert"><%= errorEdicion %></div>
+      <% } %>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="editar-etiqueta">Nombre del campo <span class="requerido">*</span></label>
+          <input
+            type="text"
+            id="editar-etiqueta"
+            name="etiqueta"
+            value="<%= valoresEdicion.etiqueta || '' %>"
+            maxlength="80"
+            required
+          >
+        </div>
+
+        <div class="campo">
+          <label for="editar-tipo">Tipo de campo</label>
+          <select id="editar-tipo" name="tipo" required>
+            <% tiposCampo.forEach(function (tipo) { %>
+              <option value="<%= tipo.valor %>" <% if (valoresEdicion.tipo === tipo.valor) { %>selected<% } %>><%= tipo.etiqueta %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="campo bloque-opciones" id="editar-bloque-opciones" <% if (valoresEdicion.tipo !== 'select') { %>hidden<% } %>>
+          <label for="editar-opciones">Opciones</label>
+          <textarea
+            id="editar-opciones"
+            name="opciones"
+            rows="3"
+            placeholder="Sí&#10;No&#10;No sabe"
+          ><%= valoresEdicion.opciones || '' %></textarea>
+          <p class="ayuda">Una opción por línea o separadas por comas.</p>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" name="requerido" value="1" id="editar-requerido" <% if (valoresEdicion.requerido) { %>checked<% } %>>
+          Campo obligatorio
+        </label>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--primario">Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

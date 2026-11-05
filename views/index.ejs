@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Censo local | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="contenedor topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">C200</span>
+        <div class="brand-text">
+          <h1>Comuna Carabobo 200</h1>
+          <p>Censo sociodemográfico y médico</p>
+        </div>
+      </div>
+      <nav class="topbar-nav" aria-label="Secciones">
+        <a href="/" class="topbar-link" aria-current="page">Censo</a>
+        <a href="/sectores" class="topbar-link">Sectores</a>
+      </nav>
+      <span class="offline">
+        <span class="offline-dot" aria-hidden="true"></span>
+        Modo offline
+      </span>
+    </div>
+  </header>
+
+  <main class="contenedor pagina">
+    <% if (ok) { %>
+      <div class="alerta alerta--exito" role="status"><%= ok %></div>
+    <% } %>
+
+    <% if (error) { %>
+      <div class="alerta alerta--error" role="alert"><%= error %></div>
+    <% } %>
+
+    <div class="resumen">
+      <span><strong><%= stats.total %></strong> registros</span>
+      <span><strong><%= stats.pendientes %></strong> pendientes</span>
+      <span><strong><%= stats.sincronizados %></strong> sincronizados</span>
+    </div>
+
+    <div class="disposicion">
+      <section class="panel" id="nuevo-registro">
+        <div class="panel-head">
+          <h2>Nuevo registro</h2>
+          <p>Registre los datos tomados en físico.</p>
+        </div>
+
+        <form action="/agregar" method="post" class="formulario" data-form-registro>
+          <div class="grupo">
+            <h3 class="grupo-titulo">Datos personales</h3>
+
+            <div class="campos">
+              <div class="campo">
+                <label for="cedula">Cédula <span class="requerido">*</span></label>
+                <input
+                  type="text"
+                  id="cedula"
+                  name="cedula"
+                  value="<%= valores.cedula || '' %>"
+                  placeholder="V-12345678"
+                  maxlength="30"
+                  autocomplete="off"
+                  required
+                >
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="nombres">Nombres <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="nombres"
+                    name="nombres"
+                    value="<%= valores.nombres || '' %>"
+                    maxlength="120"
+                    autocomplete="given-name"
+                    required
+                  >
+                </div>
+
+                <div class="campo">
+                  <label for="apellidos">Apellidos <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="apellidos"
+                    name="apellidos"
+                    value="<%= valores.apellidos || '' %>"
+                    maxlength="120"
+                    autocomplete="family-name"
+                    required
+                  >
+                </div>
+              </div>
+
+              <div class="campo">
+                <label for="fecha_registro">Fecha del registro</label>
+                <input
+                  type="datetime-local"
+                  id="fecha_registro"
+                  name="fecha_registro"
+                  value="<%= valores.fecha_registro || '' %>"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="grupo">
+            <h3 class="grupo-titulo">Sector</h3>
+
+            <div class="campos">
+              <div class="campo">
+                <label for="sector_id">Sector o comunidad <span class="requerido">*</span></label>
+                <select id="sector_id" name="sector_id" required>
+                  <option value="">Seleccione un sector...</option>
+                  <% sectores.forEach(function (sector) { %>
+                    <option value="<%= sector.id %>" <% if (String(valores.sector_id || '') === String(sector.id)) { %>selected<% } %>><%= sector.nombre %></option>
+                  <% }); %>
+                </select>
+                <% if (!sectores.length) { %>
+                  <p class="ayuda">
+                    No hay sectores activos.
+                    <a href="/sectores/administrar">Cree el primero aquí</a>.
+                  </p>
+                <% } else { %>
+                  <p class="ayuda">
+                    <a href="/sectores/administrar">Administrar sectores</a>
+                  </p>
+                <% } %>
+              </div>
+            </div>
+          </div>
+
+          <div class="grupo">
+            <div class="grupo-head">
+              <h3 class="grupo-titulo">Datos del censo</h3>
+              <div class="grupo-acciones">
+                <a href="/campos" class="boton-campo">Administrar</a>
+                <button type="button" class="boton-campo" data-abrir-dialogo aria-haspopup="dialog">
+                  + Agregar campo
+                </button>
+              </div>
+            </div>
+
+            <div class="campos">
+              <% campos.forEach(function (campo) { %>
+                <div class="campo<% if (nuevoCampo === campo.clave) { %> campo--nuevo<% } %>">
+                  <label for="campo-<%= campo.clave %>">
+                    <%= campo.etiqueta %>
+                    <% if (campo.requerido) { %><span class="requerido">*</span><% } %>
+                    <% if (nuevoCampo === campo.clave) { %><span class="marca-nueva">Nuevo</span><% } %>
+                  </label>
+
+                  <% if (campo.tipo === 'textarea') { %>
+                    <textarea
+                      id="campo-<%= campo.clave %>"
+                      name="<%= campo.clave %>"
+                      rows="3"
+                      maxlength="4000"
+                      <% if (campo.requerido) { %>required<% } %>
+                    ><%= valores[campo.clave] || '' %></textarea>
+                  <% } else if (campo.tipo === 'select') { %>
+                    <select
+                      id="campo-<%= campo.clave %>"
+                      name="<%= campo.clave %>"
+                      <% if (campo.requerido) { %>required<% } %>
+                    >
+                      <option value="">Seleccione...</option>
+                      <% campo.opciones.forEach(function (opcion) { %>
+                        <option value="<%= opcion %>" <% if (valores[campo.clave] === opcion) { %>selected<% } %>><%= opcion %></option>
+                      <% }); %>
+                    </select>
+                  <% } else { %>
+                    <input
+                      type="<%= campo.tipo %>"
+                      id="campo-<%= campo.clave %>"
+                      name="<%= campo.clave %>"
+                      value="<%= valores[campo.clave] || '' %>"
+                      maxlength="4000"
+                      <% if (campo.tipo === 'number') { %>step="any" inputmode="decimal"<% } %>
+                      <% if (campo.requerido) { %>required<% } %>
+                    >
+                  <% } %>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="acciones-form">
+            <button type="submit" class="boton boton--primario">Guardar registro</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" id="registros">
+        <div class="panel-head panel-head--fila">
+          <div>
+            <h2>Registros</h2>
+            <p>Guardados en este equipo.</p>
+          </div>
+          <div class="panel-head-acciones">
+            <span class="contador"><%= registros.length %></span>
+            <% if (registros.length) { %>
+              <button
+                type="button"
+                class="boton boton--mini boton--peligro"
+                data-abrir-password
+                data-accion="/registros/vaciar"
+                data-titulo="Vaciar base de datos"
+                data-mensaje="Se eliminarán los <%= registros.length %> registros del censo y la numeración volverá a empezar en 1. Los campos del formulario se conservan. Esta acción no se puede deshacer."
+                data-texto-boton="Vaciar registros"
+              >Vaciar BD</button>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="tabla-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">N.º</th>
+                <th scope="col">Cédula</th>
+                <th scope="col">Apellidos y nombres</th>
+                <th scope="col">Sector</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Datos del censo</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!registros.length) { %>
+                <tr>
+                  <td colspan="8" class="tabla-vacia">
+                    <strong>No hay registros todavía.</strong>
+                    <span>Complete el formulario para agregar el primero.</span>
+                  </td>
+                </tr>
+              <% } %>
+
+              <% registros.forEach(function (registro) { %>
+                <tr id="registro-<%= registro.id %>">
+                  <td class="col-id"><%= registro.id %></td>
+                  <td><span class="cedula"><%= registro.cedula %></span></td>
+                  <td class="col-persona">
+                    <strong><%= registro.apellidos %></strong>
+                    <span><%= registro.nombres %></span>
+                  </td>
+                  <td class="col-sector"><%= registro.sector_nombre || 'Sin sector' %></td>
+                  <td class="col-fecha"><%= formatoFecha(registro.fecha_registro) %></td>
+                  <td class="col-extras">
+                    <% if (registro.extras.length) { %>
+                      <details class="detalle-extras">
+                        <summary><%= registro.extras.length %> dato<%= registro.extras.length === 1 ? '' : 's' %></summary>
+                        <dl>
+                          <% registro.extras.forEach(function (extra) { %>
+                            <div class="detalle-fila">
+                              <dt><%= extra.etiqueta %></dt>
+                              <dd><%= extra.valor %></dd>
+                            </div>
+                          <% }); %>
+                        </dl>
+                      </details>
+                    <% } else { %>
+                      <span class="sin-datos">Sin datos</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (registro.sincronizado) { %>
+                      <span class="insignia insignia--sincronizado">Sincronizado</span>
+                    <% } else { %>
+                      <span class="insignia insignia--pendiente">Pendiente</span>
+                    <% } %>
+                  </td>
+                  <td class="col-acciones">
+                    <div class="acciones-fila">
+                      <a
+                        href="/registros/<%= registro.id %>/editar"
+                        class="boton boton--mini boton--secundario"
+                      >Editar</a>
+                      <button
+                        type="button"
+                        class="boton boton--mini boton--peligro"
+                        data-abrir-password
+                        data-accion="/registros/<%= registro.id %>/eliminar"
+                        data-titulo="Eliminar registro"
+                        data-mensaje="Se eliminará el registro N.º <%= registro.id %> de <%= registro.apellidos %>, <%= registro.nombres %>. Los IDs restantes se renumerarán automáticamente. Esta acción no se puede deshacer."
+                        data-texto-boton="Eliminar"
+                      >Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      Comuna Socialista Carabobo 200 · Censo local
+    </div>
+  </footer>
+
+  <dialog class="dialogo" id="dialogo-campo" data-abrir="<%= abrirCampo ? 'true' : 'false' %>">
+    <form method="post" action="/campos" class="dialogo-form" data-bloquear>
+      <div class="dialogo-head">
+        <h2>Agregar campo</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <% if (errorCampo) { %>
+        <div class="alerta alerta--error" role="alert"><%= errorCampo %></div>
+      <% } %>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="etiqueta-campo">Nombre del campo <span class="requerido">*</span></label>
+          <input
+            type="text"
+            id="etiqueta-campo"
+            name="etiqueta"
+            value="<%= valoresCampo.etiqueta || '' %>"
+            maxlength="80"
+            placeholder="Ej.: Discapacidad"
+            required
+          >
+        </div>
+
+        <div class="campo">
+          <label for="tipo-campo">Tipo de campo</label>
+          <select id="tipo-campo" name="tipo" required>
+            <option value="text" <% if ((valoresCampo.tipo || 'text') === 'text') { %>selected<% } %>>Texto corto</option>
+            <option value="textarea" <% if (valoresCampo.tipo === 'textarea') { %>selected<% } %>>Párrafo</option>
+            <option value="number" <% if (valoresCampo.tipo === 'number') { %>selected<% } %>>Número</option>
+            <option value="date" <% if (valoresCampo.tipo === 'date') { %>selected<% } %>>Fecha</option>
+            <option value="tel" <% if (valoresCampo.tipo === 'tel') { %>selected<% } %>>Teléfono</option>
+            <option value="email" <% if (valoresCampo.tipo === 'email') { %>selected<% } %>>Correo</option>
+            <option value="select" <% if (valoresCampo.tipo === 'select') { %>selected<% } %>>Lista de opciones</option>
+          </select>
+        </div>
+
+        <div class="campo bloque-opciones" id="bloque-opciones" <% if ((valoresCampo.tipo || 'text') !== 'select') { %>hidden<% } %>>
+          <label for="opciones-campo">Opciones</label>
+          <textarea
+            id="opciones-campo"
+            name="opciones"
+            rows="3"
+            placeholder="Sí&#10;No&#10;No sabe"
+          ><%= valoresCampo.opciones || '' %></textarea>
+          <p class="ayuda">Una opción por línea o separadas por comas.</p>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" name="requerido" value="1" <% if (valoresCampo.requerido) { %>checked<% } %>>
+          Campo obligatorio
+        </label>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--primario">Agregar campo</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialogo" id="dialogo-password">
+    <form method="post" action="" id="form-password" class="dialogo-form" data-bloquear>
+      <div class="dialogo-head">
+        <h2 data-password-titulo>Confirmar acción</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="dialogo-texto" data-password-mensaje></p>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="clave-admin">Contraseña <span class="requerido">*</span></label>
+          <input
+            type="password"
+            id="clave-admin"
+            name="clave"
+            autocomplete="current-password"
+            required
+          >
+          <p class="ayuda">Ingrese la contraseña de administración para continuar.</p>
+        </div>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--peligro" data-password-submit>Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

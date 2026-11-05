@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Administrar sectores | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="contenedor topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">C200</span>
+        <div class="brand-text">
+          <h1>Comuna Carabobo 200</h1>
+          <p>Censo sociodemográfico y médico</p>
+        </div>
+      </div>
+      <nav class="topbar-nav" aria-label="Secciones">
+        <a href="/" class="topbar-link">Censo</a>
+        <a href="/sectores" class="topbar-link">Sectores</a>
+      </nav>
+      <span class="offline">
+        <span class="offline-dot" aria-hidden="true"></span>
+        Modo offline
+      </span>
+    </div>
+  </header>
+
+  <main class="contenedor pagina">
+    <div class="pagina-cabecera">
+      <div>
+        <h1>Administrar sectores</h1>
+        <p>Agregue, edite, oculte o elimine los sectores del censo.</p>
+      </div>
+      <div class="pagina-cabecera-acciones">
+        <a href="/sectores" class="boton boton--secundario">Ver por sectores</a>
+        <a href="/" class="boton boton--secundario">Volver al censo</a>
+      </div>
+    </div>
+
+    <% if (ok) { %>
+      <div class="alerta alerta--exito" role="status"><%= ok %></div>
+    <% } %>
+
+    <% if (error) { %>
+      <div class="alerta alerta--error" role="alert"><%= error %></div>
+    <% } %>
+
+    <div class="resumen">
+      <span><strong><%= stats.total %></strong> sectores</span>
+      <span><strong><%= stats.activos %></strong> visibles</span>
+      <span><strong><%= stats.ocultos %></strong> ocultos</span>
+      <span><strong><%= stats.registros %></strong> registros asignados</span>
+    </div>
+
+    <div class="gestion">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Agregar sector</h2>
+          <p>El sector aparecerá en el formulario del censo.</p>
+        </div>
+
+        <form action="/sectores" method="post" class="formulario" data-bloquear>
+          <div class="campos">
+            <div class="campo">
+              <label for="nuevo-sector-nombre">Nombre del sector <span class="requerido">*</span></label>
+              <input
+                type="text"
+                id="nuevo-sector-nombre"
+                name="nombre"
+                value="<%= valoresSector.nombre || '' %>"
+                maxlength="80"
+                placeholder="Ej.: Sector Centro"
+                required
+              >
+            </div>
+
+            <div class="campo">
+              <label for="nuevo-sector-orden">Orden</label>
+              <input
+                type="number"
+                id="nuevo-sector-orden"
+                name="orden"
+                value="<%= valoresSector.orden || '' %>"
+                min="0"
+                max="999999"
+                step="1"
+                placeholder="Se agrega al final"
+              >
+              <p class="ayuda">Número menor aparece primero. Déjelo vacío para agregarlo al final.</p>
+            </div>
+          </div>
+
+          <div class="acciones-form">
+            <button type="submit" class="boton boton--primario">Agregar sector</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" id="sectores">
+        <div class="panel-head panel-head--fila">
+          <div>
+            <h2>Sectores del censo</h2>
+            <p>Ocultar un sector no borra sus registros.</p>
+          </div>
+          <span class="contador"><%= stats.total %></span>
+        </div>
+
+        <div class="lista-campos">
+          <% if (!sectores.length) { %>
+            <div class="lista-vacia">
+              <strong>No hay sectores todavía.</strong>
+              <span>Agregue el primero desde el formulario.</span>
+            </div>
+          <% } %>
+
+          <% sectores.forEach(function (sector) { %>
+            <article
+              class="campo-admin<% if (!sector.activo) { %> campo-admin--inactivo<% } %>"
+              id="sector-admin-<%= sector.id %>"
+            >
+              <div class="campo-admin-info">
+                <div class="campo-admin-titulo">
+                  <strong><%= sector.nombre %></strong>
+                  <span class="estado <%= sector.activo ? 'estado--activo' : 'estado--oculto' %>">
+                    <%= sector.activo ? 'Visible' : 'Oculto' %>
+                  </span>
+                  <% if (!sector.registros) { %>
+                    <span class="estado estado--requerido">Sin registros</span>
+                  <% } %>
+                </div>
+                <p class="campo-admin-meta">
+                  Orden: <%= sector.orden %>
+                  <span>·</span>
+                  <%= sector.registros %> registro<%= sector.registros === 1 ? '' : 's' %>
+                </p>
+              </div>
+
+              <div class="campo-admin-acciones">
+                <button
+                  type="button"
+                  class="boton boton--mini"
+                  data-editar-sector
+                  data-id="<%= sector.id %>"
+                  data-nombre="<%= sector.nombre %>"
+                  data-orden="<%= sector.orden %>"
+                >Editar</button>
+
+                <form method="post" action="/sectores/<%= sector.id %>/estado">
+                  <button type="submit" class="boton boton--mini">
+                    <%= sector.activo ? 'Ocultar' : 'Mostrar' %>
+                  </button>
+                </form>
+
+                <% if (sector.registros) { %>
+                  <button
+                    type="button"
+                    class="boton boton--mini"
+                    disabled
+                    title="No se puede eliminar: tiene registros. Use Ocultar."
+                  >Con registros</button>
+                <% } else { %>
+                  <form
+                    method="post"
+                    action="/sectores/<%= sector.id %>/eliminar"
+                    data-confirmar="¿Eliminar el sector &quot;<%= sector.nombre %>&quot;?"
+                  >
+                    <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                  </form>
+                <% } %>
+              </div>
+            </article>
+          <% }); %>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      Comuna Socialista Carabobo 200 · Censo local
+    </div>
+  </footer>
+
+  <dialog class="dialogo" id="dialogo-editar-sector" data-abrir="<%= abrirEdicion ? 'true' : 'false' %>">
+    <form
+      method="post"
+      action="<%= edicionId ? '/sectores/' + edicionId + '/editar' : '' %>"
+      class="dialogo-form"
+      id="form-editar-sector"
+      data-bloquear
+    >
+      <div class="dialogo-head">
+        <h2>Editar sector</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <% if (errorEdicion) { %>
+        <div class="alerta alerta--error" role="alert"><%= errorEdicion %></div>
+      <% } %>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="editar-sector-nombre">Nombre del sector <span class="requerido">*</span></label>
+          <input
+            type="text"
+            id="editar-sector-nombre"
+            name="nombre"
+            value="<%= valoresEdicion.nombre || '' %>"
+            maxlength="80"
+            required
+          >
+        </div>
+
+        <div class="campo">
+          <label for="editar-sector-orden">Orden</label>
+          <input
+            type="number"
+            id="editar-sector-orden"
+            name="orden"
+            value="<%= valoresEdicion.orden || '' %>"
+            min="0"
+            max="999999"
+            step="1"
+          >
+          <p class="ayuda">Número menor aparece primero.</p>
+        </div>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--primario">Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
