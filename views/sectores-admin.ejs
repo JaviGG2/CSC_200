@@ -175,6 +175,35 @@
           <% }); %>
         </div>
       </section>
+
+      <section class="panel">
+        <div class="panel-head panel-head--fila">
+          <div>
+            <h2>Reiniciar numeración de sectores</h2>
+            <p>Ajusta el próximo ID de sector tras el máximo existente, útil tras eliminar sectores.</p>
+          </div>
+        </div>
+
+        <form method="post" action="/sectores/reiniciar-secuencia" class="formulario reiniciar-secuencia" data-bloquear>
+          <div class="campos">
+            <div class="campo">
+              <label for="reiniciar-clave">Contraseña de administración <span class="requerido">*</span></label>
+              <input
+                type="password"
+                id="reiniciar-clave"
+                name="clave"
+                maxlength="100"
+                required
+              >
+              <p class="ayuda">Escriba la clave de administración definida en .env (CLAVE_ADMIN).</p>
+            </div>
+          </div>
+
+          <div class="acciones-form">
+            <button type="submit" class="boton boton--peligro">Reiniciar numeración de sectores</button>
+          </div>
+        </form>
+      </section>
     </div>
   </main>
 

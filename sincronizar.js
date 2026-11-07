@@ -21,40 +21,6 @@ function obtenerPendientes() {
     .all();
 }
 
-function construirInsercion(lote) {
-  const valores = [];
-
-  const filas = lote.map((registro, indice) => {
-    const base = indice * 6;
-    valores.push(
-      registro.cedula,
-      registro.nombres,
-      registro.apellidos,
-      registro.fecha_nacimiento,
-      registro.datos_extras,
-      registro.sector
-    );
-
-    return `($${base + 1}, $${base + 2}, $${base + 3}, ($${base + 4})::timestamp AT TIME ZONE 'America/Caracas', ($${base + 5})::jsonb, $${base + 6})`;
-  });
-
-  const texto = `
-    INSERT INTO registros_censo
-      (cedula, nombres, apellidos, fecha_nacimiento, datos_extras, sector)
-    VALUES
-      ${filas.join(', ')}
-    ON CONFLICT (cedula) DO UPDATE SET
-      nombres = EXCLUDED.nombres,
-      apellidos = EXCLUDED.apellidos,
-      fecha_nacimiento = EXCLUDED.fecha_nacimiento,
-      datos_extras = EXCLUDED.datos_extras,
-      sector = EXCLUDED.sector
-    RETURNING cedula
-  `;
-
-  return { texto, valores };
-}
-
 const actualizarRegistro = db.prepare(`
   UPDATE registros_censo
   SET sincronizado = 1,
@@ -86,6 +52,8 @@ async function main() {
 
   const cliente = new Client({ connectionString: cadenaConexion });
   let procesados = 0;
+  let conflictos = 0;
+  const cedulasEnConflicto = [];
 
   try {
     await cliente.connect();
@@ -96,7 +64,59 @@ async function main() {
 
     for (let inicio = 0; inicio < pendientes.length; inicio += TAMANO_LOTE) {
       const lote = pendientes.slice(inicio, inicio + TAMANO_LOTE);
-      const { texto, valores } = construirInsercion(lote);
+      const cedulasLote = lote.map((registro) => registro.cedula);
+
+      const { rows: existentes } = await cliente.query(
+        'SELECT cedula FROM registros_censo WHERE cedula = ANY($1)',
+        [cedulasLote]
+      );
+      const existentesSet = new Set(existentes.map((fila) => fila.cedula));
+
+      const nuevos = lote.filter(
+        (registro) => !existentesSet.has(registro.cedula)
+      );
+      const enConflicto = lote.filter((registro) =>
+        existentesSet.has(registro.cedula)
+      );
+
+      if (enConflicto.length) {
+        conflictos += enConflicto.length;
+        for (const registro of enConflicto) {
+          cedulasEnConflicto.push(registro.cedula);
+        }
+        console.log(
+          `⚠️  Lote ${Math.floor(inicio / TAMANO_LOTE) + 1}: ${enConflicto.length} registro(s) ya existen en Neon y no se sobrescribieron: ${enConflicto
+            .map((r) => r.cedula)
+            .join(', ')}`
+        );
+      }
+
+      if (!nuevos.length) {
+        continue;
+      }
+
+      const valores = [];
+      const filas = nuevos.map((registro, indice) => {
+        const base = indice * 6;
+        valores.push(
+          registro.cedula,
+          registro.nombres,
+          registro.apellidos,
+          registro.fecha_nacimiento,
+          registro.datos_extras,
+          registro.sector
+        );
+        return `($${base + 1}, $${base + 2}, $${base + 3}, ($${base + 4})::timestamp AT TIME ZONE 'America/Caracas', ($${base + 5})::jsonb, $${base + 6})`;
+      });
+
+      const texto = `
+        INSERT INTO registros_censo
+          (cedula, nombres, apellidos, fecha_nacimiento, datos_extras, sector)
+        VALUES
+          ${filas.join(', ')}
+        ON CONFLICT (cedula) DO NOTHING
+      `;
+
       const numeroLote = Math.floor(inicio / TAMANO_LOTE) + 1;
       const totalLotes = Math.ceil(pendientes.length / TAMANO_LOTE);
 
@@ -111,17 +131,23 @@ async function main() {
         throw error;
       }
 
-      marcarLote(lote.map((registro) => registro.id));
+      marcarLote(nuevos.map((registro) => registro.id));
       procesados += resultado.rowCount;
 
       console.log(
-        `Lote ${numeroLote}/${totalLotes}: ${lote.length} procesados, ${resultado.rowCount} sincronizados en Neon.`
+        `Lote ${numeroLote}/${totalLotes}: ${nuevos.length} nuevo(s), ${resultado.rowCount} insertado(s) en Neon.`
       );
     }
 
     console.log(
-      `Sincronización completada: ${procesados} registros sincronizados en Neon.`
+      `Sincronización completada: ${procesados} registros insertados en Neon, ${conflictos} en conflicto (no sobrescritos).`
     );
+
+    if (cedulasEnConflicto.length) {
+      console.log(
+        `Cédulas en conflicto (revisar manualmente): ${cedulasEnConflicto.join(', ')}`
+      );
+    }
   } finally {
     await cliente.end().catch(() => {});
   }

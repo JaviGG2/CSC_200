@@ -659,6 +659,59 @@ const insertarSecuenciaRegistros = db.prepare(
   "INSERT INTO sqlite_sequence (name, seq) VALUES ('registros_censo', ?)"
 );
 
+const maximoIdSector = db.prepare(
+  'SELECT COALESCE(MAX(id), 0) AS maximo FROM sectores'
+);
+const actualizarSecuenciaSectores = db.prepare(
+  "UPDATE sqlite_sequence SET seq = ? WHERE name = 'sectores'"
+);
+const insertarSecuenciaSectores = db.prepare(
+  "INSERT INTO sqlite_sequence (name, seq) VALUES ('sectores', ?)"
+);
+
+const listarIdsSectores = db.prepare('SELECT id FROM sectores ORDER BY id');
+const moverIdSector = db.prepare('UPDATE sectores SET id = ? WHERE id = ?');
+const actualizarSectorIdEnRegistros = db.prepare(
+  'UPDATE registros_censo SET sector_id = ? WHERE sector_id = ?'
+);
+
+function reiniciarSecuenciaSectores() {
+  const { maximo } = maximoIdSector.get();
+
+  if (actualizarSecuenciaSectores.run(maximo).changes === 0) {
+    insertarSecuenciaSectores.run(maximo);
+  }
+}
+
+function renumerarSectores() {
+  const filas = listarIdsSectores.all();
+
+  if (!filas.length) {
+    reiniciarSecuenciaSectores();
+    return;
+  }
+
+  const { maximo } = maximoIdSector.get();
+  const desplazamiento = Number(maximo) + 1;
+  const mapeo = new Map();
+
+  for (const fila of filas) {
+    const idTemporal = fila.id + desplazamiento;
+    moverIdSector.run(idTemporal, fila.id);
+    mapeo.set(fila.id, idTemporal);
+  }
+
+  let nuevoId = 1;
+  for (const fila of filas) {
+    const idTemporal = mapeo.get(fila.id);
+    moverIdSector.run(nuevoId, idTemporal);
+    actualizarSectorIdEnRegistros.run(nuevoId, fila.id);
+    nuevoId += 1;
+  }
+
+  reiniciarSecuenciaSectores();
+}
+
 function reiniciarSecuenciaRegistros() {
   const { total } = contarRegistros.get();
 
@@ -736,4 +789,6 @@ module.exports = {
   cambiarEstadoSector,
   eliminarSector,
   obtenerRegistrosPorSector,
+  reiniciarSecuenciaSectores,
+  renumerarSectores,
 };

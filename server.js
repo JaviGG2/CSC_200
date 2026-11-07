@@ -29,6 +29,8 @@ const {
   cambiarEstadoSector,
   eliminarSector,
   obtenerRegistrosPorSector,
+  reiniciarSecuenciaSectores,
+  renumerarSectores,
 } = require('./db');
 
 const app = express();
@@ -869,6 +871,28 @@ app.post('/sectores/:id/eliminar', (req, res, next) => {
       303,
       `/sectores/administrar?ok=${encodeURIComponent(
         `Sector "${sector.nombre}" eliminado.`
+      )}#sectores`
+    );
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/sectores/reiniciar-secuencia', (req, res, next) => {
+  try {
+    if (!claveAdministracionValida(req.body.clave)) {
+      return renderizarAdminSectores(res, {
+        status: 403,
+        error: 'Contraseña incorrecta. No se reinició la numeración.',
+      });
+    }
+
+    renumerarSectores();
+
+    return res.redirect(
+      303,
+      `/sectores/administrar?ok=${encodeURIComponent(
+        'IDs de sectores renumerados y registros vinculados actualizados.'
       )}#sectores`
     );
   } catch (error) {
