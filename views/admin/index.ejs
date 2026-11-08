@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Administración | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../partials/topbar', { activo: 'admin' }) %>
+
+  <main class="contenedor pagina">
+    <%- include('../partials/admin-nav') %>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Panel de Administración</h2>
+        <p>Gestión de usuarios, territorio, formulario y reportes del censo.</p>
+      </div>
+
+      <div class="admin-cards">
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.viviendas %></span>
+          <h3>Viviendas censadas</h3>
+          <a href="/" class="boton boton--mini boton--secundario">Ver censo</a>
+        </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.personas %></span>
+          <h3>Personas registradas</h3>
+          <a href="/personas" class="boton boton--mini boton--secundario">Ver padrón</a>
+        </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.usuarios %></span>
+          <h3>Usuarios del sistema</h3>
+          <a href="/admin/usuarios" class="boton boton--mini boton--secundario">Gestionar</a>
+        </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.comunidades %></span>
+          <h3>Comunidades</h3>
+          <a href="/admin/territorio" class="boton boton--mini boton--secundario">Gestionar</a>
+        </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.manzanas %></span>
+          <h3>Manzanas</h3>
+          <a href="/admin/territorio" class="boton boton--mini boton--secundario">Gestionar</a>
+        </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.campos %></span>
+          <h3>Campos del formulario</h3>
+          <a href="/admin/formulario" class="boton boton--mini boton--secundario">Configurar</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Exportaciones</h2>
+        <p>Descargue reportes en formato compatible con Excel o imprima en PDF.</p>
+      </div>
+      <div class="acciones-form--fila">
+        <a href="/api/export/viviendas.csv" class="boton boton--secundario">Viviendas (CSV/Excel)</a>
+        <a href="/api/export/personas.csv" class="boton boton--secundario">Padrón de personas (CSV/Excel)</a>
+        <a href="/reportes/imprimir" target="_blank" rel="noopener" class="boton boton--secundario">Padrón general (PDF)</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Administración</div>
+  </footer>
+</body>
+</html>

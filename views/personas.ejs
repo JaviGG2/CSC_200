@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Padrón de Personas | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar', { activo: 'personas' }) %>
+
+  <main class="contenedor pagina">
+    <section class="panel" id="personas-todas">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Directorio de Personas</h2>
+          <p>Padrón único de habitantes: jefes de familia e integrantes.</p>
+        </div>
+        <div class="panel-head-acciones">
+          <span class="contador"><%= total %> personas</span>
+          <a href="/api/export/personas.csv" class="boton boton--mini boton--secundario">Exportar CSV</a>
+          <a href="/reportes/imprimir" target="_blank" rel="noopener" class="boton boton--mini boton--secundario">Imprimir / PDF</a>
+        </div>
+      </div>
+
+      <form method="get" action="/personas" class="filtros-personas">
+        <div class="filtros-grid">
+          <div class="campo">
+            <label for="f-q">Buscar</label>
+            <input type="search" id="f-q" name="q" value="<%= filtros.q %>" placeholder="Nombre, apellido, cédula, edad, manzana...">
+          </div>
+
+          <div class="campo">
+            <label for="f-tipo">Tipo</label>
+            <select id="f-tipo" name="tipo">
+              <option value="">Todos</option>
+              <option value="jefe" <%= filtros.tipo === 'jefe' ? 'selected' : '' %>>Jefe de Familia</option>
+              <option value="integrante" <%= filtros.tipo === 'integrante' ? 'selected' : '' %>>Integrante</option>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="f-sexo">Sexo</label>
+            <select id="f-sexo" name="sexo">
+              <option value="">Todos</option>
+              <option value="M" <%= filtros.sexo === 'M' ? 'selected' : '' %>>Masculino</option>
+              <option value="F" <%= filtros.sexo === 'F' ? 'selected' : '' %>>Femenino</option>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="f-edad-min">Edad mínima</label>
+            <input type="number" id="f-edad-min" name="edad_min" min="0" max="120" value="<%= filtros.edadMin !== null ? filtros.edadMin : '' %>">
+          </div>
+
+          <div class="campo">
+            <label for="f-edad-max">Edad máxima</label>
+            <input type="number" id="f-edad-max" name="edad_max" min="0" max="120" value="<%= filtros.edadMax !== null ? filtros.edadMax : '' %>">
+          </div>
+
+          <div class="campo">
+            <label for="f-nivel">Nivel educativo</label>
+            <select id="f-nivel" name="nivel">
+              <option value="">Todos</option>
+              <% ['Primaria','Bachillerato','Técnico','Universitario','Posgrado','Ninguno'].forEach(function (nivel) { %>
+                <option value="<%= nivel %>" <%= filtros.nivel === nivel ? 'selected' : '' %>><%= nivel %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="f-trabaja">Estatus laboral</label>
+            <select id="f-trabaja" name="trabaja">
+              <option value="">Todos</option>
+              <option value="Sí" <%= filtros.trabaja === 'Sí' ? 'selected' : '' %>>Sí trabaja</option>
+              <option value="No" <%= filtros.trabaja === 'No' ? 'selected' : '' %>>No trabaja</option>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="f-parentesco">Parentesco</label>
+            <select id="f-parentesco" name="parentesco">
+              <option value="">Todos</option>
+              <% ['Jefe de Familia','Cónyuge','Hijo/a','Padre/Madre','Hermano/a','Nieto/a','Otro'].forEach(function (p) { %>
+                <option value="<%= p %>" <%= filtros.parentesco === p ? 'selected' : '' %>><%= p %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="f-comunidad">Comunidad</label>
+            <select id="f-comunidad" name="comunidad">
+              <option value="">Todas</option>
+              <% opciones.comunidades.forEach(function (c) { %>
+                <option value="<%= c.nombre %>" <%= filtros.comunidad === c.nombre ? 'selected' : '' %>><%= c.nombre %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="f-etapa">Etapa</label>
+            <select id="f-etapa" name="etapa">
+              <option value="">Todas</option>
+              <% opciones.etapas.forEach(function (e) { %>
+                <option value="<%= e.nombre %>" <%= filtros.etapa === e.nombre ? 'selected' : '' %>><%= e.nombre %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="f-manzana">Manzana</label>
+            <select id="f-manzana" name="manzana">
+              <option value="">Todas</option>
+              <% opciones.manzanas.forEach(function (m) { %>
+                <option value="<%= m.nombre %>" <%= filtros.manzana === m.nombre ? 'selected' : '' %>><%= m.nombre %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+
+        <div class="filtros-acciones">
+          <button type="submit" class="boton boton--primario">Aplicar filtros</button>
+          <a href="/personas" class="boton boton--secundario">Limpiar</a>
+        </div>
+      </form>
+
+      <div class="tabla-scroll">
+        <table class="tabla-personas">
+          <thead>
+            <tr>
+              <th scope="col">Tipo</th>
+              <th scope="col">Cédula</th>
+              <th scope="col">Apellidos y Nombres</th>
+              <th scope="col">Edad</th>
+              <th scope="col">Sexo</th>
+              <th scope="col">Parentesco</th>
+              <th scope="col">Nivel</th>
+              <th scope="col">Trabaja</th>
+              <th scope="col">Comunidad</th>
+              <th scope="col">Etapa / Manzana</th>
+              <th scope="col">Vivienda</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!personas.length) { %>
+              <tr>
+                <td colspan="11" class="tabla-vacia">
+                  <strong>No se encontraron personas con esos filtros.</strong>
+                </td>
+              </tr>
+            <% } %>
+
+            <% personas.forEach(function (p) { %>
+              <tr class="fila-clicable" data-href="/personas/<%= p.tipo %>/<%= p.persona_id %>">
+                <td>
+                  <% if (p.tipo === 'jefe') { %>
+                    <span class="tipo-badge tipo-badge--jefe">Jefe</span>
+                  <% } else { %>
+                    <span class="tipo-badge tipo-badge--integrante">Integrante</span>
+                  <% } %>
+                </td>
+                <td><span class="cedula"><%= p.cedula || '—' %></span></td>
+                <td class="col-persona">
+                  <strong><%= p.apellidos %></strong>
+                  <span><%= p.nombres %></span>
+                </td>
+                <td><%= p.edad !== null && p.edad !== undefined ? p.edad : '—' %></td>
+                <td><%= p.sexo || '—' %></td>
+                <td><%= p.parentesco || '—' %></td>
+                <td><%= p.nivel_instruccion || '—' %></td>
+                <td><%= p.trabaja_actual || '—' %></td>
+                <td><%= p.comunidad || '—' %></td>
+                <td><%= (p.etapa || '—') %> / <%= (p.manzana || '—') %></td>
+                <td>
+                  <a href="/viviendas/<%= p.vivienda_id %>" class="boton boton--mini boton--secundario" onclick="event.stopPropagation();">Ver</a>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Padrón de personas</div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.fila-clicable').forEach(function (fila) {
+      fila.addEventListener('click', function () {
+        var destino = fila.getAttribute('data-href');
+        if (destino) window.location.href = destino;
+      });
+    });
+  </script>
+</body>
+</html>

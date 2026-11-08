@@ -1,13 +1,14 @@
 {
   "name": "comuna-carabobo-200",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Censo sociodemografico y medico offline para la Comuna Socialista Carabobo 200",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "sync": "node sincronizar.js"
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only server.ts",
+    "build": "tsc",
+    "sync": "node dist/sincronizar.js"
   },
   "engines": {
     "node": ">=20"
@@ -18,5 +19,14 @@
     "ejs": "^7.0.2",
     "express": "^5.3.0",
     "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/ejs": "^3.1.5",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.13.14",
+    "@types/pg": "^8.15.3",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
   }
 }

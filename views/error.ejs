@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error <%= codigo %> | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar', { activo: '' }) %>
+
+  <main class="contenedor pagina">
+    <section class="panel panel--centrado">
+      <span class="error-codigo"><%= codigo %></span>
+      <h2><%= mensaje %></h2>
+      <div class="acciones-form--fila" style="justify-content:center;">
+        <a href="/" class="boton boton--primario">Volver al censo</a>
+        <a href="/personas" class="boton boton--secundario">Ver personas</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

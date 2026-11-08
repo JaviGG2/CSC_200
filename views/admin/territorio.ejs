@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Territorio | Administración</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../partials/topbar', { activo: 'admin' }) %>
+
+  <main class="contenedor pagina">
+    <%- include('../partials/admin-nav') %>
+
+    <% if (ok) { %><div class="alerta alerta--exito"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Gestión de Territorio</h2>
+        <p>Estados, municipios, parroquias, comunidades, etapas y manzanas disponibles en el censo.</p>
+      </div>
+
+      <form method="post" action="/admin/territorio" class="formulario">
+        <div class="campos">
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="etapa">Etapa</label>
+              <input type="text" id="etapa" name="etapa" maxlength="50" placeholder="Escriba la etapa, ej.: Etapa 4">
+            </div>
+            <div class="campo">
+              <label for="manzana">Manzana</label>
+              <input type="text" id="manzana" name="manzana" maxlength="30" placeholder="Escriba la manzana, ej.: Manzana 5">
+            </div>
+          </div>
+          <p class="ayuda">Escriba al menos una. Se agregan a las listas disponibles del registro.</p>
+        </div>
+
+        <div class="acciones-form--fila">
+          <button type="submit" class="boton boton--primario">Agregar etapa / manzana</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Territorios registrados</h2>
+        <p><%= territorios.length %> elemento(s).</p>
+      </div>
+
+      <div class="tabla-scroll">
+        <table class="tabla-personas">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Nombre</th>
+              <th>Pertenece a</th>
+              <th>Activo</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% territorios.forEach(function (t) { %>
+              <tr>
+                <td><span class="tipo-badge"><%= t.tipo %></span></td>
+                <td>
+                  <input form="terr-<%= t.id %>" type="text" name="nombre" value="<%= t.nombre %>" class="input-tabla" required>
+                </td>
+                <td>
+                  <select form="terr-<%= t.id %>" name="padre_id" class="input-tabla">
+                    <option value="">— Ninguno —</option>
+                    <% territorios.forEach(function (padre) { %>
+                      <% if (padre.id !== t.id) { %>
+                        <option value="<%= padre.id %>" <%= t.padre_id === padre.id ? 'selected' : '' %>><%= padre.tipo %> · <%= padre.nombre %></option>
+                      <% } %>
+                    <% }); %>
+                  </select>
+                </td>
+                <td>
+                  <label class="check-inline">
+                    <input form="terr-<%= t.id %>" type="checkbox" name="activo" value="1" <%= t.activo ? 'checked' : '' %>>
+                    Activo
+                  </label>
+                </td>
+                <td class="col-acciones">
+                  <div class="acciones-fila">
+                    <button form="terr-<%= t.id %>" type="submit" class="boton boton--mini boton--primario">Guardar</button>
+                    <form method="post" action="/admin/territorio/<%= t.id %>/eliminar" onsubmit="return confirm('¿Eliminar <%= t.tipo %> <%= t.nombre %>?');" style="display:inline;">
+                      <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+      <% territorios.forEach(function (t) { %>
+        <form id="terr-<%= t.id %>" method="post" action="/admin/territorio/<%= t.id %>/editar"></form>
+      <% }); %>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Territorio</div>
+  </footer>
+</body>
+</html>

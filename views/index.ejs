@@ -4,29 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#ffffff">
-  <title>Censo local | Comuna Carabobo 200</title>
+  <title>Censo | Comuna Carabobo 200</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="contenedor topbar-inner">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">C200</span>
-        <div class="brand-text">
-          <h1>Comuna Carabobo 200</h1>
-          <p>Censo sociodemográfico y médico</p>
-        </div>
-      </div>
-      <nav class="topbar-nav" aria-label="Secciones">
-        <a href="/" class="topbar-link" aria-current="page">Censo</a>
-        <a href="/sectores" class="topbar-link">Sectores</a>
-      </nav>
-      <span class="offline">
-        <span class="offline-dot" aria-hidden="true"></span>
-        Modo offline
-      </span>
-    </div>
-  </header>
+  <%- include('partials/topbar', { activo: 'censo' }) %>
 
   <main class="contenedor pagina">
     <% if (ok) { %>
@@ -38,268 +20,115 @@
     <% } %>
 
     <div class="resumen">
-      <span><strong><%= stats.total %></strong> registros</span>
-      <span><strong><%= stats.pendientes %></strong> pendientes</span>
-      <span><strong><%= stats.sincronizados %></strong> sincronizados</span>
+      <span><strong><%= stats.total || 0 %></strong> registros</span>
+      <span><strong><%= stats.pendientes || 0 %></strong> pendientes</span>
+      <span><strong><%= stats.sincronizados || 0 %></strong> sincronizados</span>
     </div>
 
-    <div class="disposicion">
-      <section class="panel" id="nuevo-registro">
-        <div class="panel-head">
-          <h2>Nuevo registro</h2>
-          <p>Registre los datos tomados en físico.</p>
+    <div class="panel" id="buscador-viviendas">
+      <div class="panel-head">
+        <h2>Buscar Vivienda / Expediente</h2>
+        <p>Busque por cédula, nombre, manzana o etapa.</p>
+      </div>
+      <div class="campos">
+        <div class="campo campo-ancho">
+          <input
+            type="search"
+            id="buscador-vivienda"
+            name="q"
+            placeholder="Cédula, nombre, manzana, etapa..."
+            autocomplete="off"
+          >
+          <button type="button" class="boton boton--primario" id="btn-buscar-vivienda">Buscar</button>
+          <a href="/wizard" class="boton boton--secundario">+ Registrar Nueva Vivienda</a>
         </div>
-
-        <form action="/agregar" method="post" class="formulario" data-form-registro>
-          <div class="grupo">
-            <h3 class="grupo-titulo">Datos personales</h3>
-
-            <div class="campos">
-              <div class="campo">
-                <label for="cedula">Cédula <span class="requerido">*</span></label>
-                <input
-                  type="text"
-                  id="cedula"
-                  name="cedula"
-                  value="<%= valores.cedula || '' %>"
-                  placeholder="V-12345678"
-                  maxlength="30"
-                  autocomplete="off"
-                  required
-                >
-              </div>
-
-              <div class="campos-dobles">
-                <div class="campo">
-                  <label for="nombres">Nombres <span class="requerido">*</span></label>
-                  <input
-                    type="text"
-                    id="nombres"
-                    name="nombres"
-                    value="<%= valores.nombres || '' %>"
-                    maxlength="120"
-                    autocomplete="given-name"
-                    required
-                  >
-                </div>
-
-                <div class="campo">
-                  <label for="apellidos">Apellidos <span class="requerido">*</span></label>
-                  <input
-                    type="text"
-                    id="apellidos"
-                    name="apellidos"
-                    value="<%= valores.apellidos || '' %>"
-                    maxlength="120"
-                    autocomplete="family-name"
-                    required
-                  >
-                </div>
-              </div>
-
-              <div class="campo">
-                <label for="fecha_nacimiento">Fecha de nacimiento</label>
-                <input
-                  type="date"
-                  id="fecha_nacimiento"
-                  name="fecha_nacimiento"
-                  value="<%= (valores.fecha_nacimiento || '').slice(0, 10) %>"
-                >
-              </div>
-            </div>
-          </div>
-
-          <div class="grupo">
-            <h3 class="grupo-titulo">Sector</h3>
-
-            <div class="campos">
-              <div class="campo">
-                <label for="sector_id">Sector o comunidad <span class="requerido">*</span></label>
-                <select id="sector_id" name="sector_id" required>
-                  <option value="">Seleccione un sector...</option>
-                  <% sectores.forEach(function (sector) { %>
-                    <option value="<%= sector.id %>" <% if (String(valores.sector_id || '') === String(sector.id)) { %>selected<% } %>><%= sector.nombre %></option>
-                  <% }); %>
-                </select>
-                <% if (!sectores.length) { %>
-                  <p class="ayuda">
-                    No hay sectores activos.
-                    <a href="/sectores/administrar">Cree el primero aquí</a>.
-                  </p>
-                <% } else { %>
-                  <p class="ayuda">
-                    <a href="/sectores/administrar">Administrar sectores</a>
-                  </p>
-                <% } %>
-              </div>
-            </div>
-          </div>
-
-          <div class="grupo">
-            <div class="grupo-head">
-              <h3 class="grupo-titulo">Datos del censo</h3>
-              <div class="grupo-acciones">
-                <a href="/campos" class="boton-campo">Administrar</a>
-                <button type="button" class="boton-campo" data-abrir-dialogo aria-haspopup="dialog">
-                  + Agregar campo
-                </button>
-              </div>
-            </div>
-
-            <div class="campos">
-              <% campos.forEach(function (campo) { %>
-                <div class="campo<% if (nuevoCampo === campo.clave) { %> campo--nuevo<% } %>">
-                  <label for="campo-<%= campo.clave %>">
-                    <%= campo.etiqueta %>
-                    <% if (campo.requerido) { %><span class="requerido">*</span><% } %>
-                    <% if (nuevoCampo === campo.clave) { %><span class="marca-nueva">Nuevo</span><% } %>
-                  </label>
-
-                  <% if (campo.tipo === 'textarea') { %>
-                    <textarea
-                      id="campo-<%= campo.clave %>"
-                      name="<%= campo.clave %>"
-                      rows="3"
-                      maxlength="4000"
-                      <% if (campo.requerido) { %>required<% } %>
-                    ><%= valores[campo.clave] || '' %></textarea>
-                  <% } else if (campo.tipo === 'select') { %>
-                    <select
-                      id="campo-<%= campo.clave %>"
-                      name="<%= campo.clave %>"
-                      <% if (campo.requerido) { %>required<% } %>
-                    >
-                      <option value="">Seleccione...</option>
-                      <% campo.opciones.forEach(function (opcion) { %>
-                        <option value="<%= opcion %>" <% if (valores[campo.clave] === opcion) { %>selected<% } %>><%= opcion %></option>
-                      <% }); %>
-                    </select>
-                  <% } else { %>
-                    <input
-                      type="<%= campo.tipo %>"
-                      id="campo-<%= campo.clave %>"
-                      name="<%= campo.clave %>"
-                      value="<%= valores[campo.clave] || '' %>"
-                      maxlength="4000"
-                      <% if (campo.tipo === 'number') { %>step="any" inputmode="decimal"<% } %>
-                      <% if (campo.requerido) { %>required<% } %>
-                    >
-                  <% } %>
-                </div>
-              <% }); %>
-            </div>
-          </div>
-
-          <div class="acciones-form">
-            <button type="submit" class="boton boton--primario">Guardar registro</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="panel" id="registros">
-        <div class="panel-head panel-head--fila">
-          <div>
-            <h2>Registros</h2>
-            <p>Guardados en este equipo.</p>
-          </div>
-          <div class="panel-head-acciones">
-            <span class="contador"><%= registros.length %></span>
-            <% if (registros.length) { %>
-              <button
-                type="button"
-                class="boton boton--mini boton--peligro"
-                data-abrir-password
-                data-accion="/registros/vaciar"
-                data-titulo="Vaciar base de datos"
-                data-mensaje="Se eliminarán los <%= registros.length %> registros del censo y la numeración volverá a empezar en 1. Los campos del formulario se conservan. Esta acción no se puede deshacer."
-                data-texto-boton="Vaciar registros"
-              >Vaciar BD</button>
-            <% } %>
-          </div>
-        </div>
-
-        <div class="tabla-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">N.º</th>
-                <th scope="col">Cédula</th>
-                <th scope="col">Apellidos y nombres</th>
-                <th scope="col">Sector</th>
-                <th scope="col">Fecha</th>
-                <th scope="col">Datos del censo</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% if (!registros.length) { %>
-                <tr>
-                  <td colspan="8" class="tabla-vacia">
-                    <strong>No hay registros todavía.</strong>
-                    <span>Complete el formulario para agregar el primero.</span>
-                  </td>
-                </tr>
-              <% } %>
-
-              <% registros.forEach(function (registro) { %>
-                <tr id="registro-<%= registro.id %>">
-                  <td class="col-id"><%= registro.id %></td>
-                  <td><span class="cedula"><%= registro.cedula %></span></td>
-                  <td class="col-persona">
-                    <strong><%= registro.apellidos %></strong>
-                    <span><%= registro.nombres %></span>
-                  </td>
-                  <td class="col-sector"><%= registro.sector_nombre || 'Sin sector' %></td>
-                  <td class="col-fecha"><%= formatoFecha(registro.fecha_nacimiento) %></td>
-                  <td class="col-extras">
-                    <% if (registro.extras.length) { %>
-                      <details class="detalle-extras">
-                        <summary><%= registro.extras.length %> dato<%= registro.extras.length === 1 ? '' : 's' %></summary>
-                        <dl>
-                          <% registro.extras.forEach(function (extra) { %>
-                            <div class="detalle-fila">
-                              <dt><%= extra.etiqueta %></dt>
-                              <dd><%= extra.valor %></dd>
-                            </div>
-                          <% }); %>
-                        </dl>
-                      </details>
-                    <% } else { %>
-                      <span class="sin-datos">Sin datos</span>
-                    <% } %>
-                  </td>
-                  <td>
-                    <% if (registro.sincronizado) { %>
-                      <span class="insignia insignia--sincronizado">Sincronizado</span>
-                    <% } else { %>
-                      <span class="insignia insignia--pendiente">Pendiente</span>
-                    <% } %>
-                  </td>
-                  <td class="col-acciones">
-                    <div class="acciones-fila">
-                      <a
-                        href="/registros/<%= registro.id %>/editar"
-                        class="boton boton--mini boton--secundario"
-                      >Editar</a>
-                      <button
-                        type="button"
-                        class="boton boton--mini boton--peligro"
-                        data-abrir-password
-                        data-accion="/registros/<%= registro.id %>/eliminar"
-                        data-titulo="Eliminar registro"
-                        data-mensaje="Se eliminará el registro N.º <%= registro.id %> de <%= registro.apellidos %>, <%= registro.nombres %>. Los IDs restantes se renumerarán automáticamente. Esta acción no se puede deshacer."
-                        data-texto-boton="Eliminar"
-                      >Eliminar</button>
-                    </div>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </div>
+      <div id="resultados-busqueda" class="tabla-scroll" style="margin-top:1rem;"></div>
     </div>
+
+    <section class="panel" id="viviendas-dashboard">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Viviendas Censadas</h2>
+          <p>Expedientes registrados por casa/vivienda.</p>
+        </div>
+        <div class="panel-head-acciones">
+          <span class="contador" id="contador-viviendas">0</span>
+          <button
+            type="button"
+            class="boton boton--mini boton--primario"
+            id="btn-sincronizar-neon"
+          >Subir a Neon</button>
+          <button
+            type="button"
+            class="boton boton--mini boton--peligro"
+            data-abrir-password
+            data-accion="/registros/vaciar"
+            data-titulo="Vaciar base de datos"
+            data-mensaje="Se eliminarán todos los registros del censo y la numeración volverá a empezar en 1. Esta acción no se puede deshacer."
+            data-texto-boton="Vaciar registros"
+          >Vaciar BD</button>
+        </div>
+      </div>
+
+      <div id="viviendas-vacias" class="tabla-vacia" style="display:none;">
+        <strong>No hay viviendas censadas todavía.</strong>
+        <span>Comience registrando su primera vivienda con el asistente de 3 pasos.</span>
+      </div>
+
+      <div class="tarjetas-grid" id="grid-viviendas"></div>
+    </section>
+
+    <section class="panel" id="personas-todas">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Todas las Personas Censadas</h2>
+          <p>Listado completo de jefes de familia e integrantes, sin importar la vivienda.</p>
+        </div>
+        <div class="panel-head-acciones">
+          <span class="contador" id="contador-personas">0</span>
+        </div>
+      </div>
+
+      <div class="campos" style="margin-bottom: 1rem;">
+        <div class="campo campo-ancho" style="max-width: 400px;">
+          <input
+            type="search"
+            id="buscador-personas"
+            name="q"
+            placeholder="Buscar persona por cédula, nombre o comunidad..."
+            autocomplete="off"
+          >
+        </div>
+      </div>
+
+      <div id="personas-vacias" class="tabla-vacia" style="display:none;">
+        <strong>No hay personas censadas todavía.</strong>
+        <span>Registre su primera vivienda con el asistente de 3 pasos.</span>
+      </div>
+
+      <div class="tabla-scroll" id="contenedor-personas">
+        <table class="tabla-personas">
+          <thead>
+            <tr>
+              <th scope="col">Tipo</th>
+              <th scope="col">Cédula</th>
+              <th scope="col">Apellidos y Nombres</th>
+              <th scope="col">Edad</th>
+              <th scope="col">Sexo</th>
+              <th scope="col">Parentesco</th>
+              <th scope="col">Comunidad</th>
+              <th scope="col">Etapa / Manzana</th>
+              <th scope="col">Dirección</th>
+              <th scope="col">Número Casa</th>
+              <th scope="col">Estado Neon</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-personas">
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <footer class="pie">

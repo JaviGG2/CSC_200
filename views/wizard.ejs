@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Registro de Vivienda | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar', { activo: 'wizard' }) %>
+
+  <main class="contenedor pagina">
+    <% if (ok) { %>
+      <div class="alerta alerta--exito" role="status"><%= ok %></div>
+    <% } %>
+
+    <% if (error) { %>
+      <div class="alerta alerta--error" role="alert"><%= error %></div>
+    <% } %>
+
+    <section class="panel panel--wizard" id="wizard-registro">
+      <div class="panel-head">
+        <h2>Nueva Vivienda / Casa</h2>
+        <p>Registre el expediente completo en tres pasos: ubicación, jefe de familia y grupo familiar.</p>
+      </div>
+
+      <form id="form-wizard" novalidate>
+
+        <div class="wizard-pasos" role="tablist" aria-label="Pasos del registro">
+          <button type="button" class="paso paso--activo" data-paso="1" role="tab" aria-selected="true">
+            <span class="paso-numero">1</span>
+            <span class="paso-texto">Ubicación y Vivienda</span>
+          </button>
+          <button type="button" class="paso" data-paso="2" role="tab" aria-selected="false">
+            <span class="paso-numero">2</span>
+            <span class="paso-texto">Jefe de Familia</span>
+          </button>
+          <button type="button" class="paso" data-paso="3" role="tab" aria-selected="false">
+            <span class="paso-numero">3</span>
+            <span class="paso-texto">Grupo Familiar</span>
+          </button>
+        </div>
+
+        <div class="wizard-progreso">
+          <div class="progreso-barra" style="width: 0%"></div>
+        </div>
+
+        <!-- PASO 1: UBICACIÓN Y VIVIENDA -->
+        <div class="wizard-pagina pagina--activa" data-paso="1">
+          <div class="grupo">
+            <h3 class="grupo-titulo">A. Ubicación Geográfica de la Comunidad y Casa</h3>
+
+            <div class="campos">
+              <div class="campo campo-ancho">
+                <label for="w-estado">Estado <span class="requerido">*</span></label>
+                <select id="w-estado" name="estado" required>
+                  <option value="FALCÓN" selected>FALCÓN</option>
+                  <option value="AMAZONAS">Amazonas</option>
+                  <option value="ANZOATEGUI">Anzoátegui</option>
+                  <option value="APURE">Apure</option>
+                  <option value="ARAGUA">Aragua</option>
+                  <option value="BARINAS">Barinas</option>
+                  <option value="BOLIVAR">Bolívar</option>
+                  <option value="CARABOBO">Carabobo</option>
+                  <option value="COJEDES">Cojedes</option>
+                  <option value="DELTA AMACURO">Delta Amacuro</option>
+                  <option value="DISTRITO CAPITAL">Distrito Capital</option>
+                  <option value="FALCON">Falcón</option>
+                  <option value="GUARICO">Guárico</option>
+                  <option value="LARA">Lara</option>
+                  <option value="MERIDA">Mérida</option>
+                  <option value="MIRANDA">Miranda</option>
+                  <option value="MONAGAS">Monagas</option>
+                  <option value="NUEVA ESPARTA">Nueva Esparta</option>
+                  <option value="PORTUGUESA">Portuguesa</option>
+                  <option value="SUCRE">Sucre</option>
+                  <option value="TACHIRA">Táchira</option>
+                  <option value="TRUJILLO">Trujillo</option>
+                  <option value="VARGAS">Vargas</option>
+                  <option value="YARACUY">Yaracuy</option>
+                  <option value="ZULIA">Zulia</option>
+                </select>
+              </div>
+
+              <div class="campo campo-ancho">
+                <label for="w-municipio">Municipio <span class="requerido">*</span></label>
+                <select id="w-municipio" name="municipio" required>
+                  <option value="MIRANDA" selected>MIRANDA</option>
+                  <option value="ACOSTA">Acosta</option>
+                  <option value="BOLIVAR">Bolívar</option>
+                  <option value="BUCHIVACO">Buchivacoa</option>
+                  <option value="CARIRUBANA">Carirubana</option>
+                  <option value="FALCON">Falcón</option>
+                  <option value="FEDERACION">Federación</option>
+                  <option value="JACURA">Jacura</option>
+                  <option value="LOS TAQUES">Los Taques</option>
+                  <option value="MAUROA">Mauroa</option>
+                  <option value="MIRANDA">Miranda</option>
+                  <option value="MONSEÑOR ITURRIZA">Monseñor Iturriza</option>
+                  <option value="PEDRO CAUCA">Pedro Cauca</option>
+                  <option value="PUNTO FIJO">Punto Fijo</option>
+                  <option value="SAN FRANCISCO">San Francisco</option>
+                  <option value="SANTA ANA">Santa Ana</option>
+                  <option value="SILVA">Silva</option>
+                  <option value="SUCARE">Sucre</option>
+                  <option value="TOCOPERO">Tocopero</option>
+                  <option value="URIBARRI">Uribarrí</option>
+                </select>
+              </div>
+
+              <div class="campo campo-ancho">
+                <label for="w-parroquia">Parroquia <span class="requerido">*</span></label>
+                <select id="w-parroquia" name="parroquia" required>
+                  <option value="SAN ANTONIO" selected>SAN ANTONIO</option>
+                  <option value="SAN ANTONIO">San Antonio</option>
+                  <option value="SANTA ANA">Santa Ana</option>
+                  <option value="URIBARRI">Uribarrí</option>
+                  <option value="SAN JUAN">San Juan</option>
+                  <option value="SAN JOSE">San José</option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label for="w-comunidad">Comunidad <span class="requerido">*</span></label>
+                <% if (territorios.comunidades.length) { %>
+                  <select id="w-comunidad" name="comunidad" required>
+                    <option value="">Seleccione...</option>
+                    <% territorios.comunidades.forEach(function (c) { %>
+                      <option value="<%= c.nombre %>"><%= c.nombre %></option>
+                    <% }); %>
+                  </select>
+                <% } else { %>
+                  <input type="text" id="w-comunidad" name="comunidad" maxlength="120" placeholder="Ej.: Comunidad 20 de Julio" required>
+                  <p class="ayuda">No hay comunidades configuradas. Agréguelas en Administración → Territorio.</p>
+                <% } %>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="w-etapa">Etapa</label>
+                  <% if (territorios.etapas.length) { %>
+                    <select id="w-etapa" name="etapa">
+                      <option value="">Sin etapa</option>
+                      <% territorios.etapas.forEach(function (e) { %>
+                        <option value="<%= e.nombre %>"><%= e.nombre %></option>
+                      <% }); %>
+                    </select>
+                  <% } else { %>
+                    <input type="text" id="w-etapa" name="etapa" maxlength="50" placeholder="Ej.: Etapa 1">
+                  <% } %>
+                </div>
+                <div class="campo">
+                  <label for="w-manzana">Manzana</label>
+                  <% if (territorios.manzanas.length) { %>
+                    <select id="w-manzana" name="manzana">
+                      <option value="">Sin manzana</option>
+                      <% territorios.manzanas.forEach(function (m) { %>
+                        <option value="<%= m.nombre %>"><%= m.nombre %></option>
+                      <% }); %>
+                    </select>
+                  <% } else { %>
+                    <input type="text" id="w-manzana" name="manzana" maxlength="30" placeholder="Ej.: Manzana A">
+                  <% } %>
+                </div>
+              </div>
+
+              <div class="campo campo-ancho">
+                <label for="w-direccion">Dirección exacta de la vivienda <span class="requerido">*</span></label>
+                <input
+                  type="text"
+                  id="w-direccion"
+                  name="direccion"
+                  maxlength="200"
+                  placeholder="Calle, avenida, sector, referencia"
+                  required
+                >
+              </div>
+
+              <div class="campo">
+                <label for="w-numero-casa">Número de casa</label>
+                <input
+                  type="text"
+                  id="w-numero-casa"
+                  name="numero_casa"
+                  maxlength="20"
+                  placeholder="N.º de vivienda"
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 2: JEFE DE FAMILIA -->
+        <div class="wizard-pagina" data-paso="2">
+          <div class="grupo">
+            <h3 class="grupo-titulo">B. Datos del Jefe(a) de Familia / Solicitante Principal</h3>
+
+            <div class="campos">
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="w-j-cedula-tipo">Tipo de Cédula <span class="requerido">*</span></label>
+                  <select id="w-j-cedula-tipo" name="cedula_tipo" required>
+                    <option value="V" selected>V - Venezolano</option>
+                    <option value="E">E - Extranjero</option>
+                  </select>
+                </div>
+                <div class="campo">
+                  <label for="w-j-cedula-numero">Número de Cédula <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="w-j-cedula-numero"
+                    name="cedula_numero"
+                    maxlength="8"
+                    placeholder="12345678"
+                    pattern="\d{6,8}"
+                    required
+                  >
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="w-j-nombres">Nombres <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="w-j-nombres"
+                    name="nombres"
+                    maxlength="120"
+                    autocomplete="given-name"
+                    required
+                  >
+                </div>
+                <div class="campo">
+                  <label for="w-j-apellidos">Apellidos <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="w-j-apellidos"
+                    name="apellidos"
+                    maxlength="120"
+                    autocomplete="family-name"
+                    required
+                  >
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="w-j-fecha-nacimiento">Fecha de Nacimiento <span class="requerido">*</span></label>
+                  <input
+                    type="date"
+                    id="w-j-fecha-nacimiento"
+                    name="fecha_nacimiento"
+                    required
+                  >
+                  <p class="ayuda">La edad se calculará automáticamente.</p>
+                </div>
+                <div class="campo">
+                  <label for="w-j-edad">Edad <span class="requerido">*</span></label>
+                  <input
+                    type="number"
+                    id="w-j-edad"
+                    name="edad"
+                    readonly
+                    min="0"
+                    max="120"
+                    required
+                  >
+                </div>
+              </div>
+
+              <div class="campo">
+                <label for="w-j-sexo">Sexo <span class="requerido">*</span></label>
+                <select id="w-j-sexo" name="sexo" required>
+                  <option value="M">Masculino (M)</option>
+                  <option value="F">Femenino (F)</option>
+                </select>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="w-j-tel-movil">Teléfono Móvil</label>
+                  <input type="tel" id="w-j-tel-movil" name="telefono_movil" maxlength="20" placeholder="04XX-XXXXXX">
+                </div>
+                <div class="campo">
+                  <label for="w-j-tel-hab">Teléfono Habitación</label>
+                  <input type="tel" id="w-j-tel-hab" name="telefono_habitacion" maxlength="20" placeholder="02XX-XXXXXX">
+                </div>
+              </div>
+
+              <div class="campo">
+                <label for="w-j-tel-trabajo">Teléfono Trabajo</label>
+                <input type="tel" id="w-j-tel-trabajo" name="telefono_trabajo" maxlength="20" placeholder="02XX-XXXXXX">
+              </div>
+
+              <div class="campo">
+                <label for="w-j-correo">Correo Electrónico</label>
+                <input type="email" id="w-j-correo" name="correo" maxlength="120" placeholder="correo@ejemplo.com">
+              </div>
+
+              <div class="campo">
+                <label for="w-j-nivel-instruccion">Nivel de Instrucción <span class="requerido">*</span></label>
+                <select id="w-j-nivel-instruccion" name="nivel_instruccion" required>
+                  <option value="">Seleccione...</option>
+                  <option value="Primaria">Primaria</option>
+                  <option value="Bachillerato">Bachillerato</option>
+                  <option value="Técnico">Técnico</option>
+                  <option value="Universitario">Universitario</option>
+                  <option value="Posgrado">Posgrado</option>
+                  <option value="Ninguno">Ninguno</option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label for="w-j-estado-civil">Estado Civil <span class="requerido">*</span></label>
+                <select id="w-j-estado-civil" name="estado_civil" required>
+                  <option value="">Seleccione...</option>
+                  <option value="Soltero/a">Soltero/a</option>
+                  <option value="Casado/a">Casado/a</option>
+                  <option value="Divorciado/a">Divorciado/a</option>
+                  <option value="Viudo/a">Viudo/a</option>
+                  <option value="Concubino/a">Concubino/a</option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label for="w-j-profesion">Profesión u Oficio</label>
+                <input type="text" id="w-j-profesion" name="profesion" maxlength="120" placeholder="Ej.: Agricultor, Costurera">
+              </div>
+
+              <div class="campo">
+                <label for="w-j-trabaja-actual">¿Trabaja Actualmente? <span class="requerido">*</span></label>
+                <select id="w-j-trabaja-actual" name="trabaja_actual" required>
+                  <option value="">Seleccione...</option>
+                  <option value="Sí">Sí</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label for="w-j-clasificacion-ingresos">Clasificación de Ingresos <span class="requerido">*</span></label>
+                <select id="w-j-clasificacion-ingresos" name="clasificacion_ingresos" required>
+                  <option value="">Seleccione...</option>
+                  <option value="Diario">Diario</option>
+                  <option value="Semanal">Semanal</option>
+                  <option value="Quincenal">Quincenal</option>
+                  <option value="Mensual">Mensual</option>
+                  <option value="Por Trabajo Independiente/Informal">Por Trabajo Independiente/Informal</option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label for="w-j-frecuencia-ingresos">Frecuencia de Ingresos</label>
+                <select id="w-j-frecuencia-ingresos" name="frecuencia_ingresos">
+                  <option value="">Seleccione...</option>
+                  <option value="Diario">Diario</option>
+                  <option value="Semanal">Semanal</option>
+                  <option value="Quincenal">Quincenal</option>
+                  <option value="Mensual">Mensual</option>
+                  <option value="Variable">Variable</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 3: GRUPO FAMILIAR -->
+        <div class="wizard-pagina" data-paso="3">
+          <div class="grupo">
+            <h3 class="grupo-titulo">C. Grupo Familiar (Integrantes del Hogar)</h3>
+            <p class="ayuda">Registre a todos los miembros de la familia que viven en esta vivienda. Puede agregar tantos integrantes como sea necesario.</p>
+
+            <div class="integrantes-card">
+              <div class="integrantes-header">
+                <h4>Integrantes del Grupo Familiar</h4>
+                <button type="button" class="boton boton--primario boton-agregar" id="btn-agregar-integrante">
+                  <span aria-hidden="true">+</span> Agregar Integrante
+                </button>
+              </div>
+
+              <div class="integrantes-lista" id="lista-integrantes">
+                <!-- Tarjetas dinámicas -->
+              </div>
+
+              <div class="integrantes-pie">
+                <span class="contador-integrantes" id="contador-integrantes">0 integrantes registrados</span>
+              </div>
+            </div>
+
+            <template id="fila-integrante-template">
+              <div class="fila-integrante integrante-item" data-numero="{{numero}}">
+                <div class="integrante-item-head">
+                  <span class="numero-fila">Integrante {{numero}}</span>
+                  <button type="button" class="boton-eliminar-fila" title="Eliminar integrante">
+                    <span aria-hidden="true">×</span> Eliminar
+                  </button>
+                </div>
+
+                <div class="integrante-grid">
+                  <div class="campo">
+                    <label>Apellidos <span class="requerido">*</span></label>
+                    <input type="text" name="apellidos" placeholder="Apellidos" maxlength="120" required>
+                  </div>
+
+                  <div class="campo">
+                    <label>Nombres <span class="requerido">*</span></label>
+                    <input type="text" name="nombres" placeholder="Nombres" maxlength="120" required>
+                  </div>
+
+                  <div class="campo">
+                    <label>Cédula</label>
+                    <div class="campo-cedula">
+                      <select name="cedula_tipo">
+                        <option value="V">V</option>
+                        <option value="E">E</option>
+                      </select>
+                      <input type="text" name="cedula_numero" placeholder="Número de cédula" maxlength="8" pattern="\d{6,8}">
+                    </div>
+                  </div>
+
+                  <div class="campo">
+                    <label>Fecha de Nacimiento</label>
+                    <input type="date" name="fecha_nacimiento">
+                  </div>
+
+                  <div class="campo">
+                    <label>Edad</label>
+                    <input type="number" name="edad" readonly min="0" max="120" placeholder="Automática">
+                  </div>
+
+                  <div class="campo">
+                    <label>Sexo</label>
+                    <select name="sexo">
+                      <option value="">Seleccione...</option>
+                      <option value="M">Masculino (M)</option>
+                      <option value="F">Femenino (F)</option>
+                    </select>
+                  </div>
+
+                  <div class="campo">
+                    <label>Parentesco <span class="requerido">*</span></label>
+                    <select name="parentesco" required>
+                      <option value="">Seleccione...</option>
+                      <option value="Cónyuge">Cónyuge</option>
+                      <option value="Hijo/a">Hijo/a</option>
+                      <option value="Padre/Madre">Padre/Madre</option>
+                      <option value="Hermano/a">Hermano/a</option>
+                      <option value="Nieto/a">Nieto/a</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                  </div>
+
+                  <div class="campo">
+                    <label>Profesión u Oficio</label>
+                    <input type="text" name="profesion" placeholder="Profesión u oficio" maxlength="120">
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Configuración de sincronización al final del paso 3 -->
+          <div class="grupo">
+            <h3 class="grupo-titulo">Sincronización con Neon (Nube)</h3>
+            <div class="campos">
+              <div class="campo">
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    name="sincronizar_neon"
+                    value="1"
+                    checked
+                  >
+                  <strong>Subir esta vivienda a Neon (nube)</strong>
+                </label>
+                <p class="ayuda">Si está activado, esta vivienda se subirá a la base de datos remota en la próxima sincronización. Si lo desactiva, se mantendrá solo en este equipo (modo local).</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wizard-nav">
+          <button type="button" class="boton boton--secundario" id="btn-anterior" disabled>Anterior</button>
+          <button type="button" class="boton boton--primario" id="btn-siguiente">Siguiente</button>
+          <button type="submit" class="boton boton--exito" id="btn-finalizar" style="display:none;">Registrar Vivienda</button>
+          <a href="/" class="boton boton--texto">Cancelar y volver al censo</a>
+        </div>
+
+      </form>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      Comuna Socialista Carabobo 200 · Registro de Vivienda
+    </div>
+  </footer>
+
+  <script>
+    window.CAMPOS_CENSO = <%- JSON.stringify(typeof configCampos !== 'undefined' ? configCampos : {}) %>;
+  </script>
+  <script src="/app.js" defer></script>
+  <script src="/wizard.js" defer></script>
+</body>
+</html>

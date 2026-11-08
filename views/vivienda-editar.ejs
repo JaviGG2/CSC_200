@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Editar Vivienda | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar', { activo: 'censo' }) %>
+
+  <main class="contenedor pagina">
+    <div class="migas">
+      <a href="/viviendas/<%= vivienda.id %>">← Volver a la ficha de la vivienda</a>
+    </div>
+
+    <% if (ok) { %><div class="alerta alerta--exito"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Editar Vivienda N.º <%= vivienda.id %></h2>
+        <p>Actualice la ubicación y los datos del jefe de familia.</p>
+      </div>
+
+      <form method="post" action="/viviendas/<%= vivienda.id %>/editar" class="formulario">
+        <div class="grupo">
+          <h3 class="grupo-titulo">Ubicación y vivienda</h3>
+          <div class="campos">
+            <div class="campos-dobles">
+              <div class="campo">
+                <label for="estado">Estado</label>
+                <input type="text" id="estado" name="estado" value="<%= vivienda.estado %>" required>
+              </div>
+              <div class="campo">
+                <label for="municipio">Municipio</label>
+                <input type="text" id="municipio" name="municipio" value="<%= vivienda.municipio %>" required>
+              </div>
+            </div>
+
+            <div class="campo">
+              <label for="parroquia">Parroquia</label>
+              <input type="text" id="parroquia" name="parroquia" value="<%= vivienda.parroquia %>" required>
+            </div>
+
+            <div class="campos-dobles">
+              <div class="campo">
+                <label for="comunidad">Comunidad</label>
+                <input type="text" id="comunidad" name="comunidad" value="<%= vivienda.comunidad %>" required>
+              </div>
+              <div class="campo">
+                <label for="etapa">Etapa</label>
+                <input type="text" id="etapa" name="etapa" value="<%= vivienda.etapa || '' %>">
+              </div>
+            </div>
+
+            <div class="campos-dobles">
+              <div class="campo">
+                <label for="manzana">Manzana</label>
+                <input type="text" id="manzana" name="manzana" value="<%= vivienda.manzana || '' %>">
+              </div>
+              <div class="campo">
+                <label for="numero_casa">Número de casa</label>
+                <input type="text" id="numero_casa" name="numero_casa" value="<%= vivienda.numero_casa || '' %>">
+              </div>
+            </div>
+
+            <div class="campo campo-ancho">
+              <label for="direccion">Dirección</label>
+              <input type="text" id="direccion" name="direccion" value="<%= vivienda.direccion %>" required>
+            </div>
+          </div>
+        </div>
+
+        <% if (jefe) { %>
+          <div class="grupo">
+            <h3 class="grupo-titulo">Jefe(a) de familia</h3>
+            <div class="campos">
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="cedula_tipo">Tipo de cédula</label>
+                  <select id="cedula_tipo" name="cedula_tipo">
+                    <option value="V" <%= jefe.cedula_tipo === 'V' ? 'selected' : '' %>>V</option>
+                    <option value="E" <%= jefe.cedula_tipo === 'E' ? 'selected' : '' %>>E</option>
+                  </select>
+                </div>
+                <div class="campo">
+                  <label for="cedula_numero">Número de cédula</label>
+                  <input type="text" id="cedula_numero" name="cedula_numero" value="<%= jefe.cedula_numero %>" required>
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="nombres">Nombres</label>
+                  <input type="text" id="nombres" name="nombres" value="<%= jefe.nombres %>" required>
+                </div>
+                <div class="campo">
+                  <label for="apellidos">Apellidos</label>
+                  <input type="text" id="apellidos" name="apellidos" value="<%= jefe.apellidos %>" required>
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="fecha_nacimiento">Fecha de nacimiento</label>
+                  <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" value="<%= (jefe.fecha_nacimiento || '').slice(0, 10) %>">
+                </div>
+                <div class="campo">
+                  <label for="sexo">Sexo</label>
+                  <select id="sexo" name="sexo">
+                    <option value="M" <%= jefe.sexo === 'M' ? 'selected' : '' %>>Masculino</option>
+                    <option value="F" <%= jefe.sexo === 'F' ? 'selected' : '' %>>Femenino</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="telefono_movil">Teléfono móvil</label>
+                  <input type="text" id="telefono_movil" name="telefono_movil" value="<%= jefe.telefono_movil || '' %>">
+                </div>
+                <div class="campo">
+                  <label for="telefono_habitacion">Teléfono habitación</label>
+                  <input type="text" id="telefono_habitacion" name="telefono_habitacion" value="<%= jefe.telefono_habitacion || '' %>">
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="telefono_trabajo">Teléfono trabajo</label>
+                  <input type="text" id="telefono_trabajo" name="telefono_trabajo" value="<%= jefe.telefono_trabajo || '' %>">
+                </div>
+                <div class="campo">
+                  <label for="correo">Correo electrónico</label>
+                  <input type="email" id="correo" name="correo" value="<%= jefe.correo || '' %>">
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="nivel_instruccion">Nivel de instrucción</label>
+                  <select id="nivel_instruccion" name="nivel_instruccion">
+                    <% ['Primaria','Bachillerato','Técnico','Universitario','Posgrado','Ninguno'].forEach(function (n) { %>
+                      <option value="<%= n %>" <%= jefe.nivel_instruccion === n ? 'selected' : '' %>><%= n %></option>
+                    <% }); %>
+                  </select>
+                </div>
+                <div class="campo">
+                  <label for="estado_civil">Estado civil</label>
+                  <select id="estado_civil" name="estado_civil">
+                    <% ['Soltero/a','Casado/a','Divorciado/a','Viudo/a','Concubino/a'].forEach(function (e) { %>
+                      <option value="<%= e %>" <%= jefe.estado_civil === e ? 'selected' : '' %>><%= e %></option>
+                    <% }); %>
+                  </select>
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="profesion">Profesión u oficio</label>
+                  <input type="text" id="profesion" name="profesion" value="<%= jefe.profesion || '' %>">
+                </div>
+                <div class="campo">
+                  <label for="trabaja_actual">¿Trabaja actualmente?</label>
+                  <select id="trabaja_actual" name="trabaja_actual">
+                    <option value="Sí" <%= jefe.trabaja_actual === 'Sí' ? 'selected' : '' %>>Sí</option>
+                    <option value="No" <%= jefe.trabaja_actual === 'No' ? 'selected' : '' %>>No</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="campo">
+                <label for="clasificacion_ingresos">Clasificación de ingresos</label>
+                <select id="clasificacion_ingresos" name="clasificacion_ingresos">
+                  <% ['Diario','Semanal','Quincenal','Mensual','Por Trabajo Independiente/Informal'].forEach(function (c) { %>
+                    <option value="<%= c %>" <%= jefe.clasificacion_ingresos === c ? 'selected' : '' %>><%= c %></option>
+                  <% }); %>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label for="frecuencia_ingresos">Frecuencia de ingresos</label>
+                <select id="frecuencia_ingresos" name="frecuencia_ingresos">
+                  <option value="">Seleccione...</option>
+                  <% ['Diario','Semanal','Quincenal','Mensual','Variable'].forEach(function (f) { %>
+                    <option value="<%= f %>" <%= jefe.frecuencia_ingresos === f ? 'selected' : '' %>><%= f %></option>
+                  <% }); %>
+                </select>
+              </div>
+            </div>
+          </div>
+        <% } %>
+
+        <div class="acciones-form--fila">
+          <button type="submit" class="boton boton--primario">Guardar cambios</button>
+          <a href="/viviendas/<%= vivienda.id %>" class="boton boton--secundario">Cancelar</a>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Editar vivienda</div>
+  </footer>
+</body>
+</html>

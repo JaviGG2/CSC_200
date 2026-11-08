@@ -8,25 +8,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="contenedor topbar-inner">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">C200</span>
-        <div class="brand-text">
-          <h1>Comuna Carabobo 200</h1>
-          <p>Censo sociodemográfico y médico</p>
-        </div>
-      </div>
-      <nav class="topbar-nav" aria-label="Secciones">
-        <a href="/" class="topbar-link">Censo</a>
-        <a href="/sectores" class="topbar-link">Sectores</a>
-      </nav>
-      <span class="offline">
-        <span class="offline-dot" aria-hidden="true"></span>
-        Modo offline
-      </span>
-    </div>
-  </header>
+  <%- include('partials/topbar', { activo: 'censo' }) %>
 
   <main class="contenedor pagina">
     <% if (error) { %>
@@ -99,34 +81,8 @@
               >
               <p class="ayuda">Si se deja vacía, se conserva la fecha actual del registro.</p>
             </div>
-          </div>
         </div>
-
-        <div class="grupo">
-          <h3 class="grupo-titulo">Sector</h3>
-
-          <div class="campos">
-            <div class="campo">
-              <label for="sector_id">Sector o comunidad <span class="requerido">*</span></label>
-              <select id="sector_id" name="sector_id" required>
-                <option value="">Seleccione un sector...</option>
-                <% sectores.forEach(function (sector) { %>
-                  <option value="<%= sector.id %>" <% if (String(valores.sector_id || '') === String(sector.id)) { %>selected<% } %>><%= sector.nombre %><% if (!sector.activo) { %> (oculto)<% } %></option>
-                <% }); %>
-              </select>
-              <% if (!sectores.length) { %>
-                <p class="ayuda">
-                  No hay sectores activos.
-                  <a href="/sectores/administrar">Cree o active uno aquí</a>.
-                </p>
-              <% } else { %>
-                <p class="ayuda">
-                  <a href="/sectores/administrar">Administrar sectores</a>
-                </p>
-              <% } %>
-            </div>
-          </div>
-        </div>
+      </div>
 
         <div class="grupo">
           <div class="grupo-head">

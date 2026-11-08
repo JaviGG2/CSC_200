@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Usuarios | Administración</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../partials/topbar', { activo: 'admin' }) %>
+
+  <main class="contenedor pagina">
+    <%- include('../partials/admin-nav') %>
+
+    <% if (ok) { %><div class="alerta alerta--exito"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Crear usuario</h2>
+        <p>Los gestores registran viviendas y consultan personas. Los administradores también configuran el sistema.</p>
+      </div>
+
+      <form method="post" action="/admin/usuarios" class="formulario">
+        <div class="campos">
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="nuevo-usuario">Usuario</label>
+              <input type="text" id="nuevo-usuario" name="usuario" placeholder="ej.: gestor1" required>
+            </div>
+            <div class="campo">
+              <label for="nuevo-nombre">Nombre completo</label>
+              <input type="text" id="nuevo-nombre" name="nombre" placeholder="Nombre y apellido" required>
+            </div>
+          </div>
+
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="nuevo-clave">Contraseña</label>
+              <input type="password" id="nuevo-clave" name="clave" minlength="4" required>
+            </div>
+            <div class="campo">
+              <label for="nuevo-rol">Rol</label>
+              <select id="nuevo-rol" name="rol">
+                <option value="gestor">Gestor (empadronador)</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="acciones-form--fila">
+          <button type="submit" class="boton boton--primario">Crear usuario</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Usuarios existentes</h2>
+        <p><%= usuarios.length %> cuenta(s) registrada(s).</p>
+      </div>
+
+      <div class="tabla-scroll">
+        <table class="tabla-personas">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Nombre</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Nueva contraseña</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% usuarios.forEach(function (u) { %>
+              <tr>
+                <td><strong><%= u.usuario %></strong></td>
+                <td>
+                  <input form="edit-<%= u.id %>" type="text" name="nombre" value="<%= u.nombre %>" class="input-tabla" required>
+                </td>
+                <td>
+                  <select form="edit-<%= u.id %>" name="rol" class="input-tabla">
+                    <option value="gestor" <%= u.rol === 'gestor' ? 'selected' : '' %>>Gestor</option>
+                    <option value="admin" <%= u.rol === 'admin' ? 'selected' : '' %>>Admin</option>
+                  </select>
+                </td>
+                <td>
+                  <label class="check-inline">
+                    <input form="edit-<%= u.id %>" type="checkbox" name="activo" value="1" <%= u.activo ? 'checked' : '' %>>
+                    Activo
+                  </label>
+                </td>
+                <td>
+                  <input form="edit-<%= u.id %>" type="password" name="clave" placeholder="(sin cambios)" class="input-tabla" minlength="4">
+                </td>
+                <td class="col-acciones">
+                  <div class="acciones-fila">
+                    <button form="edit-<%= u.id %>" type="submit" class="boton boton--mini boton--primario">Guardar</button>
+                    <% if (!usuarioSesion || usuarioSesion.id !== u.id) { %>
+                      <form method="post" action="/admin/usuarios/<%= u.id %>/eliminar" onsubmit="return confirm('¿Eliminar el usuario <%= u.usuario %>?');" style="display:inline;">
+                        <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                      </form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+      <% usuarios.forEach(function (u) { %>
+        <form id="edit-<%= u.id %>" method="post" action="/admin/usuarios/<%= u.id %>/editar"></form>
+      <% }); %>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Usuarios</div>
+  </footer>
+</body>
+</html>

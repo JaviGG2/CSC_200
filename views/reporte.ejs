@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reporte del Padrón | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="contenedor pagina">
+    <div class="reporte-cabecera">
+      <h1>Comuna Socialista Carabobo 200</h1>
+      <h2>Padrón General de Personas</h2>
+      <p>Total: <strong><%= total %></strong> personas · Generado el <%= new Date().toLocaleString('es-VE') %></p>
+    </div>
+
+    <div class="acciones-form--fila no-imprimir" style="margin-bottom:1rem;">
+      <button type="button" class="boton boton--primario" onclick="window.print()">Imprimir / Guardar PDF</button>
+      <a href="/personas" class="boton boton--secundario">Volver al directorio</a>
+    </div>
+
+    <table class="tabla-personas">
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Cédula</th>
+          <th>Apellidos y Nombres</th>
+          <th>Edad</th>
+          <th>Sexo</th>
+          <th>Parentesco</th>
+          <th>Nivel</th>
+          <th>Comunidad</th>
+          <th>Etapa</th>
+          <th>Manzana</th>
+          <th>Casa</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% personas.forEach(function (p) { %>
+          <tr>
+            <td><%= p.tipo === 'jefe' ? 'Jefe' : 'Integrante' %></td>
+            <td><%= p.cedula || '—' %></td>
+            <td><%= p.apellidos %>, <%= p.nombres %></td>
+            <td><%= p.edad !== null && p.edad !== undefined ? p.edad : '—' %></td>
+            <td><%= p.sexo || '—' %></td>
+            <td><%= p.parentesco || '—' %></td>
+            <td><%= p.nivel_instruccion || '—' %></td>
+            <td><%= p.comunidad || '—' %></td>
+            <td><%= p.etapa || '—' %></td>
+            <td><%= p.manzana || '—' %></td>
+            <td><%= p.numero_casa || '—' %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

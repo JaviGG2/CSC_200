@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Ficha de Vivienda | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar', { activo: 'censo' }) %>
+
+  <main class="contenedor pagina">
+    <div class="migas">
+      <a href="/">← Volver al censo</a>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Vivienda N.º <%= vivienda.id %></h2>
+          <p><%= vivienda.comunidad %> · <%= vivienda.etapa || 'Sin etapa' %> · <%= vivienda.manzana || 'Sin manzana' %></p>
+        </div>
+        <div class="panel-head-acciones">
+          <a href="/viviendas/<%= vivienda.id %>/editar" class="boton boton--mini boton--primario">Editar vivienda</a>
+        </div>
+      </div>
+
+      <div class="ficha-grid">
+        <div class="ficha-bloque">
+          <h3>Ubicación</h3>
+          <dl class="ficha-datos">
+            <dt>Estado</dt><dd><%= vivienda.estado %></dd>
+            <dt>Municipio</dt><dd><%= vivienda.municipio %></dd>
+            <dt>Parroquia</dt><dd><%= vivienda.parroquia %></dd>
+            <dt>Comunidad</dt><dd><%= vivienda.comunidad %></dd>
+            <dt>Etapa</dt><dd><%= vivienda.etapa || '—' %></dd>
+            <dt>Manzana</dt><dd><%= vivienda.manzana || '—' %></dd>
+            <dt>Dirección</dt><dd><%= vivienda.direccion %></dd>
+            <dt>Número de casa</dt><dd><%= vivienda.numero_casa || '—' %></dd>
+            <dt>Fecha de registro</dt><dd><%= formatearFecha(vivienda.fecha_registro) %></dd>
+            <dt>Sincronización</dt>
+            <dd>
+              <% if (vivienda.sincronizado) { %>
+                <span class="insignia insignia--sincronizado">Sincronizada</span>
+              <% } else if (vivienda.sincronizar_neon) { %>
+                <span class="insignia insignia--pendiente">Pendiente de subir</span>
+              <% } else { %>
+                <span class="insignia insignia--local">Solo local</span>
+              <% } %>
+            </dd>
+          </dl>
+        </div>
+
+        <% if (jefe) { %>
+          <div class="ficha-bloque">
+            <h3>Jefe(a) de Familia</h3>
+            <dl class="ficha-datos">
+              <dt>Nombre</dt>
+              <dd><a href="/personas/jefe/<%= jefe.id %>"><%= jefe.apellidos %>, <%= jefe.nombres %></a></dd>
+              <dt>Cédula</dt><dd><span class="cedula"><%= jefe.cedula_tipo %>-<%= jefe.cedula_numero %></span></dd>
+              <dt>Edad</dt><dd><%= jefe.edad !== null && jefe.edad !== undefined ? jefe.edad + ' años' : '—' %></dd>
+              <dt>Sexo</dt><dd><%= jefe.sexo === 'M' ? 'Masculino' : 'Femenino' %></dd>
+              <dt>Estado civil</dt><dd><%= jefe.estado_civil %></dd>
+              <dt>Nivel de instrucción</dt><dd><%= jefe.nivel_instruccion %></dd>
+              <dt>Profesión</dt><dd><%= jefe.profesion || '—' %></dd>
+              <dt>¿Trabaja?</dt><dd><%= jefe.trabaja_actual %></dd>
+              <dt>Ingresos</dt><dd><%= jefe.clasificacion_ingresos %></dd>
+              <dt>Teléfono</dt><dd><%= jefe.telefono_movil || jefe.telefono_habitacion || '—' %></dd>
+            </dl>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="grupo" style="margin-top:1.25rem;">
+        <h3 class="grupo-titulo">Grupo Familiar (<%= integrantes.length %> integrantes)</h3>
+
+        <div class="tabla-scroll">
+          <table class="tabla-personas">
+            <thead>
+              <tr>
+                <th scope="col">N.º</th>
+                <th scope="col">Apellidos y Nombres</th>
+                <th scope="col">Cédula</th>
+                <th scope="col">Edad</th>
+                <th scope="col">Sexo</th>
+                <th scope="col">Parentesco</th>
+                <th scope="col">Nivel</th>
+                <th scope="col">Profesión</th>
+                <th scope="col">Ficha</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!integrantes.length) { %>
+                <tr><td colspan="9" class="tabla-vacia">Esta vivienda no tiene integrantes registrados.</td></tr>
+              <% } %>
+              <% integrantes.forEach(function (i) { %>
+                <tr>
+                  <td><%= i.numero %></td>
+                  <td class="col-persona">
+                    <strong><%= i.apellidos %></strong>
+                    <span><%= i.nombres %></span>
+                  </td>
+                  <td><span class="cedula"><%= i.cedula_tipo && i.cedula_numero ? i.cedula_tipo + '-' + i.cedula_numero : '—' %></span></td>
+                  <td><%= i.edad !== null && i.edad !== undefined ? i.edad : '—' %></td>
+                  <td><%= i.sexo || '—' %></td>
+                  <td><%= i.parentesco %></td>
+                  <td><%= i.nivel_instruccion || '—' %></td>
+                  <td><%= i.profesion || '—' %></td>
+                  <td>
+                    <a href="/personas/integrante/<%= i.id %>" class="boton boton--mini boton--secundario">Ver</a>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Ficha de vivienda</div>
+  </footer>
+</body>
+</html>

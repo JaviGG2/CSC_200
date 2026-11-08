@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Formulario | Administración</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../partials/topbar', { activo: 'admin' }) %>
+
+  <main class="contenedor pagina">
+    <%- include('../partials/admin-nav') %>
+
+    <% if (ok) { %><div class="alerta alerta--exito"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Configurador del Formulario</h2>
+        <p>Active o desactive la visibilidad de cada campo y defina si es obligatorio en el asistente de registro.</p>
+      </div>
+
+      <form method="post" action="/admin/formulario">
+        <% secciones.forEach(function (seccion) { %>
+          <div class="grupo">
+            <h3 class="grupo-titulo"><%= seccion %></h3>
+            <div class="tabla-scroll">
+              <table class="tabla-personas">
+                <thead>
+                  <tr>
+                    <th>Campo</th>
+                    <th>Clave técnica</th>
+                    <th>Visible</th>
+                    <th>Obligatorio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% campos.filter(function (c) { return c.seccion === seccion; }).forEach(function (c) { %>
+                    <tr>
+                      <td><strong><%= c.etiqueta %></strong></td>
+                      <td><code><%= c.clave %></code></td>
+                      <td>
+                        <label class="check-inline">
+                          <input type="checkbox" name="visible_<%= c.clave %>" value="1" <%= c.visible ? 'checked' : '' %>>
+                          Visible
+                        </label>
+                      </td>
+                      <td>
+                        <label class="check-inline">
+                          <input type="checkbox" name="requerido_<%= c.clave %>" value="1" <%= c.requerido ? 'checked' : '' %>>
+                          Obligatorio
+                        </label>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% }); %>
+
+        <div class="acciones-form--fila">
+          <button type="submit" class="boton boton--primario">Guardar configuración</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Formulario</div>
+  </footer>
+</body>
+</html>

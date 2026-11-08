@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Ficha de Persona | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar', { activo: 'personas' }) %>
+
+  <main class="contenedor pagina">
+    <div class="migas">
+      <a href="/personas">← Volver al padrón de personas</a>
+    </div>
+
+    <section class="panel">
+      <div class="ficha-head">
+        <div class="ficha-avatar" aria-hidden="true"><%= (persona.nombres || '?').charAt(0).toUpperCase() %></div>
+        <div class="ficha-head-texto">
+          <span class="tipo-badge <%= persona.tipo === 'jefe' ? 'tipo-badge--jefe' : 'tipo-badge--integrante' %>">
+            <%= persona.tipo === 'jefe' ? 'Jefe de Familia' : 'Integrante' %>
+          </span>
+          <h2><%= persona.apellidos %>, <%= persona.nombres %></h2>
+          <p>
+            <span class="cedula"><%= persona.cedula || 'Sin cédula' %></span>
+            <% if (persona.edad !== null && persona.edad !== undefined) { %> · <%= persona.edad %> años<% } %>
+            <% if (persona.sexo) { %> · <%= persona.sexo === 'M' ? 'Masculino' : 'Femenino' %><% } %>
+          </p>
+        </div>
+        <div class="ficha-head-acciones">
+          <a href="/viviendas/<%= persona.vivienda_id %>" class="boton boton--primario">Ver Ficha de Vivienda</a>
+        </div>
+      </div>
+
+      <div class="ficha-grid">
+        <div class="ficha-bloque">
+          <h3>Datos personales</h3>
+          <dl class="ficha-datos">
+            <dt>Nombres</dt><dd><%= persona.nombres %></dd>
+            <dt>Apellidos</dt><dd><%= persona.apellidos %></dd>
+            <dt>Cédula</dt><dd><%= persona.cedula || '—' %></dd>
+            <dt>Fecha de nacimiento</dt><dd><%= formatearFecha(persona.fecha_nacimiento) %></dd>
+            <dt>Edad</dt><dd><%= persona.edad !== null && persona.edad !== undefined ? persona.edad + ' años' : '—' %></dd>
+            <dt>Sexo</dt><dd><%= persona.sexo === 'M' ? 'Masculino' : persona.sexo === 'F' ? 'Femenino' : '—' %></dd>
+            <dt>Parentesco con el jefe</dt><dd><%= persona.parentesco || '—' %></dd>
+            <dt>Estado civil</dt><dd><%= persona.estado_civil || '—' %></dd>
+          </dl>
+        </div>
+
+        <div class="ficha-bloque">
+          <h3>Datos socioeconómicos</h3>
+          <dl class="ficha-datos">
+            <dt>Nivel de instrucción</dt><dd><%= persona.nivel_instruccion || '—' %></dd>
+            <dt>Profesión u oficio</dt><dd><%= persona.profesion || '—' %></dd>
+            <dt>¿Trabaja actualmente?</dt><dd><%= persona.trabaja_actual || '—' %></dd>
+            <dt>Teléfono móvil</dt><dd><%= persona.telefono_movil || '—' %></dd>
+            <dt>Teléfono habitación</dt><dd><%= persona.telefono_habitacion || '—' %></dd>
+            <dt>Teléfono trabajo</dt><dd><%= persona.telefono_trabajo || '—' %></dd>
+            <dt>Correo electrónico</dt><dd><%= persona.correo || '—' %></dd>
+          </dl>
+        </div>
+
+        <div class="ficha-bloque ficha-bloque--ancho">
+          <h3>Ubicación de la vivienda</h3>
+          <dl class="ficha-datos ficha-datos--columnas">
+            <dt>Estado</dt><dd><%= persona.estado || '—' %></dd>
+            <dt>Municipio</dt><dd><%= persona.municipio || '—' %></dd>
+            <dt>Parroquia</dt><dd><%= persona.parroquia || '—' %></dd>
+            <dt>Comunidad</dt><dd><%= persona.comunidad || '—' %></dd>
+            <dt>Etapa</dt><dd><%= persona.etapa || '—' %></dd>
+            <dt>Manzana</dt><dd><%= persona.manzana || '—' %></dd>
+            <dt>Dirección</dt><dd><%= persona.direccion || '—' %></dd>
+            <dt>Número de casa</dt><dd><%= persona.numero_casa || '—' %></dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Ficha individual</div>
+  </footer>
+</body>
+</html>

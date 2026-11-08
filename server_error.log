@@ -1,0 +1,13 @@
+[error] SqliteError: CHECK constraint failed: trabaja_actual IN ('Sí', 'No')
+    at insertarJefeFamilia (C:\Users\IK\Desktop\SSC-200\dist\db.js:630:10)
+    at C:\Users\IK\Desktop\SSC-200\dist\db.js:724:24
+    at sqliteTransaction (C:\Users\IK\Desktop\SSC-200\node_modules\better-sqlite3\lib\methods\transaction.js:65:24)
+    at crearViviendaCompleta (C:\Users\IK\Desktop\SSC-200\dist\db.js:730:7)
+    at C:\Users\IK\Desktop\SSC-200\dist\server.js:638:31
+    at Layer.handleRequest (C:\Users\IK\Desktop\SSC-200\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\IK\Desktop\SSC-200\node_modules\router\lib\route.js:157:13)
+    at Route.dispatch (C:\Users\IK\Desktop\SSC-200\node_modules\router\lib\route.js:117:3)
+    at handle (C:\Users\IK\Desktop\SSC-200\node_modules\router\index.js:435:11)
+    at Layer.handleRequest (C:\Users\IK\Desktop\SSC-200\node_modules\router\lib\layer.js:152:17) {
+  code: 'SQLITE_CONSTRAINT_CHECK'
+}

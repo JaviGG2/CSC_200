@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Iniciar Sesión | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="pagina-login">
+  <main class="login-wrapper">
+    <section class="login-card">
+      <div class="login-brand">
+        <span class="brand-mark" aria-hidden="true">C200</span>
+        <div>
+          <h1>Comuna Carabobo 200</h1>
+          <p>Registro demográfico y socioeconómico</p>
+        </div>
+      </div>
+
+      <h2 class="login-titulo">Iniciar sesión</h2>
+      <p class="login-subtitulo">Acceso para gestores y administradores del censo.</p>
+
+      <% if (error) { %>
+        <div class="alerta alerta--error" role="alert"><%= error %></div>
+      <% } %>
+
+      <form method="post" action="/login" class="login-form">
+        <input type="hidden" name="next" value="<%= next || '/' %>">
+
+        <div class="campo">
+          <label for="usuario">Usuario</label>
+          <input
+            type="text"
+            id="usuario"
+            name="usuario"
+            value="<%= usuarioValor || '' %>"
+            autocomplete="username"
+            autofocus
+            required
+          >
+        </div>
+
+        <div class="campo">
+          <label for="clave">Contraseña</label>
+          <input
+            type="password"
+            id="clave"
+            name="clave"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+
+        <button type="submit" class="boton boton--primario boton--bloque">Entrar</button>
+      </form>
+
+      <p class="login-ayuda">
+        Usuario inicial: <strong>admin</strong> · Contraseña inicial: <strong>csc200</strong>.
+        Cámbiela desde Administración → Usuarios.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Censo por Comunidad | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar', { activo: 'ubicacion' }) %>
+
+  <main class="contenedor pagina">
+    <% if (ok) { %>
+      <div class="alerta alerta--exito" role="status"><%= ok %></div>
+    <% } %>
+
+    <% if (error) { %>
+      <div class="alerta alerta--error" role="alert"><%= error %></div>
+    <% } %>
+
+    <div class="resumen">
+      <span><strong><%= stats.total || 0 %></strong> viviendas totales</span>
+    </div>
+
+    <div class="ubicacion-filtros">
+      <div class="campo">
+        <label>Comunidad</label>
+        <select id="filtro-comunidad" onchange="filtrarUbicacion()">
+          <option value="">Todas las comunidades</option>
+          <% agrupacion.forEach(function (c) { %>
+            <option value="<%= c.comunidad %>"><%= c.comunidad %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Manzana</label>
+        <select id="filtro-manzana" onchange="filtrarUbicacion()">
+          <option value="">Todas las manzanas</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Etapa</label>
+        <select id="filtro-etapa" onchange="filtrarUbicacion()">
+          <option value="">Todas las etapas</option>
+        </select>
+      </div>
+      <div class="campo campo-ancho" style="margin-top: 22px;">
+        <button type="button" class="boton boton--primario" onclick="limpiarFiltros()">Limpiar filtros</button>
+      </div>
+    </div>
+
+    <div id="contenedor-ubicacion">
+      <% agrupacion.forEach(function (comunidad) { %>
+        <div class="grupo-ubicacion" id="grupo-<%= comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_') %>">
+          <div class="grupo-ubicacion-head" onclick="toggleGrupo('<%= comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_') %>')">
+            <div class="grupo-ubicacion-titulo">
+              <span class="badge"><%= comunidad.total %></span>
+              <strong><%= comunidad.comunidad %></strong>
+            </div>
+            <span class="indicador" id="indicador-<%= comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_') %>">▼</span>
+          </div>
+          <div class="grupo-ubicacion-body" id="cuerpo-<%= comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_') %>">
+            <div class="tarjetas-ubicacion">
+              <% comunidad.manzanas.forEach(function (manzana) { %>
+                <% manzana.etapas.forEach(function (etapa) { %>
+                  <% etapa.viviendas.forEach(function (v) { %>
+                    <div class="tarjeta-mini" data-comunidad="<%= comunidad.comunidad %>" data-manzana="<%= manzana.manzana %>" data-etapa="<%= etapa.etapa %>">
+                      <div class="tarjeta-mini-numero">Vivienda N.º <%= v.id %></div>
+                      <div class="tarjeta-mini-persona"><%= v.jefe_apellidos %>, <%= v.jefe_nombres %></div>
+                      <div class="tarjeta-mini-cedula"><%= v.jefe_cedula || '—' %></div>
+                      <div class="tarjeta-mini-datos">
+                        <span><strong>Dir.:</strong> <%= v.direccion %></span>
+                        <span><strong>Casa:</strong> <%= v.numero_casa %></span>
+                        <span><strong>Etapa:</strong> <%= etapa.etapa %></span>
+                        <span><strong>Manzana:</strong> <%= manzana.manzana %></span>
+                      </div>
+                      <a href="/api/viviendas/<%= v.id %>" class="boton boton--mini boton--secundario" style="margin-top: 8px; align-self: flex-start;">Ver detalles</a>
+                    </div>
+                  <% }); %>
+                <% }); %>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+
+    <% if (!agrupacion || agrupacion.length === 0) { %>
+      <div class="tabla-vacia">
+        <strong>No hay viviendas registradas todavía.</strong>
+        <span>Registre su primera vivienda con el asistente de 3 pasos.</span>
+      </div>
+    <% } %>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      Comuna Socialista Carabobo 200 · Censo por Ubicación
+    </div>
+  </footer>
+
+  <script>
+    // Datos de agrupación para filtrado en el cliente
+    const AGRUPACION_DATA = <%- JSON.stringify(agrupacion) %>;
+
+    function renderizarAgrupacion(filtros) {
+      const contenedor = document.getElementById('contenedor-ubicacion');
+      contenedor.innerHTML = '';
+
+      let totalFiltrado = 0;
+
+      AGRUPACION_DATA.forEach((comunidad) => {
+        if (filtros.comunidad && comunidad.comunidad !== filtros.comunidad) return;
+
+        const manzanasFiltradas = comunidad.manzanas.map((manzana) => {
+          const etapasFiltradas = manzana.etapas.map((etapa) => {
+            const viviendasFiltradas = etapa.viviendas.filter((v) => {
+              if (filtros.manzana && manzana.manzana !== filtros.manzana) return false;
+              if (filtros.etapa && etapa.etapa !== filtros.etapa) return false;
+              return true;
+            });
+            return { ...etapa, viviendas: viviendasFiltradas };
+          }).filter((e) => e.viviendas.length > 0);
+
+          return { ...manzana, etapas: etapasFiltradas };
+        }).filter((m) => m.etapas.length > 0);
+
+        if (manzanasFiltradas.length === 0) return;
+
+        totalFiltrado += comunidad.total;
+
+        const slug = comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_');
+
+        const html = `
+          <div class="grupo-ubicacion" id="grupo-${slug}">
+            <div class="grupo-ubicacion-head" onclick="toggleGrupo('${slug}')">
+              <div class="grupo-ubicacion-titulo">
+                <span class="badge">${comunidad.total}</span>
+                <strong>${comunidad.comunidad}</strong>
+              </div>
+              <span class="indicador" id="indicador-${slug}">▼</span>
+            </div>
+            <div class="grupo-ubicacion-body" id="cuerpo-${slug}">
+              <div class="tarjetas-ubicacion">
+                ${manzanasFiltradas.map((manzana) => `
+                  ${manzana.etapas.map((etapa) => `
+                    ${etapa.viviendas.map((v) => `
+                      <div class="tarjeta-mini" data-comunidad="${comunidad.comunidad}" data-manzana="${manzana.manzana}" data-etapa="${etapa.etapa}">
+                        <div class="tarjeta-mini-numero">Vivienda N.º ${v.id}</div>
+                        <div class="tarjeta-mini-persona">${v.jefe_apellidos}, ${v.jefe_nombres}</div>
+                        <div class="tarjeta-mini-cedula">${v.jefe_cedula || '—'}</div>
+                        <div class="tarjeta-mini-datos">
+                          <span><strong>Dir.:</strong> ${v.direccion}</span>
+                          <span><strong>Casa:</strong> ${v.numero_casa}</span>
+                          <span><strong>Etapa:</strong> ${etapa.etapa}</span>
+                          <span><strong>Manzana:</strong> ${manzana.manzana}</span>
+                        </div>
+                        <a href="/api/viviendas/${v.id}" class="boton boton--mini boton--secundario" style="margin-top: 8px; align-self: flex-start;">Ver detalles</a>
+                      </div>
+                    `).join('')}
+                  `).join('')}
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+
+        contenedor.innerHTML += html;
+      });
+
+      if (totalFiltrado === 0) {
+        contenedor.innerHTML = '<div class="tabla-vacia"><strong>No se encontraron viviendas con esos filtros.</strong></div>';
+      }
+    }
+
+    function toggleGrupo(slug) {
+      const cuerpo = document.getElementById(`cuerpo-${slug}`);
+      const indicador = document.getElementById(`indicador-${slug}`);
+      if (!cuerpo || !indicador) return;
+
+      const estaOculto = cuerpo.classList.contains('collapso');
+      if (estaOculto) {
+        cuerpo.classList.remove('collapso');
+        indicador.textContent = '▼';
+      } else {
+        cuerpo.classList.add('collapso');
+        indicador.textContent = '▶';
+      }
+    }
+
+    function filtrarUbicacion() {
+      const comunidad = document.getElementById('filtro-comunidad').value;
+      const manzana = document.getElementById('filtro-manzana').value;
+      const etapa = document.getElementById('filtro-etapa').value;
+      renderizarAgrupacion({ comunidad, manzana, etapa });
+    }
+
+    function limpiarFiltros() {
+      document.getElementById('filtro-comunidad').value = '';
+      document.getElementById('filtro-manzana').value = '';
+      document.getElementById('filtro-etapa').value = '';
+      // Volver a cargar opciones de manzana y etapa basadas en comunidad
+      actualizarOpcionesManzana('');
+      actualizarOpcionesEtapa('', '');
+      renderizarAgrupacion({ comunidad: '', manzana: '', etapa: '' });
+    }
+
+    function actualizarOpcionesManzana(comunidadSeleccionada) {
+      const select = document.getElementById('filtro-manzana');
+      const manzanas = new Set();
+      AGRUPACION_DATA.forEach((c) => {
+        if (!comunidadSeleccionada || c.comunidad === comunidadSeleccionada) {
+          c.manzanas.forEach((m) => manzanas.add(m.manzana));
+        }
+      });
+      const valorActual = select.value;
+      select.innerHTML = '<option value="">Todas las manzanas</option>' + Array.from(manzanas).map((m) => `<option value="${m}" ${m === valorActual ? 'selected' : ''}>${m}</option>`).join('');
+    }
+
+    function actualizarOpcionesEtapa(manzanaSeleccionada) {
+      const select = document.getElementById('filtro-etapa');
+      const etapas = new Set();
+      AGRUPACION_DATA.forEach((c) => {
+        c.manzanas.forEach((m) => {
+          if (!manzanaSeleccionada || m.manzana === manzanaSeleccionada) {
+            m.etapas.forEach((e) => etapas.add(e.etapa));
+          }
+        }
+      });
+      const valorActual = select.value;
+      select.innerHTML = '<option value="">Todas las etapas</option>' + Array.from(etapas).map((e) => `<option value="${e}" ${e === valorActual ? 'selected' : ''}>${e}</option>`).join('');
+    }
+
+    document.getElementById('filtro-comunidad').addEventListener('change', (e) => {
+      actualizarOpcionesManzana(e.target.value);
+      actualizarOpcionesEtapa('', '');
+      filtrarUbicacion();
+    });
+
+    document.getElementById('filtro-manzana').addEventListener('change', (e) => {
+      actualizarOpcionesEtapa(e.target.value);
+      filtrarUbicacion();
+    });
+
+    // Inicializar
+    renderizarAgrupacion({ comunidad: '', manzana: '', etapa: '' });
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+
+> comuna-carabobo-200@2.0.0 start
+> node dist/server.js
+
+
+  Comuna Socialista Carabobo 200 - Censo local
+  Servidor:    http://localhost:3000
+  Base local:  C:\Users\IK\Desktop\SSC-200\comuna_carabobo200.db
+  Red local:   http://192.168.3.195:3000
+
+  Presione Ctrl+C para detener el servidor.
+
