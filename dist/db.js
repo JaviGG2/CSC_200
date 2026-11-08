@@ -20,6 +20,11 @@ exports.vaciarRegistros = vaciarRegistros;
 exports.insertarVivienda = insertarVivienda;
 exports.obtenerViviendaPorId = obtenerViviendaPorId;
 exports.cambiarSincronizarNeon = cambiarSincronizarNeon;
+exports.encolarEliminacionNeon = encolarEliminacionNeon;
+exports.listarEliminacionesNeon = listarEliminacionesNeon;
+exports.eliminarEliminacionNeon = eliminarEliminacionNeon;
+exports.marcarViviendaPendienteSincronizacion = marcarViviendaPendienteSincronizacion;
+exports.marcarViviendaSincronizada = marcarViviendaSincronizada;
 exports.obtenerViviendas = obtenerViviendas;
 exports.actualizarVivienda = actualizarVivienda;
 exports.eliminarVivienda = eliminarVivienda;
@@ -30,6 +35,7 @@ exports.insertarIntegrante = insertarIntegrante;
 exports.obtenerIntegrantesPorVivienda = obtenerIntegrantesPorVivienda;
 exports.actualizarIntegrante = actualizarIntegrante;
 exports.eliminarIntegrante = eliminarIntegrante;
+exports.eliminarJefeFamilia = eliminarJefeFamilia;
 exports.obtenerExpedienteVivienda = obtenerExpedienteVivienda;
 exports.crearViviendaCompleta = crearViviendaCompleta;
 exports.listarUsuarios = listarUsuarios;
@@ -156,6 +162,12 @@ exports.db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_integrantes_vivienda ON integrantes_grupo_familiar(vivienda_id);
   CREATE INDEX IF NOT EXISTS idx_integrantes_cedula ON integrantes_grupo_familiar(cedula_tipo, cedula_numero);
+
+  CREATE TABLE IF NOT EXISTS neon_eliminaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cedula TEXT NOT NULL UNIQUE,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  );
 `);
 function asegurarColumnaSincronizarNeon() {
     const columnas = exports.db.prepare('PRAGMA table_info(viviendas)').all();
@@ -765,6 +777,43 @@ function cambiarSincronizarNeon(id, sincronizar_neon) {
         .run(sincronizar_neon ? 1 : 0, id);
     return resultado.changes > 0;
 }
+// Cola de eliminaciones que no se pudieron propagar a Neon en el momento.
+// Se reintentan al pulsar "Subir a Neon".
+function encolarEliminacionNeon(cedula) {
+    exports.db.prepare(`
+    INSERT INTO neon_eliminaciones (cedula)
+    VALUES (?)
+    ON CONFLICT(cedula) DO NOTHING
+  `).run(cedula);
+}
+function listarEliminacionesNeon() {
+    return exports.db
+        .prepare('SELECT id, cedula FROM neon_eliminaciones ORDER BY id')
+        .all();
+}
+function eliminarEliminacionNeon(id) {
+    return exports.db.prepare('DELETE FROM neon_eliminaciones WHERE id = ?').run(id).changes > 0;
+}
+function marcarViviendaPendienteSincronizacion(id) {
+    return exports.db
+        .prepare(`
+      UPDATE viviendas
+      SET sincronizado = 0,
+          sincronizado_en = NULL
+      WHERE id = ?
+    `)
+        .run(id).changes > 0;
+}
+function marcarViviendaSincronizada(id) {
+    return exports.db
+        .prepare(`
+      UPDATE viviendas
+      SET sincronizado = 1,
+          sincronizado_en = datetime('now', 'localtime')
+      WHERE id = ?
+    `)
+        .run(id).changes > 0;
+}
 function obtenerViviendas({ q = '', page = 1, limit = 20, }) {
     const like = `%${q}%`;
     const offset = (page - 1) * limit;
@@ -807,9 +856,13 @@ function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa
         .run(estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, sincronizar_neon, id);
     return resultado.changes > 0;
 }
+const eliminarViviendaTransaccion = exports.db.transaction((id) => {
+    exports.db.prepare('DELETE FROM integrantes_grupo_familiar WHERE vivienda_id = ?').run(id);
+    exports.db.prepare('DELETE FROM jefes_familia WHERE vivienda_id = ?').run(id);
+    return exports.db.prepare('DELETE FROM viviendas WHERE id = ?').run(id).changes > 0;
+});
 function eliminarVivienda(id) {
-    const resultado = exports.db.prepare('DELETE FROM viviendas WHERE id = ?').run(id);
-    return resultado.changes > 0;
+    return eliminarViviendaTransaccion(id);
 }
 function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil = null, telefono_habitacion = null, telefono_trabajo = null, correo = null, nivel_instruccion, estado_civil, profesion = null, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos = null, }) {
     const edad = calcularEdad(fecha_nacimiento);
@@ -903,6 +956,9 @@ function eliminarIntegrante(id) {
         .prepare('DELETE FROM integrantes_grupo_familiar WHERE id = ?')
         .run(id);
     return resultado.changes > 0;
+}
+function eliminarJefeFamilia(id) {
+    return exports.db.prepare('DELETE FROM jefes_familia WHERE id = ?').run(id).changes > 0;
 }
 function obtenerExpedienteVivienda(viviendaId) {
     const vivienda = obtenerViviendaPorId(viviendaId);
@@ -1220,6 +1276,11 @@ module.exports = {
     actualizarVivienda,
     eliminarVivienda,
     cambiarSincronizarNeon,
+    encolarEliminacionNeon,
+    listarEliminacionesNeon,
+    eliminarEliminacionNeon,
+    marcarViviendaPendienteSincronizacion,
+    marcarViviendaSincronizada,
     insertarJefeFamilia,
     obtenerJefePorVivienda,
     actualizarJefeFamilia,
@@ -1227,6 +1288,7 @@ module.exports = {
     obtenerIntegrantesPorVivienda,
     actualizarIntegrante,
     eliminarIntegrante,
+    eliminarJefeFamilia,
     obtenerExpedienteVivienda,
     crearViviendaCompleta,
     listarUsuarios,

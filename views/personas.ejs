@@ -11,6 +11,9 @@
   <%- include('partials/topbar', { activo: 'personas' }) %>
 
   <main class="contenedor pagina">
+    <% if (typeof ok !== 'undefined' && ok) { %><div class="alerta alerta--exito" role="status"><%= ok %></div><% } %>
+    <% if (typeof error !== 'undefined' && error) { %><div class="alerta alerta--error" role="alert"><%= error %></div><% } %>
+
     <section class="panel" id="personas-todas">
       <div class="panel-head panel-head--fila">
         <div>
@@ -140,12 +143,13 @@
               <th scope="col">Comunidad</th>
               <th scope="col">Etapa / Manzana</th>
               <th scope="col">Vivienda</th>
+              <th scope="col">Acciones</th>
             </tr>
           </thead>
           <tbody>
             <% if (!personas.length) { %>
               <tr>
-                <td colspan="11" class="tabla-vacia">
+                <td colspan="12" class="tabla-vacia">
                   <strong>No se encontraron personas con esos filtros.</strong>
                 </td>
               </tr>
@@ -175,6 +179,21 @@
                 <td>
                   <a href="/viviendas/<%= p.vivienda_id %>" class="boton boton--mini boton--secundario" onclick="event.stopPropagation();">Ver</a>
                 </td>
+                <td>
+                  <div class="acciones-fila">
+                    <a href="/personas/<%= p.tipo %>/<%= p.persona_id %>" class="boton boton--mini boton--secundario" onclick="event.stopPropagation();">Ficha</a>
+                    <button
+                      type="button"
+                      class="boton boton--mini boton--peligro"
+                      data-abrir-password
+                      data-accion="/personas/<%= p.tipo %>/<%= p.persona_id %>/eliminar"
+                      data-titulo="Eliminar persona"
+                      data-mensaje="Se eliminará a <%= p.apellidos %>, <%= p.nombres %> del censo.<%= p.tipo === 'jefe' ? ' La vivienda quedará sin jefe registrado.' : '' %> Esta acción no se puede deshacer."
+                      data-texto-boton="Eliminar"
+                      onclick="event.stopPropagation();"
+                    >Eliminar</button>
+                  </div>
+                </td>
               </tr>
             <% }); %>
           </tbody>
@@ -187,6 +206,31 @@
     <div class="contenedor">Comuna Socialista Carabobo 200 · Padrón de personas</div>
   </footer>
 
+  <dialog class="dialogo" id="dialogo-password">
+    <form method="post" action="" id="form-password" class="dialogo-form" data-bloquear>
+      <div class="dialogo-head">
+        <h2 data-password-titulo>Confirmar acción</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="dialogo-texto" data-password-mensaje></p>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="clave-admin">Contraseña <span class="requerido">*</span></label>
+          <input type="password" id="clave-admin" name="clave" autocomplete="current-password" required>
+          <p class="ayuda">Ingrese la contraseña de administración para continuar.</p>
+        </div>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--peligro" data-password-submit>Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
   <script>
     document.querySelectorAll('.fila-clicable').forEach(function (fila) {
       fila.addEventListener('click', function () {

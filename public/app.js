@@ -138,26 +138,28 @@
   const submitPassword = document.querySelector('[data-password-submit]');
 
   if (dialogoPassword && formPassword) {
-    document.querySelectorAll('[data-abrir-password]').forEach((boton) => {
-      boton.addEventListener('click', () => {
-        formPassword.action = boton.dataset.accion || '';
+    // Delegado para que también funcione con botones creados después (tarjetas).
+    document.addEventListener('click', (evento) => {
+      const boton = evento.target.closest('[data-abrir-password]');
+      if (!boton) return;
 
-        if (tituloPassword) {
-          tituloPassword.textContent = boton.dataset.titulo || 'Confirmar acción';
-        }
+      formPassword.action = boton.dataset.accion || '';
 
-        if (mensajePassword) {
-          mensajePassword.textContent = boton.dataset.mensaje || '';
-        }
+      if (tituloPassword) {
+        tituloPassword.textContent = boton.dataset.titulo || 'Confirmar acción';
+      }
 
-        if (submitPassword) {
-          submitPassword.textContent = boton.dataset.textoBoton || 'Confirmar';
-        }
+      if (mensajePassword) {
+        mensajePassword.textContent = boton.dataset.mensaje || '';
+      }
 
-        if (clavePassword) clavePassword.value = '';
+      if (submitPassword) {
+        submitPassword.textContent = boton.dataset.textoBoton || 'Confirmar';
+      }
 
-        abrirDialogo(dialogoPassword, '#clave-admin');
-      });
+      if (clavePassword) clavePassword.value = '';
+
+      abrirDialogo(dialogoPassword, '#clave-admin');
     });
   }
 
@@ -204,9 +206,23 @@
   const seccionVacias = document.getElementById('viviendas-vacias');
 
   const renderizarTarjeta = (v) => {
-    const jefeNombre = v.jefe_nombres || '—';
-    const jefeApellido = v.jefe_apellidos || '—';
-    const jefeCedula = `${v.cedula_tipo || ''}-${v.cedula_numero || ''}`;
+    const tieneJefe = Boolean(v.jefe_nombres || v.jefe_apellidos);
+    const jefeTexto = tieneJefe
+      ? `${v.jefe_apellidos || ''}, ${v.jefe_nombres || ''}`.replace(/^, |, $/g, '')
+      : 'Sin jefe registrado';
+    const jefeCedula = v.jefe_cedula || (v.cedula_tipo && v.cedula_numero
+      ? `${v.cedula_tipo}-${v.cedula_numero}`
+      : '—');
+    const etapaManzana = `${v.etapa || 'Sin etapa'} / ${v.manzana || 'Sin manzana'}`;
+
+    let estadoRegistro = { texto: 'Solo local', clase: 'insignia--local' };
+    if (!tieneJefe) {
+      estadoRegistro = { texto: 'Sin jefe registrado', clase: 'insignia--local' };
+    } else if (v.sincronizado) {
+      estadoRegistro = { texto: 'Registrada en Neon', clase: 'insignia--sincronizado' };
+    } else if (v.sincronizar_neon) {
+      estadoRegistro = { texto: 'Pendiente de subir', clase: 'insignia--pendiente' };
+    }
 
     const articulo = document.createElement('article');
     articulo.className = 'tarjeta-vivienda';
@@ -218,45 +234,40 @@
       </div>
       <div class="tarjeta-datos">
         <div class="dato-fila">
-          <span class="dato-label">Estado</span>
-          <span class="dato-valor">${v.estado || '—'}</span>
+          <span class="dato-label">N.º de casa</span>
+          <span class="dato-valor">${v.numero_casa || 'Sin número'}</span>
         </div>
         <div class="dato-fila">
-          <span class="dato-label">Municipio</span>
-          <span class="dato-valor">${v.municipio || '—'}</span>
-        </div>
-        <div class="dato-fila">
-          <span class="dato-label">Parroquia</span>
-          <span class="dato-valor">${v.parroquia || '—'}</span>
-        </div>
-        <div class="dato-fila">
-          <span class="dato-label">Etapa</span>
-          <span class="dato-valor">${v.etapa || '—'}</span>
-        </div>
-        <div class="dato-fila">
-          <span class="dato-label">Manzana</span>
-          <span class="dato-valor">${v.manzana || '—'}</span>
+          <span class="dato-label">Etapa / Manzana</span>
+          <span class="dato-valor">${etapaManzana}</span>
         </div>
         <div class="dato-fila">
           <span class="dato-label">Jefe de Familia</span>
-          <span class="dato-valor">${jefeApellido}, ${jefeNombre}</span>
+          <span class="dato-valor ${tieneJefe ? '' : 'dato-valor--vacio'}">${jefeTexto}</span>
         </div>
         <div class="dato-fila">
-          <span class="dato-label">Cédula Jefe</span>
+          <span class="dato-label">Cédula del jefe</span>
           <span class="dato-valor">${jefeCedula}</span>
         </div>
         <div class="dato-fila">
-          <span class="dato-label">Sincronizar a Neon</span>
+          <span class="dato-label">Registro</span>
           <span class="dato-valor">
-            <span class="insignia ${v.sincronizar_neon ? 'insignia--sincronizado' : 'insignia--pendiente'}">
-              ${v.sincronizar_neon ? 'Sí' : 'No'}
-            </span>
+            <span class="insignia ${estadoRegistro.clase}">${estadoRegistro.texto}</span>
           </span>
         </div>
       </div>
       <div class="tarjeta-acciones">
-        <a href="/api/viviendas/${v.id}" class="boton boton--secundario" target="_blank">Ver JSON</a>
-        <a href="/registros/${v.id}/editar" class="boton boton--primario">Editar Expediente</a>
+        <a href="/viviendas/${v.id}" class="boton boton--secundario">Ver ficha</a>
+        <a href="/viviendas/${v.id}/editar" class="boton boton--primario">Editar</a>
+        <button
+          type="button"
+          class="boton boton--peligro"
+          data-abrir-password
+          data-accion="/viviendas/${v.id}/eliminar"
+          data-titulo="Eliminar vivienda"
+          data-mensaje="Se eliminará la vivienda N.º ${v.id} junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
+          data-texto-boton="Eliminar vivienda"
+        >Eliminar</button>
       </div>
     `;
     return articulo;

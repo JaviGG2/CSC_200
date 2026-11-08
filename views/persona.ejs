@@ -15,6 +15,9 @@
       <a href="/personas">← Volver al padrón de personas</a>
     </div>
 
+    <% if (typeof ok !== 'undefined' && ok) { %><div class="alerta alerta--exito" role="status"><%= ok %></div><% } %>
+    <% if (typeof error !== 'undefined' && error) { %><div class="alerta alerta--error" role="alert"><%= error %></div><% } %>
+
     <section class="panel">
       <div class="ficha-head">
         <div class="ficha-avatar" aria-hidden="true"><%= (persona.nombres || '?').charAt(0).toUpperCase() %></div>
@@ -31,6 +34,15 @@
         </div>
         <div class="ficha-head-acciones">
           <a href="/viviendas/<%= persona.vivienda_id %>" class="boton boton--primario">Ver Ficha de Vivienda</a>
+          <button
+            type="button"
+            class="boton boton--peligro"
+            data-abrir-password
+            data-accion="/personas/<%= persona.tipo %>/<%= persona.persona_id %>/eliminar"
+            data-titulo="Eliminar persona"
+            data-mensaje="Se eliminará a <%= persona.apellidos %>, <%= persona.nombres %> del censo. Esta acción no se puede deshacer."
+            data-texto-boton="Eliminar"
+          >Eliminar</button>
         </div>
       </div>
 
@@ -82,5 +94,31 @@
   <footer class="pie">
     <div class="contenedor">Comuna Socialista Carabobo 200 · Ficha individual</div>
   </footer>
+
+  <dialog class="dialogo" id="dialogo-password">
+    <form method="post" action="" id="form-password" class="dialogo-form" data-bloquear>
+      <div class="dialogo-head">
+        <h2 data-password-titulo>Confirmar acción</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="dialogo-texto" data-password-mensaje></p>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="clave-admin">Contraseña <span class="requerido">*</span></label>
+          <input type="password" id="clave-admin" name="clave" autocomplete="current-password" required>
+          <p class="ayuda">Ingrese la contraseña de administración para continuar.</p>
+        </div>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--peligro" data-password-submit>Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
 </body>
 </html>

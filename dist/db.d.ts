@@ -181,6 +181,15 @@ export declare function insertarVivienda({ estado, municipio, parroquia, comunid
 }): number;
 export declare function obtenerViviendaPorId(id: number): Vivienda | null;
 export declare function cambiarSincronizarNeon(id: number, sincronizar_neon: boolean): boolean;
+export type EliminacionNeon = {
+    id: number;
+    cedula: string;
+};
+export declare function encolarEliminacionNeon(cedula: string): void;
+export declare function listarEliminacionesNeon(): EliminacionNeon[];
+export declare function eliminarEliminacionNeon(id: number): boolean;
+export declare function marcarViviendaPendienteSincronizacion(id: number): boolean;
+export declare function marcarViviendaSincronizada(id: number): boolean;
 export declare function obtenerViviendas({ q, page, limit, }: {
     q?: string;
     page?: number;
@@ -269,6 +278,7 @@ export declare function actualizarIntegrante({ id, numero, apellidos, nombres, c
     profesion?: string | null;
 }): boolean;
 export declare function eliminarIntegrante(id: number): boolean;
+export declare function eliminarJefeFamilia(id: number): boolean;
 export declare function obtenerExpedienteVivienda(viviendaId: number): {
     vivienda: Vivienda | null;
     jefe: JefeFamilia | null;

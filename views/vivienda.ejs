@@ -15,14 +15,26 @@
       <a href="/">← Volver al censo</a>
     </div>
 
+    <% if (typeof ok !== 'undefined' && ok) { %><div class="alerta alerta--exito" role="status"><%= ok %></div><% } %>
+    <% if (typeof error !== 'undefined' && error) { %><div class="alerta alerta--error" role="alert"><%= error %></div><% } %>
+
     <section class="panel">
       <div class="panel-head panel-head--fila">
         <div>
           <h2>Vivienda N.º <%= vivienda.id %></h2>
-          <p><%= vivienda.comunidad %> · <%= vivienda.etapa || 'Sin etapa' %> · <%= vivienda.manzana || 'Sin manzana' %></p>
+          <p><%= vivienda.comunidad %> · <%= vivienda.etapa || 'Sin etapa' %> · <%= vivienda.manzana || 'Sin manzana' %> · Casa <%= vivienda.numero_casa || 'Sin número' %></p>
         </div>
         <div class="panel-head-acciones">
           <a href="/viviendas/<%= vivienda.id %>/editar" class="boton boton--mini boton--primario">Editar vivienda</a>
+          <button
+            type="button"
+            class="boton boton--mini boton--peligro"
+            data-abrir-password
+            data-accion="/viviendas/<%= vivienda.id %>/eliminar"
+            data-titulo="Eliminar vivienda"
+            data-mensaje="Se eliminará la vivienda N.º <%= vivienda.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
+            data-texto-boton="Eliminar vivienda"
+          >Eliminar vivienda</button>
         </div>
       </div>
 
@@ -41,7 +53,9 @@
             <dt>Fecha de registro</dt><dd><%= formatearFecha(vivienda.fecha_registro) %></dd>
             <dt>Sincronización</dt>
             <dd>
-              <% if (vivienda.sincronizado) { %>
+              <% if (!jefe) { %>
+                <span class="insignia insignia--local">Sin jefe registrado</span>
+              <% } else if (vivienda.sincronizado) { %>
                 <span class="insignia insignia--sincronizado">Sincronizada</span>
               <% } else if (vivienda.sincronizar_neon) { %>
                 <span class="insignia insignia--pendiente">Pendiente de subir</span>
@@ -54,7 +68,18 @@
 
         <% if (jefe) { %>
           <div class="ficha-bloque">
-            <h3>Jefe(a) de Familia</h3>
+            <div class="ficha-bloque-cabecera">
+              <h3>Jefe(a) de Familia</h3>
+              <button
+                type="button"
+                class="boton boton--mini boton--peligro"
+                data-abrir-password
+                data-accion="/personas/jefe/<%= jefe.id %>/eliminar?volver=/viviendas/<%= vivienda.id %>"
+                data-titulo="Eliminar jefe de familia"
+                data-mensaje="Se eliminará a <%= jefe.apellidos %>, <%= jefe.nombres %>. La vivienda quedará sin jefe registrado."
+                data-texto-boton="Eliminar jefe"
+              >Eliminar</button>
+            </div>
             <dl class="ficha-datos">
               <dt>Nombre</dt>
               <dd><a href="/personas/jefe/<%= jefe.id %>"><%= jefe.apellidos %>, <%= jefe.nombres %></a></dd>
@@ -68,6 +93,11 @@
               <dt>Ingresos</dt><dd><%= jefe.clasificacion_ingresos %></dd>
               <dt>Teléfono</dt><dd><%= jefe.telefono_movil || jefe.telefono_habitacion || '—' %></dd>
             </dl>
+          </div>
+        <% } else { %>
+          <div class="ficha-bloque">
+            <h3>Jefe(a) de Familia</h3>
+            <p class="ficha-vacia">Esta vivienda no tiene jefe de familia registrado.</p>
           </div>
         <% } %>
       </div>
@@ -87,12 +117,12 @@
                 <th scope="col">Parentesco</th>
                 <th scope="col">Nivel</th>
                 <th scope="col">Profesión</th>
-                <th scope="col">Ficha</th>
+                <th scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <% if (!integrantes.length) { %>
-                <tr><td colspan="9" class="tabla-vacia">Esta vivienda no tiene integrantes registrados.</td></tr>
+                <tr><td colspan="10" class="tabla-vacia">Esta vivienda no tiene integrantes registrados.</td></tr>
               <% } %>
               <% integrantes.forEach(function (i) { %>
                 <tr>
@@ -108,7 +138,18 @@
                   <td><%= i.nivel_instruccion || '—' %></td>
                   <td><%= i.profesion || '—' %></td>
                   <td>
-                    <a href="/personas/integrante/<%= i.id %>" class="boton boton--mini boton--secundario">Ver</a>
+                    <div class="acciones-fila">
+                      <a href="/personas/integrante/<%= i.id %>" class="boton boton--mini boton--secundario">Ver</a>
+                      <button
+                        type="button"
+                        class="boton boton--mini boton--peligro"
+                        data-abrir-password
+                        data-accion="/personas/integrante/<%= i.id %>/eliminar?volver=/viviendas/<%= vivienda.id %>"
+                        data-titulo="Eliminar habitante"
+                        data-mensaje="Se eliminará a <%= i.apellidos %>, <%= i.nombres %> del grupo familiar. Esta acción no se puede deshacer."
+                        data-texto-boton="Eliminar"
+                      >Eliminar</button>
+                    </div>
                   </td>
                 </tr>
               <% }); %>
@@ -122,5 +163,31 @@
   <footer class="pie">
     <div class="contenedor">Comuna Socialista Carabobo 200 · Ficha de vivienda</div>
   </footer>
+
+  <dialog class="dialogo" id="dialogo-password">
+    <form method="post" action="" id="form-password" class="dialogo-form" data-bloquear>
+      <div class="dialogo-head">
+        <h2 data-password-titulo>Confirmar acción</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="dialogo-texto" data-password-mensaje></p>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="clave-admin">Contraseña <span class="requerido">*</span></label>
+          <input type="password" id="clave-admin" name="clave" autocomplete="current-password" required>
+          <p class="ayuda">Ingrese la contraseña de administración para continuar.</p>
+        </div>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--peligro" data-password-submit>Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
 </body>
 </html>

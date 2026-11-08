@@ -254,6 +254,12 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_integrantes_vivienda ON integrantes_grupo_familiar(vivienda_id);
   CREATE INDEX IF NOT EXISTS idx_integrantes_cedula ON integrantes_grupo_familiar(cedula_tipo, cedula_numero);
+
+  CREATE TABLE IF NOT EXISTS neon_eliminaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cedula TEXT NOT NULL UNIQUE,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  );
 `);
 
 function asegurarColumnaSincronizarNeon() {
@@ -1020,6 +1026,53 @@ export function cambiarSincronizarNeon(id: number, sincronizar_neon: boolean): b
   return resultado.changes > 0;
 }
 
+export type EliminacionNeon = {
+  id: number;
+  cedula: string;
+};
+
+// Cola de eliminaciones que no se pudieron propagar a Neon en el momento.
+// Se reintentan al pulsar "Subir a Neon".
+export function encolarEliminacionNeon(cedula: string): void {
+  db.prepare(`
+    INSERT INTO neon_eliminaciones (cedula)
+    VALUES (?)
+    ON CONFLICT(cedula) DO NOTHING
+  `).run(cedula);
+}
+
+export function listarEliminacionesNeon(): EliminacionNeon[] {
+  return db
+    .prepare('SELECT id, cedula FROM neon_eliminaciones ORDER BY id')
+    .all() as EliminacionNeon[];
+}
+
+export function eliminarEliminacionNeon(id: number): boolean {
+  return db.prepare('DELETE FROM neon_eliminaciones WHERE id = ?').run(id).changes > 0;
+}
+
+export function marcarViviendaPendienteSincronizacion(id: number): boolean {
+  return db
+    .prepare(`
+      UPDATE viviendas
+      SET sincronizado = 0,
+          sincronizado_en = NULL
+      WHERE id = ?
+    `)
+    .run(id).changes > 0;
+}
+
+export function marcarViviendaSincronizada(id: number): boolean {
+  return db
+    .prepare(`
+      UPDATE viviendas
+      SET sincronizado = 1,
+          sincronizado_en = datetime('now', 'localtime')
+      WHERE id = ?
+    `)
+    .run(id).changes > 0;
+}
+
 export function obtenerViviendas({
   q = '',
   page = 1,
@@ -1342,6 +1395,10 @@ export function eliminarIntegrante(id: number): boolean {
     .prepare('DELETE FROM integrantes_grupo_familiar WHERE id = ?')
     .run(id);
   return resultado.changes > 0;
+}
+
+export function eliminarJefeFamilia(id: number): boolean {
+  return db.prepare('DELETE FROM jefes_familia WHERE id = ?').run(id).changes > 0;
 }
 
 export function obtenerExpedienteVivienda(viviendaId: number): {
@@ -1807,6 +1864,11 @@ module.exports = {
   actualizarVivienda,
   eliminarVivienda,
   cambiarSincronizarNeon,
+  encolarEliminacionNeon,
+  listarEliminacionesNeon,
+  eliminarEliminacionNeon,
+  marcarViviendaPendienteSincronizacion,
+  marcarViviendaSincronizada,
   insertarJefeFamilia,
   obtenerJefePorVivienda,
   actualizarJefeFamilia,
@@ -1814,6 +1876,7 @@ module.exports = {
   obtenerIntegrantesPorVivienda,
   actualizarIntegrante,
   eliminarIntegrante,
+  eliminarJefeFamilia,
   obtenerExpedienteVivienda,
   crearViviendaCompleta,
   listarUsuarios,
