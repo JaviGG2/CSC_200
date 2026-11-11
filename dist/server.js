@@ -9,7 +9,7 @@ const os_1 = __importDefault(require("os"));
 const express_1 = __importDefault(require("express"));
 dotenv_1.default.config({ quiet: true });
 const expressEjs = require('ejs');
-const { db, rutaBaseDatos, CLAVES_RESERVADAS, TIPOS_CAMPO, obtenerCampos, obtenerCamposFormulario, obtenerRegistros, obtenerRegistroPorId, obtenerEstadisticas, insertarRegistro, actualizarRegistro, eliminarRegistro, vaciarRegistros, crearCampo, obtenerCampoPorId, actualizarCampo, cambiarEstadoCampo, eliminarCampo, renumerarRegistros, insertarVivienda, obtenerViviendaPorId, obtenerViviendas, actualizarVivienda, eliminarVivienda, cambiarSincronizarNeon, encolarEliminacionNeon, marcarViviendaPendienteSincronizacion, insertarJefeFamilia, obtenerJefePorVivienda, actualizarJefeFamilia, insertarIntegrante, obtenerIntegrantesPorVivienda, actualizarIntegrante, eliminarIntegrante, eliminarJefeFamilia, obtenerExpedienteVivienda, crearViviendaCompleta, listarUsuarios, obtenerUsuarioPorId, obtenerUsuarioPorUsuario, crearUsuario, actualizarUsuario, eliminarUsuario, contarAdminsActivos, listarTerritorios, obtenerTerritorioPorId, crearTerritorio, actualizarTerritorio, eliminarTerritorio, listarConfigCampos, obtenerConfigCamposMap, actualizarConfigCampo, obtenerPersonas, obtenerPersonaIndividual, contarPersonas, contarViviendas, } = require('./db');
+const { db, rutaBaseDatos, CLAVES_RESERVADAS, TIPOS_CAMPO, obtenerCampos, obtenerCamposFormulario, obtenerRegistros, obtenerRegistroPorId, obtenerEstadisticas, insertarRegistro, actualizarRegistro, eliminarRegistro, vaciarRegistros, crearCampo, obtenerCampoPorId, actualizarCampo, cambiarEstadoCampo, eliminarCampo, renumerarRegistros, insertarVivienda, obtenerViviendaPorId, obtenerViviendas, actualizarVivienda, eliminarVivienda, cambiarSincronizarNeon, marcarSoloLocalParaSincronizar, encolarEliminacionNeon, marcarViviendaPendienteSincronizacion, insertarJefeFamilia, obtenerJefePorVivienda, actualizarJefeFamilia, insertarIntegrante, obtenerIntegrantePorId, obtenerIntegrantesPorVivienda, actualizarIntegrante, eliminarIntegrante, eliminarJefeFamilia, obtenerExpedienteVivienda, crearViviendaCompleta, listarUsuarios, obtenerUsuarioPorId, obtenerUsuarioPorUsuario, crearUsuario, actualizarUsuario, eliminarUsuario, contarAdminsActivos, listarTerritorios, obtenerTerritorioPorId, crearTerritorio, actualizarTerritorio, eliminarTerritorio, listarConfigCampos, obtenerConfigCamposMap, actualizarConfigCampo, obtenerPersonas, obtenerPersonaIndividual, contarPersonas, contarViviendas, obtenerEstadisticasViviendas, vaciarBaseDatos, } = require('./db');
 const { hashClave, verificarClave, firmarSesion, verificarToken, leerCookie, guardarSesion, borrarSesion, requerirAuth, requerirAdmin, } = require('./auth');
 const app = (0, express_1.default)();
 const PUERTO = Number(process.env.PORT) || 3000;
@@ -96,6 +96,26 @@ function calcularEdad(fechaNacimiento) {
 }
 function validarFormatoCedula(cedula) {
     return /^[VE]-\d{6,8}$/.test(cedula);
+}
+// 'S' significa "Sin cédula": esas personas se identifican solo por sus datos.
+function normalizarTipoCedula(valor) {
+    const tipo = valorSimple(valor).toUpperCase();
+    return tipo === 'E' || tipo === 'S' ? tipo : 'V';
+}
+function textoCedula(tipo, numero) {
+    return (tipo === 'V' || tipo === 'E') && numero ? `${tipo}-${numero}` : 'Sin cédula';
+}
+function normalizarCedulaPersona(tipo, numero) {
+    const valorTipo = valorSimple(tipo).toUpperCase();
+    if (valorTipo === 'S')
+        return { cedula_tipo: 'S', cedula_numero: null };
+    if (valorTipo !== 'V' && valorTipo !== 'E')
+        return { cedula_tipo: null, cedula_numero: null };
+    return { cedula_tipo: valorTipo, cedula_numero: normalizarCedula(numero) || null };
+}
+// Clave estable en Neon para quien no tiene cédula: una por vivienda.
+function cedulaNeonJefe(viviendaId, tipo, numero) {
+    return (tipo === 'V' || tipo === 'E') && numero ? `${tipo}-${numero}` : `S-${viviendaId}`;
 }
 function tieneErrorExtras(r) {
     return 'error' in r;
@@ -274,7 +294,7 @@ function renderizar(res, { status = 200, error = null, ok = null, valores = {}, 
     return res.status(status).render('index', {
         campos: obtenerCamposFormulario(),
         registros: obtenerRegistros(),
-        stats: obtenerEstadisticas(),
+        stats: obtenerEstadisticasViviendas(),
         error,
         ok,
         valores,
@@ -498,7 +518,9 @@ app.post('/personas/:tipo/:id/eliminar', async (req, res, next) => {
         if (tipo === 'jefe') {
             const vivienda = obtenerViviendaPorId(persona.vivienda_id);
             const debePropagar = Boolean(vivienda?.sincronizado || vivienda?.sincronizar_neon);
-            const cedula = debePropagar ? persona.cedula : null;
+            const cedula = debePropagar
+                ? cedulaNeonJefe(persona.vivienda_id, persona.cedula_tipo, persona.cedula_numero)
+                : null;
             if (!eliminarJefeFamilia(id)) {
                 return res.redirect(303, destino('error', 'La persona ya no existe.'));
             }
@@ -561,7 +583,7 @@ app.post('/viviendas/:id/eliminar', async (req, res, next) => {
         }
         const debePropagar = Boolean(vivienda.sincronizado || vivienda.sincronizar_neon);
         const jefe = debePropagar ? obtenerJefePorVivienda(id) : null;
-        const cedula = jefe ? `${jefe.cedula_tipo}-${jefe.cedula_numero}` : null;
+        const cedula = jefe ? cedulaNeonJefe(id, jefe.cedula_tipo, jefe.cedula_numero) : null;
         if (!eliminarVivienda(id)) {
             return res.redirect(303, destino('error', 'La vivienda ya no existe.'));
         }
@@ -625,13 +647,14 @@ app.post('/viviendas/:id/editar', (req, res, next) => {
         });
         if (expediente.jefe) {
             const jefe = expediente.jefe;
-            const cedulaNumero = normalizarCedula(req.body.cedula_numero);
+            const cedulaTipo = normalizarTipoCedula(req.body.cedula_tipo);
+            const cedulaNumero = cedulaTipo === 'S' ? null : normalizarCedula(req.body.cedula_numero);
             const nombres = normalizarNombre(req.body.nombres);
             const apellidos = normalizarNombre(req.body.apellidos);
-            if (cedulaNumero && nombres && apellidos) {
+            if ((cedulaTipo === 'S' || cedulaNumero) && nombres && apellidos) {
                 actualizarJefeFamilia({
                     id: jefe.id,
-                    cedula_tipo: valorSimple(req.body.cedula_tipo) === 'E' ? 'E' : 'V',
+                    cedula_tipo: cedulaTipo,
                     cedula_numero: cedulaNumero,
                     nombres,
                     apellidos,
@@ -669,7 +692,7 @@ app.get('/ubicacion', (req, res, next) => {
                 ...v,
                 jefe_nombres: jefe?.nombres ?? '',
                 jefe_apellidos: jefe?.apellidos ?? '',
-                jefe_cedula: jefe ? `${jefe.cedula_tipo}-${jefe.cedula_numero}` : '',
+                jefe_cedula: jefe ? textoCedula(jefe.cedula_tipo, jefe.cedula_numero) : '',
             };
         });
         const porComunidad = new Map();
@@ -725,7 +748,7 @@ app.get('/ubicacion', (req, res, next) => {
             ok,
             error: null,
             agrupacion,
-            stats: obtenerEstadisticas(),
+            stats: obtenerEstadisticasViviendas(),
             formatearFecha,
         });
     }
@@ -998,9 +1021,12 @@ app.post('/api/viviendas', (req, res, next) => {
         if (!vivienda || !jefe) {
             return res.status(400).json({ error: 'Se requieren vivienda y jefe de familia.' });
         }
-        const cedulaCompleta = `${jefe.cedula_tipo}-${jefe.cedula_numero}`;
-        if (!validarFormatoCedula(cedulaCompleta)) {
-            return res.status(400).json({ error: 'Formato de cédula inválido (V-12345678).' });
+        const cedulaTipo = normalizarTipoCedula(jefe.cedula_tipo);
+        const cedulaNumero = cedulaTipo === 'S' ? null : normalizarCedula(jefe.cedula_numero);
+        if (cedulaTipo !== 'S' && !validarFormatoCedula(`${cedulaTipo}-${cedulaNumero}`)) {
+            return res.status(400).json({
+                error: 'Formato de cédula inválido (V-12345678) o seleccione «Sin cédula».',
+            });
         }
         const fechaValida = normalizarFecha(jefe.fecha_nacimiento);
         if (fechaValida === false) {
@@ -1020,8 +1046,8 @@ app.post('/api/viviendas', (req, res, next) => {
                     sincronizar_neon: vivienda.sincronizar_neon ?? true,
                 },
                 jefe: {
-                    cedula_tipo: jefe.cedula_tipo,
-                    cedula_numero: jefe.cedula_numero,
+                    cedula_tipo: cedulaTipo,
+                    cedula_numero: cedulaNumero,
                     nombres: jefe.nombres,
                     apellidos: jefe.apellidos,
                     fecha_nacimiento: jefe.fecha_nacimiento,
@@ -1041,8 +1067,7 @@ app.post('/api/viviendas', (req, res, next) => {
                     numero: index + 1,
                     apellidos: integrante.apellidos,
                     nombres: integrante.nombres,
-                    cedula_tipo: integrante.cedula_tipo ?? null,
-                    cedula_numero: integrante.cedula_numero ?? null,
+                    ...normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero),
                     fecha_nacimiento: integrante.fecha_nacimiento ?? null,
                     sexo: integrante.sexo ?? null,
                     parentesco: integrante.parentesco,
@@ -1082,7 +1107,7 @@ app.get('/api/viviendas', (req, res, next) => {
                 ...v,
                 jefe_nombres: jefe?.nombres ?? '',
                 jefe_apellidos: jefe?.apellidos ?? '',
-                jefe_cedula: jefe ? `${jefe.cedula_tipo}-${jefe.cedula_numero}` : '',
+                jefe_cedula: jefe ? textoCedula(jefe.cedula_tipo, jefe.cedula_numero) : '',
                 cedula_tipo: jefe?.cedula_tipo ?? '',
                 cedula_numero: jefe?.cedula_numero ?? '',
             };
@@ -1108,7 +1133,7 @@ app.get('/api/viviendas/agrupacion', (req, res, next) => {
         // Cargar jefes para cada vivienda
         const viviendasConJefe = viviendas.map((v) => {
             const jefe = obtenerJefePorVivienda(v.id);
-            return { ...v, jefe_nombres: jefe?.nombres ?? '', jefe_apellidos: jefe?.apellidos ?? '', jefe_cedula: jefe ? `${jefe.cedula_tipo}-${jefe.cedula_numero}` : '' };
+            return { ...v, jefe_nombres: jefe?.nombres ?? '', jefe_apellidos: jefe?.apellidos ?? '', jefe_cedula: jefe ? textoCedula(jefe.cedula_tipo, jefe.cedula_numero) : '' };
         });
         // Agrupar por Comunidad > Manzana > Etapa
         const porComunidad = new Map();
@@ -1318,10 +1343,11 @@ app.put('/api/viviendas/:id', (req, res, next) => {
         }
         const expedienteActual = obtenerExpedienteVivienda(id);
         if (jefe && expedienteActual?.jefe) {
+            const cedulaJefe = normalizarCedulaPersona(jefe.cedula_tipo, jefe.cedula_numero);
             actualizarJefeFamilia({
                 id: expedienteActual.jefe.id,
-                cedula_tipo: jefe.cedula_tipo,
-                cedula_numero: jefe.cedula_numero,
+                cedula_tipo: (cedulaJefe.cedula_tipo || 'V'),
+                cedula_numero: cedulaJefe.cedula_numero,
                 nombres: jefe.nombres,
                 apellidos: jefe.apellidos,
                 fecha_nacimiento: jefe.fecha_nacimiento,
@@ -1343,14 +1369,15 @@ app.put('/api/viviendas/:id', (req, res, next) => {
             const idsExistentes = new Set(existentes.map((e) => e.id));
             const idsEnviados = new Set();
             for (const integrante of integrantes) {
+                const cedula = normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero);
                 if (integrante.id && idsExistentes.has(integrante.id)) {
                     actualizarIntegrante({
                         id: integrante.id,
                         numero: integrante.numero,
                         apellidos: integrante.apellidos,
                         nombres: integrante.nombres,
-                        cedula_tipo: integrante.cedula_tipo,
-                        cedula_numero: integrante.cedula_numero,
+                        cedula_tipo: cedula.cedula_tipo,
+                        cedula_numero: cedula.cedula_numero,
                         fecha_nacimiento: integrante.fecha_nacimiento,
                         sexo: integrante.sexo,
                         parentesco: integrante.parentesco,
@@ -1365,8 +1392,8 @@ app.put('/api/viviendas/:id', (req, res, next) => {
                         numero: integrante.numero ?? existentes.length + 1,
                         apellidos: integrante.apellidos,
                         nombres: integrante.nombres,
-                        cedula_tipo: integrante.cedula_tipo,
-                        cedula_numero: integrante.cedula_numero,
+                        cedula_tipo: cedula.cedula_tipo,
+                        cedula_numero: cedula.cedula_numero,
                         fecha_nacimiento: integrante.fecha_nacimiento,
                         sexo: integrante.sexo,
                         parentesco: integrante.parentesco,
@@ -1404,7 +1431,7 @@ app.delete('/api/viviendas/:id', async (req, res, next) => {
         }
         const debePropagar = Boolean(vivienda.sincronizado || vivienda.sincronizar_neon);
         const jefe = debePropagar ? obtenerJefePorVivienda(id) : null;
-        const cedula = jefe ? `${jefe.cedula_tipo}-${jefe.cedula_numero}` : null;
+        const cedula = jefe ? cedulaNeonJefe(id, jefe.cedula_tipo, jefe.cedula_numero) : null;
         if (!eliminarVivienda(id)) {
             return res.status(404).json({ error: 'Vivienda no encontrada.' });
         }
@@ -1459,13 +1486,14 @@ app.post('/api/viviendas/:viviendaId/integrantes', (req, res, next) => {
         }
         const existentes = obtenerIntegrantesPorVivienda(viviendaId);
         const num = numero ?? (existentes.length + 1);
+        const cedula = normalizarCedulaPersona(cedula_tipo, cedula_numero);
         const id = insertarIntegrante({
             vivienda_id: viviendaId,
             numero: num,
             apellidos,
             nombres,
-            cedula_tipo,
-            cedula_numero,
+            cedula_tipo: cedula.cedula_tipo,
+            cedula_numero: cedula.cedula_numero,
             fecha_nacimiento,
             sexo,
             parentesco,
@@ -1485,13 +1513,14 @@ app.put('/api/viviendas/:viviendaId/integrantes/:integranteId', (req, res, next)
             return res.status(400).json({ error: 'ID de integrante inválido.' });
         }
         const { numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion } = req.body;
+        const cedula = normalizarCedulaPersona(cedula_tipo, cedula_numero);
         if (!actualizarIntegrante({
             id: integranteId,
             numero,
             apellidos,
             nombres,
-            cedula_tipo,
-            cedula_numero,
+            cedula_tipo: cedula.cedula_tipo,
+            cedula_numero: cedula.cedula_numero,
             fecha_nacimiento,
             sexo,
             parentesco,
@@ -1887,7 +1916,7 @@ app.get('/api/export/viviendas.csv', (req, res) => {
             v.direccion,
             v.numero_casa || '',
             jefe ? `${jefe.apellidos}, ${jefe.nombres}` : '',
-            jefe ? `${jefe.cedula_tipo}-${jefe.cedula_numero}` : '',
+            jefe ? textoCedula(jefe.cedula_tipo, jefe.cedula_numero) : '',
             integrantes.length,
         ];
     });
@@ -1917,6 +1946,37 @@ app.post('/api/sincronizar', async (req, res) => {
     }
     catch (error) {
         console.error('[sync]', error);
+        return res.status(500).json({
+            ok: false,
+            error: error?.message ||
+                'No se pudo conectar con Neon. Verifique la conexión a Internet y DATABASE_URL.',
+        });
+    }
+});
+app.post('/api/sincronizar-locales', async (req, res) => {
+    try {
+        const marcadas = marcarSoloLocalParaSincronizar();
+        if (!marcadas) {
+            return res.json({
+                ok: true,
+                pendientes: 0,
+                procesados: 0,
+                mensaje: 'No hay viviendas guardadas solo en local.',
+            });
+        }
+        const { sincronizarConNeon } = require('./sincronizar');
+        const resultado = await sincronizarConNeon();
+        if (!resultado.ok) {
+            return res.status(400).json(resultado);
+        }
+        return res.json({
+            ...resultado,
+            marcadas,
+            mensaje: `${marcadas} vivienda(s) solo local marcada(s) para subir. ${resultado.mensaje}`,
+        });
+    }
+    catch (error) {
+        console.error('[sync-locales]', error);
         return res.status(500).json({
             ok: false,
             error: error?.message ||

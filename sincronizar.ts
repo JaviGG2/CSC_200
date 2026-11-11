@@ -16,11 +16,18 @@ dotenv.config({ quiet: true });
 const TAMANO_LOTE = 100;
 const RUTA_ESQUEMA = path.join(process.cwd(), 'sql', 'neon_schema.sql');
 
+export type ViviendaFallida = {
+  id: number;
+  motivo: string;
+};
+
 export type ResultadoSincronizacion = {
   ok: boolean;
   pendientes: number;
   procesados: number;
   conflictos: number;
+  fallidas: ViviendaFallida[];
+  omitidas: { soloLocal: number[]; sinJefe: number[] };
   mensaje: string;
 };
 
@@ -63,6 +70,16 @@ function crearClienteNeon(): Client | null {
   });
 }
 
+// Clave en Neon del jefe de familia. Quien no tiene cédula recibe una clave
+// estable por vivienda para no confundirlo con otra persona sin cédula.
+function cedulaNeonJefe(
+  viviendaId: number,
+  tipo: string | null,
+  numero: string | null
+): string {
+  return (tipo === 'V' || tipo === 'E') && numero ? `${tipo}-${numero}` : `S-${viviendaId}`;
+}
+
 export function construirRegistroNeon(viviendaId: number): ViviendaPendiente | null {
   const vivienda = db
     .prepare(`
@@ -81,7 +98,7 @@ export function construirRegistroNeon(viviendaId: number): ViviendaPendiente | n
 
   return {
     ...vivienda,
-    cedula: `${jefe.cedula_tipo}-${jefe.cedula_numero}`,
+    cedula: cedulaNeonJefe(vivienda.id, jefe.cedula_tipo, jefe.cedula_numero),
     nombres: jefe.nombres,
     apellidos: jefe.apellidos,
     fecha_nacimiento: jefe.fecha_nacimiento,
@@ -93,7 +110,7 @@ export function construirRegistroNeon(viviendaId: number): ViviendaPendiente | n
       numero_casa: vivienda.numero_casa,
       fecha_registro_vivienda: vivienda.fecha_registro,
       jefe: {
-        cedula: `${jefe.cedula_tipo}-${jefe.cedula_numero}`,
+        cedula: cedulaNeonJefe(vivienda.id, jefe.cedula_tipo, jefe.cedula_numero),
         nombres: jefe.nombres,
         apellidos: jefe.apellidos,
         fecha_nacimiento: jefe.fecha_nacimiento,
@@ -127,23 +144,86 @@ export function construirRegistroNeon(viviendaId: number): ViviendaPendiente | n
   };
 }
 
-function obtenerPendientes(): ViviendaPendiente[] {
+// Clasifica TODAS las viviendas sin subir, para no perder ninguna en silencio:
+// las que se pueden subir, las marcadas como "Solo local" y las que no tienen jefe.
+function clasificarViviendasSinSubir(): {
+  subibles: number[];
+  soloLocal: number[];
+  sinJefe: number[];
+} {
   const filas = db
     .prepare(`
-      SELECT id
-      FROM viviendas
-      WHERE sincronizado = 0
-        AND sincronizar_neon = 1
-      ORDER BY id
+      SELECT v.id, v.sincronizar_neon, j.id AS jefe_id
+      FROM viviendas v
+      LEFT JOIN jefes_familia j ON j.vivienda_id = v.id
+      WHERE v.sincronizado = 0
+      ORDER BY v.id
     `)
-    .all() as Array<{ id: number }>;
+    .all() as Array<{ id: number; sincronizar_neon: number; jefe_id: number | null }>;
 
-  const pendientes: ViviendaPendiente[] = [];
+  const resultado: { subibles: number[]; soloLocal: number[]; sinJefe: number[] } = {
+    subibles: [],
+    soloLocal: [],
+    sinJefe: [],
+  };
+
   for (const fila of filas) {
-    const registro = construirRegistroNeon(fila.id);
+    if (!fila.sincronizar_neon) {
+      resultado.soloLocal.push(fila.id);
+    } else if (fila.jefe_id === null) {
+      resultado.sinJefe.push(fila.id);
+    } else {
+      resultado.subibles.push(fila.id);
+    }
+  }
+
+  return resultado;
+}
+
+function construirPendientes(ids: number[]): ViviendaPendiente[] {
+  const pendientes: ViviendaPendiente[] = [];
+  for (const id of ids) {
+    const registro = construirRegistroNeon(id);
     if (registro) pendientes.push(registro);
   }
   return pendientes;
+}
+
+function listarIds(ids: number[], maximo = 10): string {
+  const visibles = ids.slice(0, maximo).map((id) => `N.º ${id}`);
+  const restantes = ids.length - visibles.length;
+  return restantes > 0 ? `${visibles.join(', ')} y ${restantes} más` : visibles.join(', ');
+}
+
+function describirOmitidas(
+  soloLocal: number[],
+  sinJefe: number[],
+  fallidas: ViviendaFallida[]
+): string[] {
+  const partes: string[] = [];
+
+  if (sinJefe.length) {
+    partes.push(
+      `${sinJefe.length} vivienda(s) sin jefe de familia no se pudieron subir (${listarIds(sinJefe)})`
+    );
+  }
+
+  if (soloLocal.length) {
+    partes.push(
+      `${soloLocal.length} vivienda(s) marcada(s) como «Solo local» no se suben a Neon (${listarIds(soloLocal)})`
+    );
+  }
+
+  if (fallidas.length) {
+    partes.push(
+      `${fallidas.length} vivienda(s) fallaron al subir (${fallidas
+        .slice(0, 5)
+        .map((fallida) => `N.º ${fallida.id}: ${fallida.motivo}`)
+        .join('; ')}${fallidas.length > 5 ? '; …' : ''})`
+    );
+  }
+
+  return partes;
 }
 
 function prepararUpsert(registros: ViviendaPendiente[]): {
@@ -196,6 +276,36 @@ async function upsertRegistros(
   } catch (error) {
     await cliente.query('ROLLBACK');
     throw error;
+  }
+}
+
+// Si el lote falla completo (por ejemplo, por un dato inválido), reintenta
+// registro por registro para aislar el error y no bloquear al resto.
+async function subirLote(
+  cliente: Client,
+  lote: ViviendaPendiente[]
+): Promise<{ subidas: ViviendaPendiente[]; fallidas: ViviendaFallida[] }> {
+  try {
+    await upsertRegistros(cliente, lote);
+    return { subidas: lote, fallidas: [] };
+  } catch (errorLote) {
+    if (lote.length === 1) {
+      return { subidas: [], fallidas: [{ id: lote[0].id, motivo: detalleError(errorLote) }] };
+    }
+
+    const subidas: ViviendaPendiente[] = [];
+    const fallidas: ViviendaFallida[] = [];
+
+    for (const registro of lote) {
+      try {
+        await upsertRegistros(cliente, [registro]);
+        subidas.push(registro);
+      } catch (error) {
+        fallidas.push({ id: registro.id, motivo: detalleError(error) });
+      }
+    }
+
+    return { subidas, fallidas };
   }
 }
 
@@ -327,13 +437,20 @@ export async function actualizarViviendaEnNeon(viviendaId: number): Promise<Resu
 
 export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
   const cadenaConexion = process.env.DATABASE_URL;
+  const clasificacion = clasificarViviendasSinSubir();
+  const omitidas = {
+    soloLocal: clasificacion.soloLocal,
+    sinJefe: clasificacion.sinJefe,
+  };
 
   if (!cadenaConexion) {
     return {
       ok: false,
-      pendientes: 0,
+      pendientes: clasificacion.subibles.length,
       procesados: 0,
       conflictos: 0,
+      fallidas: [],
+      omitidas,
       mensaje:
         'Defina DATABASE_URL en el archivo .env con la cadena de conexión de Neon (sslmode=require).',
     };
@@ -342,23 +459,31 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
   if (!fs.existsSync(RUTA_ESQUEMA)) {
     return {
       ok: false,
-      pendientes: 0,
+      pendientes: clasificacion.subibles.length,
       procesados: 0,
       conflictos: 0,
+      fallidas: [],
+      omitidas,
       mensaje: `No se encontró el esquema de Neon en ${RUTA_ESQUEMA}.`,
     };
   }
 
-  const pendientes = obtenerPendientes();
+  const pendientes = construirPendientes(clasificacion.subibles);
   const eliminacionesPendientes = listarEliminacionesNeon().length;
 
   if (!pendientes.length && !eliminacionesPendientes) {
+    const avisos = describirOmitidas(clasificacion.soloLocal, clasificacion.sinJefe, []);
+
     return {
       ok: true,
       pendientes: 0,
       procesados: 0,
       conflictos: 0,
-      mensaje: 'No hay viviendas ni eliminaciones pendientes de sincronización.',
+      fallidas: [],
+      omitidas,
+      mensaje: avisos.length
+        ? `No hay viviendas por subir. ${avisos.join('. ')}.`
+        : 'No hay viviendas ni eliminaciones pendientes de sincronización.',
     };
   }
 
@@ -368,6 +493,7 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
   });
   let procesados = 0;
   let eliminacionesProcesadas = 0;
+  const fallidas: ViviendaFallida[] = [];
 
   try {
     await cliente.connect();
@@ -379,13 +505,14 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
 
     for (let inicio = 0; inicio < pendientes.length; inicio += TAMANO_LOTE) {
       const lote = pendientes.slice(inicio, inicio + TAMANO_LOTE);
+      const resultado = await subirLote(cliente, lote);
 
-      await upsertRegistros(cliente, lote);
-
-      for (const registro of lote) {
+      for (const registro of resultado.subidas) {
         marcarViviendaSincronizada(registro.id);
       }
-      procesados += lote.length;
+
+      procesados += resultado.subidas.length;
+      fallidas.push(...resultado.fallidas);
     }
 
     const partes: string[] = [];
@@ -394,12 +521,26 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
       partes.push(`${eliminacionesProcesadas} eliminación(es) propagada(s)`);
     }
 
+    const avisos = describirOmitidas(
+      clasificacion.soloLocal,
+      clasificacion.sinJefe,
+      fallidas
+    );
+
+    const resumen = partes.length
+      ? `${partes.join(' y ')} en Neon`
+      : 'sin envíos nuevos';
+
     return {
       ok: true,
       pendientes: pendientes.length,
       procesados,
       conflictos: 0,
-      mensaje: `Sincronización completada: ${partes.join(' y ') || 'sin cambios'} en Neon.`,
+      fallidas,
+      omitidas,
+      mensaje: `Sincronización completada: ${resumen}.${
+        avisos.length ? ` ${avisos.join('. ')}.` : ''
+      }`,
     };
   } finally {
     await cliente.end().catch(() => {});

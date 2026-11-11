@@ -1054,6 +1054,103 @@ tbody tr.selected { background: #fef3f2; border-left: 3px solid var(--accent); }
 }
 
 /* ============================================================================
+   BOTONES EN BARRAS DE ACCIÓN (no deben ocupar todo el ancho)
+   ============================================================================ */
+
+.panel-head-acciones .boton,
+.grupo-acciones .boton,
+.ficha-head-acciones .boton,
+.tarjeta-acciones .boton,
+.acciones-fila .boton,
+.wizard-nav .boton,
+.dialogo-acciones .boton { width: auto; }
+
+/* ============================================================================
+   MÓVIL (refinamiento en pantallas táctiles)
+   ============================================================================ */
+
+@media (max-width: 720px) {
+  /* Barra superior: navegación deslizable en lugar de amontonada */
+  .topbar-nav {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .topbar-nav::-webkit-scrollbar { display: none; }
+  .topbar-link { padding: 9px 11px; font-size: 12.5px; }
+  /* Controles cómodos para el dedo y sin zoom automático en iOS */
+  .boton { min-height: 44px; }
+  .boton--mini { min-height: 38px; padding: 8px 12px; font-size: 12.5px; }
+  .campo input, .campo select, .campo textarea,
+  .tabla-integrantes input, .tabla-integrantes select { font-size: 16px; }
+  .panel-head-acciones { width: 100%; justify-content: flex-start; }
+  .panel-head-acciones .boton { flex: 1 1 auto; }
+  .resumen { gap: 8px 16px; font-size: 13px; }
+  .ficha-grid { grid-template-columns: minmax(0, 1fr); }
+  .ficha-bloque { padding: 14px 16px; }
+  .ficha-head-acciones { flex-wrap: wrap; }
+  .tabla-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .tarjeta-acciones { flex-wrap: wrap; }
+  .acciones-fila { width: 100%; }
+  .acciones-fila .boton { flex: 1 1 auto; }
+  .pie { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 520px) {
+  .contenedor { width: calc(100% - 16px); }
+  .pagina { padding-block: 12px 24px; }
+  .panel-head { padding: 14px 14px 12px; }
+  .panel-head h2 { font-size: 16px; }
+  .panel-head p { font-size: 12.5px; }
+  .panel-head-acciones { gap: 6px; }
+  .panel-head-acciones .boton { flex: 1 1 100%; }
+  .resumen { gap: 6px 12px; font-size: 12.5px; }
+  /* Fichas: etiqueta y valor en una sola columna, más legible */
+  .ficha-datos { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .ficha-datos dt { margin-top: 10px; }
+  .ficha-datos dt:first-of-type { margin-top: 0; }
+  .ficha-datos dd { margin-bottom: 2px; }
+  .ficha-datos--columnas { grid-template-columns: minmax(0, 1fr); }
+  .ficha-head-texto h2 { font-size: 19px; }
+  /* Diálogos tipo hoja inferior */
+  .dialogo { width: calc(100% - 16px); max-height: calc(100vh - 16px); border-radius: 14px; }
+  .dialogo-form { padding: 18px 16px; }
+  .dialogo-acciones { flex-direction: column-reverse; }
+  .dialogo-acciones .boton { width: 100%; }
+  /* Wizard: navegación pegada abajo, siempre accesible */
+  .wizard-pasos { gap: 6px; }
+  .paso { flex: 1 1 0; padding: 0.55rem 0.4rem; }
+  .paso-texto { font-size: 0.75rem; }
+  .wizard-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+    margin: 18px -8px -8px;
+    background: rgba(255, 255, 255, 0.97);
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(6px);
+  }
+  .wizard-nav .boton { flex: 1; width: auto; }
+  .tabla-integrantes th, .tabla-integrantes td { padding: 8px; }
+  .alerta { font-size: 12.5px; padding: 10px 12px; }
+  .topbar-usuario { gap: 8px; }
+  .usuario-nombre { font-size: 11.5px; }
+}
+
+@media (max-width: 380px) {
+  .brand-text p { display: none; }
+  .brand-text h1 { font-size: 14px; }
+  .panel-head-acciones { flex-direction: column; align-items: stretch; }
+  .panel-head-acciones .boton { width: 100%; }
+}
+
+/* ============================================================================
    IMPRESIÓN
    ============================================================================ */
 

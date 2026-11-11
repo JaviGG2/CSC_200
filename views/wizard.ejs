@@ -200,9 +200,10 @@
               <div class="campos-dobles">
                 <div class="campo">
                   <label for="w-j-cedula-tipo">Tipo de Cédula <span class="requerido">*</span></label>
-                  <select id="w-j-cedula-tipo" name="cedula_tipo" required>
+                  <select id="w-j-cedula-tipo" name="cedula_tipo" required data-cedula-tipo>
                     <option value="V" selected>V - Venezolano</option>
                     <option value="E">E - Extranjero</option>
+                    <option value="S">Sin cédula</option>
                   </select>
                 </div>
                 <div class="campo">
@@ -410,9 +411,10 @@
                   <div class="campo">
                     <label>Cédula</label>
                     <div class="campo-cedula">
-                      <select name="cedula_tipo">
+                      <select name="cedula_tipo" data-cedula-tipo>
                         <option value="V">V</option>
                         <option value="E">E</option>
+                        <option value="S">Sin cédula</option>
                       </select>
                       <input type="text" name="cedula_numero" placeholder="Número de cédula" maxlength="8" pattern="\d{6,8}">
                     </div>

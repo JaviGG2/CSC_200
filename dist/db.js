@@ -20,6 +20,7 @@ exports.vaciarRegistros = vaciarRegistros;
 exports.insertarVivienda = insertarVivienda;
 exports.obtenerViviendaPorId = obtenerViviendaPorId;
 exports.cambiarSincronizarNeon = cambiarSincronizarNeon;
+exports.marcarSoloLocalParaSincronizar = marcarSoloLocalParaSincronizar;
 exports.encolarEliminacionNeon = encolarEliminacionNeon;
 exports.listarEliminacionesNeon = listarEliminacionesNeon;
 exports.eliminarEliminacionNeon = eliminarEliminacionNeon;
@@ -32,6 +33,7 @@ exports.insertarJefeFamilia = insertarJefeFamilia;
 exports.obtenerJefePorVivienda = obtenerJefePorVivienda;
 exports.actualizarJefeFamilia = actualizarJefeFamilia;
 exports.insertarIntegrante = insertarIntegrante;
+exports.obtenerIntegrantePorId = obtenerIntegrantePorId;
 exports.obtenerIntegrantesPorVivienda = obtenerIntegrantesPorVivienda;
 exports.actualizarIntegrante = actualizarIntegrante;
 exports.eliminarIntegrante = eliminarIntegrante;
@@ -57,6 +59,8 @@ exports.obtenerPersonas = obtenerPersonas;
 exports.obtenerPersonaIndividual = obtenerPersonaIndividual;
 exports.contarPersonas = contarPersonas;
 exports.contarViviendas = contarViviendas;
+exports.obtenerEstadisticasViviendas = obtenerEstadisticasViviendas;
+exports.vaciarBaseDatos = vaciarBaseDatos;
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
@@ -121,8 +125,8 @@ exports.db.exec(`
   CREATE TABLE IF NOT EXISTS jefes_familia (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     vivienda_id INTEGER NOT NULL REFERENCES viviendas(id) ON DELETE CASCADE,
-    cedula_tipo TEXT NOT NULL CHECK (cedula_tipo IN ('V', 'E')),
-    cedula_numero TEXT NOT NULL,
+    cedula_tipo TEXT NOT NULL CHECK (cedula_tipo IN ('V', 'E', 'S')),
+    cedula_numero TEXT,
     nombres TEXT NOT NULL,
     apellidos TEXT NOT NULL,
     fecha_nacimiento TEXT NOT NULL,
@@ -150,7 +154,7 @@ exports.db.exec(`
     numero INTEGER NOT NULL,
     apellidos TEXT NOT NULL,
     nombres TEXT NOT NULL,
-    cedula_tipo TEXT CHECK (cedula_tipo IN ('V', 'E')),
+    cedula_tipo TEXT CHECK (cedula_tipo IN ('V', 'E', 'S')),
     cedula_numero TEXT,
     fecha_nacimiento TEXT,
     edad INTEGER,
@@ -179,6 +183,110 @@ function asegurarColumnaSincronizarNeon() {
     }
 }
 asegurarColumnaSincronizarNeon();
+// Habilita el tipo de cédula 'S' ("Sin cédula") en bases ya creadas. SQLite no
+// permite modificar un CHECK, así que hay que reconstruir las dos tablas.
+function tablaAdmiteSinCedula(nombre) {
+    const fila = exports.db
+        .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(nombre);
+    return !fila || /'S'/.test(fila.sql);
+}
+function asegurarTipoSinCedula() {
+    const faltaJefes = !tablaAdmiteSinCedula('jefes_familia');
+    const faltaIntegrantes = !tablaAdmiteSinCedula('integrantes_grupo_familiar');
+    if (!faltaJefes && !faltaIntegrantes)
+        return;
+    // La vista se recrea más abajo al cargar el módulo, pero impide reconstruir
+    // las tablas si sigue existiendo.
+    exports.db.exec('DROP VIEW IF EXISTS vista_personas_individuales');
+    exports.db.pragma('foreign_keys = OFF');
+    const migrar = exports.db.transaction(() => {
+        if (faltaJefes) {
+            exports.db.exec(`
+        CREATE TABLE jefes_familia_nueva (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          vivienda_id INTEGER NOT NULL REFERENCES viviendas(id) ON DELETE CASCADE,
+          cedula_tipo TEXT NOT NULL CHECK (cedula_tipo IN ('V', 'E', 'S')),
+          cedula_numero TEXT,
+          nombres TEXT NOT NULL,
+          apellidos TEXT NOT NULL,
+          fecha_nacimiento TEXT NOT NULL,
+          edad INTEGER,
+          sexo TEXT NOT NULL CHECK (sexo IN ('M', 'F')),
+          telefono_movil TEXT,
+          telefono_habitacion TEXT,
+          telefono_trabajo TEXT,
+          correo TEXT,
+          nivel_instruccion TEXT NOT NULL,
+          estado_civil TEXT NOT NULL,
+          profesion TEXT,
+          trabaja_actual TEXT NOT NULL CHECK (trabaja_actual IN ('Sí', 'No')),
+          clasificacion_ingresos TEXT NOT NULL,
+          frecuencia_ingresos TEXT,
+          UNIQUE(cedula_tipo, cedula_numero)
+        );
+
+        INSERT INTO jefes_familia_nueva
+          (id, vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento,
+           edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo,
+           nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos,
+           frecuencia_ingresos)
+        SELECT
+          id, vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento,
+          edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo,
+          nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos,
+          frecuencia_ingresos
+        FROM jefes_familia;
+
+        DROP TABLE jefes_familia;
+        ALTER TABLE jefes_familia_nueva RENAME TO jefes_familia;
+
+        CREATE INDEX IF NOT EXISTS idx_jefes_cedula ON jefes_familia(cedula_tipo, cedula_numero);
+        CREATE INDEX IF NOT EXISTS idx_jefes_vivienda ON jefes_familia(vivienda_id);
+      `);
+        }
+        if (faltaIntegrantes) {
+            exports.db.exec(`
+        CREATE TABLE integrantes_grupo_familiar_nueva (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          vivienda_id INTEGER NOT NULL REFERENCES viviendas(id) ON DELETE CASCADE,
+          numero INTEGER NOT NULL,
+          apellidos TEXT NOT NULL,
+          nombres TEXT NOT NULL,
+          cedula_tipo TEXT CHECK (cedula_tipo IN ('V', 'E', 'S')),
+          cedula_numero TEXT,
+          fecha_nacimiento TEXT,
+          edad INTEGER,
+          sexo TEXT CHECK (sexo IN ('M', 'F')),
+          parentesco TEXT NOT NULL,
+          nivel_instruccion TEXT,
+          profesion TEXT
+        );
+
+        INSERT INTO integrantes_grupo_familiar_nueva
+          (id, vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero,
+           fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion)
+        SELECT
+          id, vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero,
+          fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion
+        FROM integrantes_grupo_familiar;
+
+        DROP TABLE integrantes_grupo_familiar;
+        ALTER TABLE integrantes_grupo_familiar_nueva RENAME TO integrantes_grupo_familiar;
+
+        CREATE INDEX IF NOT EXISTS idx_integrantes_vivienda ON integrantes_grupo_familiar(vivienda_id);
+        CREATE INDEX IF NOT EXISTS idx_integrantes_cedula ON integrantes_grupo_familiar(cedula_tipo, cedula_numero);
+      `);
+        }
+    });
+    try {
+        migrar();
+    }
+    finally {
+        exports.db.pragma('foreign_keys = ON');
+    }
+}
+asegurarTipoSinCedula();
 // ============================================================================
 // ESQUEMA: USUARIOS, TERRITORIOS, CONFIGURACIÓN DE CAMPOS Y VISTA UNIFICADA
 // ============================================================================
@@ -289,7 +397,11 @@ exports.db.exec(`
       'jefe' AS tipo,
       j.id AS persona_id,
       j.vivienda_id AS vivienda_id,
-      (j.cedula_tipo || '-' || j.cedula_numero) AS cedula,
+      CASE
+        WHEN j.cedula_tipo IN ('V', 'E') AND j.cedula_numero IS NOT NULL AND j.cedula_numero <> ''
+          THEN j.cedula_tipo || '-' || j.cedula_numero
+        ELSE NULL
+      END AS cedula,
       j.cedula_tipo AS cedula_tipo,
       j.cedula_numero AS cedula_numero,
       j.nombres AS nombres,
@@ -313,7 +425,9 @@ exports.db.exec(`
       v.etapa AS etapa,
       v.manzana AS manzana,
       v.direccion AS direccion,
-      v.numero_casa AS numero_casa
+      v.numero_casa AS numero_casa,
+      v.sincronizado AS sincronizado,
+      v.sincronizar_neon AS sincronizar_neon
     FROM jefes_familia j
     JOIN viviendas v ON v.id = j.vivienda_id
     UNION ALL
@@ -349,7 +463,9 @@ exports.db.exec(`
       v.etapa AS etapa,
       v.manzana AS manzana,
       v.direccion AS direccion,
-      v.numero_casa AS numero_casa
+      v.numero_casa AS numero_casa,
+      v.sincronizado AS sincronizado,
+      v.sincronizar_neon AS sincronizar_neon
     FROM integrantes_grupo_familiar i
     JOIN viviendas v ON v.id = i.vivienda_id;
 `);
@@ -777,6 +893,16 @@ function cambiarSincronizarNeon(id, sincronizar_neon) {
         .run(sincronizar_neon ? 1 : 0, id);
     return resultado.changes > 0;
 }
+function marcarSoloLocalParaSincronizar() {
+    const resultado = exports.db
+        .prepare(`
+      UPDATE viviendas
+      SET sincronizar_neon = 1
+      WHERE sincronizado = 0 AND sincronizar_neon = 0
+    `)
+        .run();
+    return resultado.changes;
+}
 // Cola de eliminaciones que no se pudieron propagar a Neon en el momento.
 // Se reintentan al pulsar "Subir a Neon".
 function encolarEliminacionNeon(cedula) {
@@ -891,7 +1017,7 @@ function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apelli
         .prepare(`
       UPDATE jefes_familia
       SET cedula_tipo = COALESCE(?, cedula_tipo),
-          cedula_numero = COALESCE(?, cedula_numero),
+          cedula_numero = CASE WHEN ? = 'S' THEN NULL ELSE COALESCE(?, cedula_numero) END,
           nombres = COALESCE(?, nombres),
           apellidos = COALESCE(?, apellidos),
           fecha_nacimiento = COALESCE(?, fecha_nacimiento),
@@ -909,7 +1035,7 @@ function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apelli
           frecuencia_ingresos = COALESCE(?, frecuencia_ingresos)
       WHERE id = ?
     `)
-        .run(cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, id);
+        .run(cedula_tipo, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, id);
     return resultado.changes > 0;
 }
 function insertarIntegrante({ vivienda_id, numero, apellidos, nombres, cedula_tipo = null, cedula_numero = null, fecha_nacimiento = null, sexo = null, parentesco, nivel_instruccion = null, profesion = null, }) {
@@ -923,6 +1049,12 @@ function insertarIntegrante({ vivienda_id, numero, apellidos, nombres, cedula_ti
     `)
         .run(vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion);
     return resultado.lastInsertRowid;
+}
+function obtenerIntegrantePorId(id) {
+    const fila = exports.db
+        .prepare('SELECT * FROM integrantes_grupo_familiar WHERE id = ?')
+        .get(id);
+    return fila ? fila : null;
 }
 function obtenerIntegrantesPorVivienda(viviendaId) {
     const filas = exports.db
@@ -939,7 +1071,7 @@ function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, ced
           apellidos = COALESCE(?, apellidos),
           nombres = COALESCE(?, nombres),
           cedula_tipo = COALESCE(?, cedula_tipo),
-          cedula_numero = COALESCE(?, cedula_numero),
+          cedula_numero = CASE WHEN ? = 'S' THEN NULL ELSE COALESCE(?, cedula_numero) END,
           fecha_nacimiento = COALESCE(?, fecha_nacimiento),
           edad = COALESCE(?, edad),
           sexo = COALESCE(?, sexo),
@@ -948,7 +1080,7 @@ function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, ced
           profesion = COALESCE(?, profesion)
       WHERE id = ?
     `)
-        .run(numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, id);
+        .run(numero, apellidos, nombres, cedula_tipo, cedula_tipo, cedula_numero, fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, id);
     return resultado.changes > 0;
 }
 function eliminarIntegrante(id) {
@@ -1250,6 +1382,45 @@ function contarViviendas() {
     const { total } = exports.db.prepare('SELECT COUNT(*) AS total FROM viviendas').get();
     return total;
 }
+function obtenerEstadisticasViviendas() {
+    const fila = exports.db
+        .prepare(`
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(CASE WHEN sincronizado = 0 AND sincronizar_neon = 1 THEN 1 ELSE 0 END), 0) AS pendientes,
+        COALESCE(SUM(CASE WHEN sincronizado = 1 THEN 1 ELSE 0 END), 0) AS sincronizados,
+        COALESCE(SUM(CASE WHEN sincronizado = 0 AND sincronizar_neon = 0 THEN 1 ELSE 0 END), 0) AS solo_local
+      FROM viviendas
+    `)
+        .get();
+    return { ...fila, personas: contarPersonas() };
+}
+function reiniciarSecuencia(tabla) {
+    const resultado = exports.db
+        .prepare('UPDATE sqlite_sequence SET seq = 0 WHERE name = ?')
+        .run(tabla);
+    if (resultado.changes === 0) {
+        exports.db.prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (?, 0)').run(tabla);
+    }
+}
+// Borra todos los datos del censo conservando usuarios, territorios y configuración.
+function vaciarBaseDatos() {
+    return exports.db.transaction(() => {
+        const personas = exports.db.prepare('SELECT COUNT(*) AS total FROM jefes_familia').get().total +
+            exports.db.prepare('SELECT COUNT(*) AS total FROM integrantes_grupo_familiar').get().total;
+        const viviendas = exports.db.prepare('SELECT COUNT(*) AS total FROM viviendas').get().total;
+        exports.db.prepare('DELETE FROM integrantes_grupo_familiar').run();
+        exports.db.prepare('DELETE FROM jefes_familia').run();
+        exports.db.prepare('DELETE FROM viviendas').run();
+        exports.db.prepare('DELETE FROM registros_censo').run();
+        exports.db.prepare('DELETE FROM neon_eliminaciones').run();
+        reiniciarSecuencia('integrantes_grupo_familiar');
+        reiniciarSecuencia('jefes_familia');
+        reiniciarSecuencia('viviendas');
+        reiniciarSecuencia('registros_censo');
+        return { viviendas, personas };
+    })();
+}
 module.exports = {
     db: exports.db,
     rutaBaseDatos: exports.rutaBaseDatos,
@@ -1276,6 +1447,7 @@ module.exports = {
     actualizarVivienda,
     eliminarVivienda,
     cambiarSincronizarNeon,
+    marcarSoloLocalParaSincronizar,
     encolarEliminacionNeon,
     listarEliminacionesNeon,
     eliminarEliminacionNeon,
@@ -1285,6 +1457,7 @@ module.exports = {
     obtenerJefePorVivienda,
     actualizarJefeFamilia,
     insertarIntegrante,
+    obtenerIntegrantePorId,
     obtenerIntegrantesPorVivienda,
     actualizarIntegrante,
     eliminarIntegrante,
@@ -1310,6 +1483,8 @@ module.exports = {
     obtenerPersonaIndividual,
     contarPersonas,
     contarViviendas,
+    obtenerEstadisticasViviendas,
+    vaciarBaseDatos,
     Vivienda: null,
     JefeFamilia: null,
     IntegranteFamiliar: null,

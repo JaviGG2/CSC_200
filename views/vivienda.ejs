@@ -62,6 +62,23 @@
               <% } else { %>
                 <span class="insignia insignia--local">Solo local</span>
               <% } %>
+              <% if (jefe && !vivienda.sincronizado) { %>
+                <% if (vivienda.sincronizar_neon) { %>
+                  <button
+                    type="button"
+                    class="boton boton--mini boton--secundario"
+                    data-sincronizar-neon="0"
+                    data-vivienda="<%= vivienda.id %>"
+                  >Mantener solo local</button>
+                <% } else { %>
+                  <button
+                    type="button"
+                    class="boton boton--mini boton--secundario"
+                    data-sincronizar-neon="1"
+                    data-vivienda="<%= vivienda.id %>"
+                  >Subir a Neon</button>
+                <% } %>
+              <% } %>
             </dd>
           </dl>
         </div>
@@ -83,7 +100,7 @@
             <dl class="ficha-datos">
               <dt>Nombre</dt>
               <dd><a href="/personas/jefe/<%= jefe.id %>"><%= jefe.apellidos %>, <%= jefe.nombres %></a></dd>
-              <dt>Cédula</dt><dd><span class="cedula"><%= jefe.cedula_tipo %>-<%= jefe.cedula_numero %></span></dd>
+              <dt>Cédula</dt><dd><span class="cedula"><%= (jefe.cedula_tipo === 'V' || jefe.cedula_tipo === 'E') && jefe.cedula_numero ? jefe.cedula_tipo + '-' + jefe.cedula_numero : 'Sin cédula' %></span></dd>
               <dt>Edad</dt><dd><%= jefe.edad !== null && jefe.edad !== undefined ? jefe.edad + ' años' : '—' %></dd>
               <dt>Sexo</dt><dd><%= jefe.sexo === 'M' ? 'Masculino' : 'Femenino' %></dd>
               <dt>Estado civil</dt><dd><%= jefe.estado_civil %></dd>
@@ -131,7 +148,7 @@
                     <strong><%= i.apellidos %></strong>
                     <span><%= i.nombres %></span>
                   </td>
-                  <td><span class="cedula"><%= i.cedula_tipo && i.cedula_numero ? i.cedula_tipo + '-' + i.cedula_numero : '—' %></span></td>
+                  <td><span class="cedula"><%= (i.cedula_tipo === 'V' || i.cedula_tipo === 'E') && i.cedula_numero ? i.cedula_tipo + '-' + i.cedula_numero : 'Sin cédula' %></span></td>
                   <td><%= i.edad !== null && i.edad !== undefined ? i.edad : '—' %></td>
                   <td><%= i.sexo || '—' %></td>
                   <td><%= i.parentesco %></td>

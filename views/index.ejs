@@ -23,6 +23,7 @@
       <span><strong><%= stats.total || 0 %></strong> registros</span>
       <span><strong><%= stats.pendientes || 0 %></strong> pendientes</span>
       <span><strong><%= stats.sincronizados || 0 %></strong> sincronizados</span>
+      <span><strong><%= stats.solo_local || 0 %></strong> solo local</span>
     </div>
 
     <div class="panel" id="buscador-viviendas">
@@ -59,6 +60,13 @@
             class="boton boton--mini boton--primario"
             id="btn-sincronizar-neon"
           >Subir a Neon</button>
+          <button
+            type="button"
+            class="boton boton--mini boton--secundario"
+            id="btn-sincronizar-locales"
+            title="Marca las viviendas guardadas solo en local y las sube a Neon"
+            <%= stats.solo_local ? '' : 'disabled' %>
+          >Subir solo local (<%= stats.solo_local || 0 %>)</button>
           <button
             type="button"
             class="boton boton--mini boton--peligro"

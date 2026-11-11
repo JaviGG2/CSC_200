@@ -80,14 +80,15 @@
               <div class="campos-dobles">
                 <div class="campo">
                   <label for="cedula_tipo">Tipo de cédula</label>
-                  <select id="cedula_tipo" name="cedula_tipo">
-                    <option value="V" <%= jefe.cedula_tipo === 'V' ? 'selected' : '' %>>V</option>
-                    <option value="E" <%= jefe.cedula_tipo === 'E' ? 'selected' : '' %>>E</option>
+                  <select id="cedula_tipo" name="cedula_tipo" data-cedula-tipo>
+                    <option value="V" <%= jefe.cedula_tipo === 'V' ? 'selected' : '' %>>V - Venezolano</option>
+                    <option value="E" <%= jefe.cedula_tipo === 'E' ? 'selected' : '' %>>E - Extranjero</option>
+                    <option value="S" <%= jefe.cedula_tipo === 'S' ? 'selected' : '' %>>Sin cédula</option>
                   </select>
                 </div>
                 <div class="campo">
                   <label for="cedula_numero">Número de cédula</label>
-                  <input type="text" id="cedula_numero" name="cedula_numero" value="<%= jefe.cedula_numero %>" required>
+                  <input type="text" id="cedula_numero" name="cedula_numero" value="<%= jefe.cedula_numero || '' %>" <%= jefe.cedula_tipo === 'S' ? '' : 'required' %>>
                 </div>
               </div>
 
@@ -204,5 +205,20 @@
   <footer class="pie">
     <div class="contenedor">Comuna Socialista Carabobo 200 · Editar vivienda</div>
   </footer>
+
+  <script>
+    // Al elegir «Sin cédula» el número deja de ser obligatorio.
+    document.addEventListener('change', (evento) => {
+      const select = evento.target.closest('[data-cedula-tipo]');
+      if (!select) return;
+      const campo = select.closest('.campos-dobles') || select.closest('.campo');
+      const numero = campo && campo.querySelector('input[name="cedula_numero"]');
+      if (!numero) return;
+      const sinCedula = select.value === 'S';
+      numero.required = !sinCedula;
+      numero.disabled = sinCedula;
+      if (sinCedula) numero.value = '';
+    });
+  </script>
 </body>
 </html>

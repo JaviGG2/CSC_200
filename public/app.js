@@ -12,6 +12,10 @@
     if (elementoFoco) elementoFoco.focus();
   };
 
+  // "Sin cédula" se muestra como texto: no todas las personas tienen cédula.
+  const textoCedula = (tipo, numero) =>
+    (tipo === 'V' || tipo === 'E') && numero ? `${tipo}-${numero}` : 'Sin cédula';
+
   const configurarTipoCampo = (tipo, bloqueOpciones, campoOpciones) => {
     if (!tipo || !bloqueOpciones || !campoOpciones) return;
 
@@ -210,9 +214,7 @@
     const jefeTexto = tieneJefe
       ? `${v.jefe_apellidos || ''}, ${v.jefe_nombres || ''}`.replace(/^, |, $/g, '')
       : 'Sin jefe registrado';
-    const jefeCedula = v.jefe_cedula || (v.cedula_tipo && v.cedula_numero
-      ? `${v.cedula_tipo}-${v.cedula_numero}`
-      : '—');
+    const jefeCedula = v.jefe_cedula || textoCedula(v.cedula_tipo, v.cedula_numero);
     const etapaManzana = `${v.etapa || 'Sin etapa'} / ${v.manzana || 'Sin manzana'}`;
 
     let estadoRegistro = { texto: 'Solo local', clase: 'insignia--local' };
@@ -317,7 +319,7 @@
     const tipoBadge = p.tipo === 'Jefe de Familia'
       ? '<span class="tipo-badge tipo-badge--jefe">Jefe</span>'
       : '<span class="tipo-badge tipo-badge--integrante">Integrante</span>';
-    const cedulaCompleta = `${p.cedula_tipo || ''}-${p.cedula_numero || ''}`.replace('-$', '-');
+    const cedulaCompleta = textoCedula(p.cedula_tipo, p.cedula_numero);
     const etapaManzana = `${p.etapa || '—'} / ${p.manzana || '—'}`;
     const sincronizadoNeon = p.sincronizar_neon !== false;
 
@@ -408,6 +410,65 @@
     });
   }
 
+  const btnSincronizarLocales = document.getElementById('btn-sincronizar-locales');
+
+  if (btnSincronizarLocales) {
+    btnSincronizarLocales.addEventListener('click', async () => {
+      const textoOriginal = btnSincronizarLocales.textContent;
+      btnSincronizarLocales.disabled = true;
+      btnSincronizarLocales.textContent = 'Subiendo...';
+
+      try {
+        const respuesta = await fetch('/api/sincronizar-locales', { method: 'POST' });
+        const datos = await respuesta.json();
+
+        if (respuesta.ok && datos.ok) {
+          window.location.href = `/?ok=${encodeURIComponent(
+            datos.mensaje || 'Viviendas solo local subidas a Neon.'
+          )}#viviendas-dashboard`;
+          return;
+        }
+
+        notificar(datos.mensaje || datos.error || 'No se pudieron subir las viviendas solo local.');
+      } catch (error) {
+        notificar('Error de conexión al subir las viviendas solo local.');
+      } finally {
+        btnSincronizarLocales.disabled = false;
+        btnSincronizarLocales.textContent = textoOriginal;
+      }
+    });
+  }
+
+  // Cambia si una vivienda se sube a Neon o se mantiene solo en local.
+  document.addEventListener('click', async (evento) => {
+    const boton = evento.target.closest('[data-sincronizar-neon]');
+    if (!boton) return;
+
+    const activar = boton.dataset.sincronizarNeon === '1';
+    const viviendaId = boton.dataset.vivienda;
+    boton.disabled = true;
+
+    try {
+      const respuesta = await fetch(`/api/viviendas/${viviendaId}/sincronizar-neon`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sincronizar_neon: activar }),
+      });
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok || !datos.ok) {
+        throw new Error(datos.error || 'No se pudo actualizar la sincronización.');
+      }
+
+      window.location.href = `/viviendas/${viviendaId}?ok=${encodeURIComponent(
+        datos.mensaje || 'Sincronización actualizada.'
+      )}`;
+    } catch (error) {
+      notificar(error.message || 'No se pudo actualizar la sincronización.');
+      boton.disabled = false;
+    }
+  });
+
   // Búsqueda de personas
   if (inputBuscadorPersonas) {
     let timeoutBusqueda;
@@ -466,7 +527,7 @@
             <strong>${v.jefe_apellidos || '—'}</strong>
             <span>${v.jefe_nombres || '—'}</span>
           </td>
-          <td class="cedula">${v.cedula_tipo || ''}-${v.cedula_numero || ''}</td>
+          <td class="cedula">${textoCedula(v.cedula_tipo, v.cedula_numero)}</td>
           <td>
             <a href="/api/viviendas/${v.id}" class="boton boton--mini boton--secundario" target="_blank">Ver JSON</a>
           </td>

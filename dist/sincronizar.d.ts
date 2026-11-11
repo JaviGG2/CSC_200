@@ -1,8 +1,17 @@
+export type ViviendaFallida = {
+    id: number;
+    motivo: string;
+};
 export type ResultadoSincronizacion = {
     ok: boolean;
     pendientes: number;
     procesados: number;
     conflictos: number;
+    fallidas: ViviendaFallida[];
+    omitidas: {
+        soloLocal: number[];
+        sinJefe: number[];
+    };
     mensaje: string;
 };
 export type ResultadoNeon = {

@@ -16,11 +16,12 @@ export type Vivienda = {
     sincronizado_en: string | null;
     sincronizar_neon: boolean;
 };
+export type CedulaTipo = 'V' | 'E' | 'S';
 export type JefeFamilia = {
     id: number;
     vivienda_id: number;
-    cedula_tipo: 'V' | 'E';
-    cedula_numero: string;
+    cedula_tipo: CedulaTipo;
+    cedula_numero: string | null;
     nombres: string;
     apellidos: string;
     fecha_nacimiento: string;
@@ -43,7 +44,7 @@ export type IntegranteFamiliar = {
     numero: number;
     apellidos: string;
     nombres: string;
-    cedula_tipo: 'V' | 'E' | null;
+    cedula_tipo: CedulaTipo | null;
     cedula_numero: string | null;
     fecha_nacimiento: string | null;
     edad: number | null;
@@ -134,6 +135,8 @@ export type PersonaIndividual = {
     manzana: string | null;
     direccion: string;
     numero_casa: string | null;
+    sincronizado: number;
+    sincronizar_neon: number;
 };
 export declare const CLAVES_RESERVADAS: string[];
 export declare const TIPOS_CAMPO: string[];
@@ -181,6 +184,7 @@ export declare function insertarVivienda({ estado, municipio, parroquia, comunid
 }): number;
 export declare function obtenerViviendaPorId(id: number): Vivienda | null;
 export declare function cambiarSincronizarNeon(id: number, sincronizar_neon: boolean): boolean;
+export declare function marcarSoloLocalParaSincronizar(): number;
 export type EliminacionNeon = {
     id: number;
     cedula: string;
@@ -213,8 +217,8 @@ export declare function actualizarVivienda({ id, estado, municipio, parroquia, c
 export declare function eliminarVivienda(id: number): boolean;
 export declare function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, }: {
     vivienda_id: number;
-    cedula_tipo: 'V' | 'E';
-    cedula_numero: string;
+    cedula_tipo: CedulaTipo;
+    cedula_numero: string | null;
     nombres: string;
     apellidos: string;
     fecha_nacimiento: string;
@@ -233,8 +237,8 @@ export declare function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_n
 export declare function obtenerJefePorVivienda(viviendaId: number): JefeFamilia | null;
 export declare function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, }: {
     id: number;
-    cedula_tipo?: 'V' | 'E';
-    cedula_numero?: string;
+    cedula_tipo?: CedulaTipo;
+    cedula_numero?: string | null;
     nombres?: string;
     apellidos?: string;
     fecha_nacimiento?: string;
@@ -255,7 +259,7 @@ export declare function insertarIntegrante({ vivienda_id, numero, apellidos, nom
     numero: number;
     apellidos: string;
     nombres: string;
-    cedula_tipo?: 'V' | 'E' | null;
+    cedula_tipo?: CedulaTipo | null;
     cedula_numero?: string | null;
     fecha_nacimiento?: string | null;
     sexo?: 'M' | 'F' | null;
@@ -263,13 +267,14 @@ export declare function insertarIntegrante({ vivienda_id, numero, apellidos, nom
     nivel_instruccion?: string | null;
     profesion?: string | null;
 }): number;
+export declare function obtenerIntegrantePorId(id: number): IntegranteFamiliar | null;
 export declare function obtenerIntegrantesPorVivienda(viviendaId: number): IntegranteFamiliar[];
 export declare function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion, }: {
     id: number;
     numero?: number;
     apellidos?: string;
     nombres?: string;
-    cedula_tipo?: 'V' | 'E' | null;
+    cedula_tipo?: CedulaTipo | null;
     cedula_numero?: string | null;
     fecha_nacimiento?: string | null;
     sexo?: 'M' | 'F' | null;
@@ -360,4 +365,15 @@ export declare function obtenerPersonas(filtros?: {
 export declare function obtenerPersonaIndividual(tipo: string, id: number): PersonaIndividual | null;
 export declare function contarPersonas(): number;
 export declare function contarViviendas(): number;
+export declare function obtenerEstadisticasViviendas(): {
+    total: number;
+    pendientes: number;
+    sincronizados: number;
+    solo_local: number;
+    personas: number;
+};
+export declare function vaciarBaseDatos(): {
+    viviendas: number;
+    personas: number;
+};
 //# sourceMappingURL=db.d.ts.map

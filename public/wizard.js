@@ -108,9 +108,35 @@
   };
 
   const validarFormatoCedula = (tipo, numero) => {
+    if (!tipo || !numero) return true;
+    if (tipo.value === 'S') return true;
     const completo = `${tipo.value}-${numero.value.trim()}`;
     return /^[VE]-\d{6,8}$/.test(completo);
   };
+
+  // «Sin cédula» desactiva el número y lo saca de los campos obligatorios.
+  const aplicarTipoCedula = (select) => {
+    const contenedor = select.closest('.campos-dobles') || select.closest('.campo-cedula') || select.closest('.campo');
+    const numero = contenedor && contenedor.querySelector('input[name="cedula_numero"]');
+    if (!numero) return;
+
+    const sinCedula = select.value === 'S';
+    numero.disabled = sinCedula;
+    numero.required = !sinCedula;
+    numero.placeholder = sinCedula ? 'No aplica' : 'Número de cédula';
+    if (sinCedula) numero.value = '';
+  };
+
+  const iniciarTipoCedula = () => {
+    document.querySelectorAll('[data-cedula-tipo]').forEach(aplicarTipoCedula);
+
+    document.addEventListener('change', (evento) => {
+      const select = evento.target.closest('[data-cedula-tipo]');
+      if (select) aplicarTipoCedula(select);
+    });
+  };
+
+  iniciarTipoCedula();
 
   const mostrarPaso = (numero) => {
     paginas.forEach((pagina) => {
