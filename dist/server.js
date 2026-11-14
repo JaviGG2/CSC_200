@@ -2409,6 +2409,121 @@ app.get('/api/export/viviendas.csv', (req, res) => {
             .map((fila) => fila.map(escaparCsv).join(';'))
             .join('\r\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    // Importar datos desde CSV
+    app.post('/api/import/csv', (req, res, next) => {
+        try {
+            if (!req.body.archivo || req.body.archivo.length === 0) {
+                return res.status(400).json({ error: 'No se proporcionó un archivo CSV.' });
+            }
+            const csvContent = req.body.archivo;
+            const lineas = csvContent.split(/\r?\n/);
+            // Parsear encabezados de la primera línea
+            const encabezados = lineas[0].split(';').map((h) => h.trim());
+            // Índices de las columnas importantes (basado en el formato de exportación)
+            const idxEstado = encabezados.indexOf('Estado');
+            const idxMunicipio = encabezados.indexOf('Municipio');
+            const idxParroquia = encabezados.indexOf('Parroquia');
+            const idxComunidad = encabezados.indexOf('Comunidad');
+            const idxEtapa = encabezados.indexOf('Etapa');
+            const idxManzana = encabezados.indexOf('Manzana');
+            const idxDireccion = encabezados.indexOf('Dirección');
+            const idxNumeroCasa = encabezados.indexOf('Número Casa');
+            const idxJefeCedula = encabezados.indexOf('Jefe Cédula');
+            const idxJefeNombres = encabezados.indexOf('Jefe Nombres');
+            const idxJefeApellidos = encabezados.indexOf('Jefe Apellidos');
+            const idxFechaRegistro = encabezados.indexOf('Fecha Registro');
+            if (idxComunidad === -1 || idxEstado === -1) {
+                return res.status(400).json({ error: 'Formato CSV inválido: faltan columnas obligatorias.' });
+            }
+            const inserted = [];
+            const errors = [];
+            // Procesar cada fila a partir de la segunda línea
+            for (let i = 1; i < lineas.length; i++) {
+                if (!lineas[i].trim())
+                    continue;
+                const valores = lineas[i].split(';').map((v) => v.trim());
+                try {
+                    // Crear datos de vivienda
+                    const datosVivienda = {
+                        estado: idxEstado >= 0 ? valores[idxEstado] || 'FALCÓN' : 'FALCÓN',
+                        municipio: idxMunicipio >= 0 ? valores[idxMunicipio] || 'MIRANDA' : 'MIRANDA',
+                        parroquia: idxParroquia >= 0 ? valores[idxParroquia] || 'SAN ANTONIO' : 'SAN ANTONIO',
+                        comunidad: idxComunidad >= 0 ? valores[idxComunidad] || '' : '',
+                        etapa: idxEtapa >= 0 ? valores[idxEtapa] || null : null,
+                        manzana: idxManzana >= 0 ? valores[idxManzana] || null : null,
+                        direccion: idxDireccion >= 0 ? valores[idxDireccion] || '' : '',
+                        numero_casa: idxNumeroCasa >= 0 ? valores[idxNumeroCasa] || null : null,
+                        consejo_comunal_id: null,
+                        es_anexo: false,
+                        numero_anexo: null,
+                        vivienda_principal_id: null,
+                        sincronizar_neon: true,
+                    };
+                    const viviendaId = insertarVivienda(datosVivienda);
+                    // Crear datos de jefe de familia si hay cédula
+                    if (idxJefeCedula >= 0 && idxJefeNombres >= 0 && idxJefeApellidos >= 0) {
+                        const cedulaRaw = idxJefeCedula >= 0 ? valores[idxJefeCedula] || '' : '';
+                        const [cedulaTipoRaw, cedulaNumeroRaw] = cedulaRaw.split('-').filter(Boolean);
+                        const cedulaTipo = cedulaTipoRaw ? (cedulaTipoRaw === 'V' || cedulaTipoRaw === 'E' || cedulaTipoRaw === 'S' ? cedulaTipoRaw : 'V') : 'V';
+                        const cedulaNumero = cedulaNumeroRaw || null;
+                        const fechaValida = normalizarFecha(idxFechaRegistro >= 0 ? valores[idxFechaRegistro] || '' : '');
+                        if (fechaValida === false) {
+                            throw new Error('Fecha de nacimiento inválida en fila ' + (i + 1));
+                        }
+                        const trabajaActual = valores[idxJefeNombres] && /^s[ií]$/i.test(String(valores[idxJefeNombres]))
+                            ? 'Sí'
+                            : 'No';
+                        const jefeData = {
+                            cedula_tipo: cedulaTipo,
+                            cedula_numero: cedulaNumero,
+                            nombres: idxJefeNombres >= 0 ? valores[idxJefeNombres] || '' : '',
+                            apellidos: idxJefeApellidos >= 0 ? valores[idxJefeApellidos] || '' : '',
+                            fecha_nacimiento: idxFechaRegistro >= 0 ? valores[idxFechaRegistro] || '' : '',
+                            sexo: 'F',
+                            telefono_movil: null,
+                            telefono_habitacion: null,
+                            telefono_trabajo: null,
+                            correo: null,
+                            nivel_instruccion: null,
+                            estado_civil: null,
+                            profesion: null,
+                            trabaja_actual: trabajaActual,
+                            clasificacion_ingresos: null,
+                            frecuencia_ingresos: null,
+                            ingreso_mensual_bs: null,
+                        };
+                        const jefeId = insertarJefeFamilia({
+                            vivienda_id: viviendaId,
+                            ...jefeData,
+                        });
+                    }
+                    inserted.push(viviendaId);
+                }
+                catch (error) {
+                    errors.push(`Fila ${i + 1}: ${error.message}`);
+                }
+            }
+            const mensaje = inserted.length > 0
+                ? `Se importaron ${inserted.length} vivienda${inserted.length === 1 ? '' : 's'}.${errors.length > 0 ? ' Errores: ' + errors.join('; ') : ''}`
+                : 'No se importaron viviendas.';
+            return res.json({
+                ok: inserted.length > 0,
+                insertados: inserted.length,
+                errores: errors,
+                mensaje,
+            });
+        }
+        catch (error) {
+            console.error('[import-csv]', error);
+            return res.status(500).json({
+                ok: false,
+                error: error?.message || 'Error al importar el CSV.',
+            });
+        }
+    });
+    // ============================================================================
+    // PANEL DE ADMINISTRACIÓN
+    // ============================================================================
     res.setHeader('Content-Disposition', 'attachment; filename="padron-viviendas.csv"');
     return res.send(contenido);
 });
