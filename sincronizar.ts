@@ -10,6 +10,7 @@ import {
   eliminarEliminacionNeon,
   marcarViviendaSincronizada,
 } from './db';
+import { aplicarEsquemaNeon, guardarViviendaConCliente } from './neon';
 
 dotenv.config({ quiet: true });
 
@@ -271,6 +272,9 @@ async function upsertRegistros(
   await cliente.query('BEGIN');
   try {
     const resultado = await cliente.query(texto, valores);
+    for (const registro of registros) {
+      await guardarViviendaConCliente(cliente, registro.id);
+    }
     await cliente.query('COMMIT');
     return resultado.rowCount ?? registros.length;
   } catch (error) {
@@ -498,8 +502,7 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
   try {
     await cliente.connect();
 
-    const esquema = fs.readFileSync(RUTA_ESQUEMA, 'utf8');
-    await cliente.query(esquema);
+    await aplicarEsquemaNeon(cliente);
 
     eliminacionesProcesadas = await procesarEliminacionesNeon(cliente);
 

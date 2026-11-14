@@ -40,6 +40,10 @@ exports.eliminarIntegrante = eliminarIntegrante;
 exports.eliminarJefeFamilia = eliminarJefeFamilia;
 exports.obtenerExpedienteVivienda = obtenerExpedienteVivienda;
 exports.crearViviendaCompleta = crearViviendaCompleta;
+exports.listarConsejosComunales = listarConsejosComunales;
+exports.obtenerConsejoComunalPorId = obtenerConsejoComunalPorId;
+exports.crearConsejoComunal = crearConsejoComunal;
+exports.buscarViviendasPrincipales = buscarViviendasPrincipales;
 exports.listarUsuarios = listarUsuarios;
 exports.obtenerUsuarioPorId = obtenerUsuarioPorId;
 exports.obtenerUsuarioPorUsuario = obtenerUsuarioPorUsuario;
@@ -101,6 +105,17 @@ exports.db.exec(`
     activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1))
   );
 
+  CREATE TABLE IF NOT EXISTS consejos_comunales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    sector TEXT,
+    activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_consejos_nombre
+    ON consejos_comunales (nombre COLLATE NOCASE);
+
   CREATE TABLE IF NOT EXISTS viviendas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     estado TEXT NOT NULL DEFAULT 'FALCÓN',
@@ -111,6 +126,10 @@ exports.db.exec(`
     manzana TEXT,
     direccion TEXT NOT NULL,
     numero_casa TEXT,
+    consejo_comunal_id INTEGER REFERENCES consejos_comunales(id) ON DELETE SET NULL,
+    es_anexo INTEGER NOT NULL DEFAULT 0 CHECK (es_anexo IN (0, 1)),
+    numero_anexo TEXT,
+    vivienda_principal_id INTEGER REFERENCES viviendas(id) ON DELETE SET NULL,
     fecha_registro TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     sincronizado INTEGER NOT NULL DEFAULT 0 CHECK (sincronizado IN (0, 1)),
     sincronizado_en TEXT,
@@ -142,6 +161,7 @@ exports.db.exec(`
     trabaja_actual TEXT NOT NULL CHECK (trabaja_actual IN ('Sí', 'No')),
     clasificacion_ingresos TEXT NOT NULL,
     frecuencia_ingresos TEXT,
+    ingreso_mensual_bs REAL,
     UNIQUE(cedula_tipo, cedula_numero)
   );
 
@@ -161,7 +181,8 @@ exports.db.exec(`
     sexo TEXT CHECK (sexo IN ('M', 'F')),
     parentesco TEXT NOT NULL,
     nivel_instruccion TEXT,
-    profesion TEXT
+    profesion TEXT,
+    ingreso_mensual REAL
   );
 
   CREATE INDEX IF NOT EXISTS idx_integrantes_vivienda ON integrantes_grupo_familiar(vivienda_id);
@@ -183,6 +204,31 @@ function asegurarColumnaSincronizarNeon() {
     }
 }
 asegurarColumnaSincronizarNeon();
+// Agrega a bases ya existentes las columnas de consejo comunal, anexos e
+// ingresos que usan el escaneo inteligente y el formulario de vivienda.
+function asegurarColumnasNuevas() {
+    const columnasDe = (tabla) => exports.db.prepare(`PRAGMA table_info(${tabla})`).all().map((columna) => columna.name);
+    const viviendas = columnasDe('viviendas');
+    if (!viviendas.includes('consejo_comunal_id')) {
+        exports.db.exec('ALTER TABLE viviendas ADD COLUMN consejo_comunal_id INTEGER REFERENCES consejos_comunales(id) ON DELETE SET NULL');
+    }
+    if (!viviendas.includes('es_anexo')) {
+        exports.db.exec('ALTER TABLE viviendas ADD COLUMN es_anexo INTEGER NOT NULL DEFAULT 0 CHECK (es_anexo IN (0, 1))');
+    }
+    if (!viviendas.includes('numero_anexo')) {
+        exports.db.exec('ALTER TABLE viviendas ADD COLUMN numero_anexo TEXT');
+    }
+    if (!viviendas.includes('vivienda_principal_id')) {
+        exports.db.exec('ALTER TABLE viviendas ADD COLUMN vivienda_principal_id INTEGER REFERENCES viviendas(id) ON DELETE SET NULL');
+    }
+    if (!columnasDe('jefes_familia').includes('ingreso_mensual_bs')) {
+        exports.db.exec('ALTER TABLE jefes_familia ADD COLUMN ingreso_mensual_bs REAL');
+    }
+    if (!columnasDe('integrantes_grupo_familiar').includes('ingreso_mensual')) {
+        exports.db.exec('ALTER TABLE integrantes_grupo_familiar ADD COLUMN ingreso_mensual REAL');
+    }
+}
+asegurarColumnasNuevas();
 // Habilita el tipo de cédula 'S' ("Sin cédula") en bases ya creadas. SQLite no
 // permite modificar un CHECK, así que hay que reconstruir las dos tablas.
 function tablaAdmiteSinCedula(nombre) {
@@ -223,6 +269,7 @@ function asegurarTipoSinCedula() {
           trabaja_actual TEXT NOT NULL CHECK (trabaja_actual IN ('Sí', 'No')),
           clasificacion_ingresos TEXT NOT NULL,
           frecuencia_ingresos TEXT,
+          ingreso_mensual_bs REAL,
           UNIQUE(cedula_tipo, cedula_numero)
         );
 
@@ -230,12 +277,12 @@ function asegurarTipoSinCedula() {
           (id, vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento,
            edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo,
            nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos,
-           frecuencia_ingresos)
+           frecuencia_ingresos, ingreso_mensual_bs)
         SELECT
           id, vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento,
           edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo,
           nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos,
-          frecuencia_ingresos
+          frecuencia_ingresos, ingreso_mensual_bs
         FROM jefes_familia;
 
         DROP TABLE jefes_familia;
@@ -260,15 +307,16 @@ function asegurarTipoSinCedula() {
           sexo TEXT CHECK (sexo IN ('M', 'F')),
           parentesco TEXT NOT NULL,
           nivel_instruccion TEXT,
-          profesion TEXT
+          profesion TEXT,
+          ingreso_mensual REAL
         );
 
         INSERT INTO integrantes_grupo_familiar_nueva
           (id, vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero,
-           fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion)
+           fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual)
         SELECT
           id, vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero,
-          fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion
+          fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual
         FROM integrantes_grupo_familiar;
 
         DROP TABLE integrantes_grupo_familiar;
@@ -377,6 +425,19 @@ function sembrarTerritoriosIniciales() {
     })();
 }
 sembrarTerritoriosIniciales();
+function sembrarConsejosComunales() {
+    exports.db.prepare(`
+    INSERT OR IGNORE INTO consejos_comunales (nombre)
+    SELECT DISTINCT nombre FROM territorios
+    WHERE tipo = 'comunidad' AND TRIM(nombre) <> ''
+  `).run();
+    exports.db.prepare(`
+    INSERT OR IGNORE INTO consejos_comunales (nombre)
+    SELECT DISTINCT comunidad FROM viviendas
+    WHERE comunidad IS NOT NULL AND TRIM(comunidad) <> ''
+  `).run();
+}
+sembrarConsejosComunales();
 function sembrarAdminInicial() {
     const { total } = exports.db.prepare('SELECT COUNT(*) AS total FROM usuarios').get();
     if (total > 0)
@@ -867,14 +928,15 @@ function eliminarRegistro(id) {
 function vaciarRegistros() {
     return vaciarRegistrosTransaccion();
 }
-function insertarVivienda({ estado = 'FALCÓN', municipio = 'MIRANDA', parroquia = 'SAN ANTONIO', comunidad, etapa = null, manzana = null, direccion, numero_casa = null, sincronizar_neon = true, }) {
+function insertarVivienda({ estado = 'FALCÓN', municipio = 'MIRANDA', parroquia = 'SAN ANTONIO', comunidad, etapa = null, manzana = null, direccion, numero_casa = null, consejo_comunal_id = null, es_anexo = false, numero_anexo = null, vivienda_principal_id = null, sincronizar_neon = true, }) {
     const resultado = exports.db
         .prepare(`
       INSERT INTO viviendas
-        (estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, sincronizar_neon)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa,
+         consejo_comunal_id, es_anexo, numero_anexo, vivienda_principal_id, sincronizar_neon)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-        .run(estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, sincronizar_neon ? 1 : 0);
+        .run(estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo ? 1 : 0, numero_anexo, vivienda_principal_id, sincronizar_neon ? 1 : 0);
     return resultado.lastInsertRowid;
 }
 function obtenerViviendaPorId(id) {
@@ -962,7 +1024,7 @@ function obtenerViviendas({ q = '', page = 1, limit = 20, }) {
         total: totalFila.total,
     };
 }
-function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, sincronizar_neon, }) {
+function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo, numero_anexo, vivienda_principal_id, sincronizar_neon, }) {
     const resultado = exports.db
         .prepare(`
       UPDATE viviendas
@@ -974,12 +1036,16 @@ function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa
           manzana = COALESCE(?, manzana),
           direccion = COALESCE(?, direccion),
           numero_casa = COALESCE(?, numero_casa),
+          consejo_comunal_id = COALESCE(?, consejo_comunal_id),
+          es_anexo = COALESCE(?, es_anexo),
+          numero_anexo = COALESCE(?, numero_anexo),
+          vivienda_principal_id = COALESCE(?, vivienda_principal_id),
           sincronizar_neon = COALESCE(?, sincronizar_neon),
           sincronizado = 0,
           sincronizado_en = NULL
       WHERE id = ?
     `)
-        .run(estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, sincronizar_neon, id);
+        .run(estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo === undefined ? null : es_anexo ? 1 : 0, numero_anexo, vivienda_principal_id, sincronizar_neon === undefined ? null : sincronizar_neon ? 1 : 0, id);
     return resultado.changes > 0;
 }
 const eliminarViviendaTransaccion = exports.db.transaction((id) => {
@@ -990,17 +1056,17 @@ const eliminarViviendaTransaccion = exports.db.transaction((id) => {
 function eliminarVivienda(id) {
     return eliminarViviendaTransaccion(id);
 }
-function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil = null, telefono_habitacion = null, telefono_trabajo = null, correo = null, nivel_instruccion, estado_civil, profesion = null, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos = null, }) {
+function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil = null, telefono_habitacion = null, telefono_trabajo = null, correo = null, nivel_instruccion, estado_civil, profesion = null, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos = null, ingreso_mensual_bs = null, }) {
     const edad = calcularEdad(fecha_nacimiento);
     const resultado = exports.db
         .prepare(`
       INSERT INTO jefes_familia
         (vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo,
          telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil,
-         profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-        .run(vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos);
+        .run(vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs);
     return resultado.lastInsertRowid;
 }
 function obtenerJefePorVivienda(viviendaId) {
@@ -1009,7 +1075,7 @@ function obtenerJefePorVivienda(viviendaId) {
         .get(viviendaId);
     return fila ? fila : null;
 }
-function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, }) {
+function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs, }) {
     const jefe = obtenerJefePorVivienda(0);
     const fecha = fecha_nacimiento ?? (jefe ? '' : '');
     const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : undefined;
@@ -1032,22 +1098,23 @@ function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apelli
           profesion = COALESCE(?, profesion),
           trabaja_actual = COALESCE(?, trabaja_actual),
           clasificacion_ingresos = COALESCE(?, clasificacion_ingresos),
-          frecuencia_ingresos = COALESCE(?, frecuencia_ingresos)
+          frecuencia_ingresos = COALESCE(?, frecuencia_ingresos),
+          ingreso_mensual_bs = COALESCE(?, ingreso_mensual_bs)
       WHERE id = ?
     `)
-        .run(cedula_tipo, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, id);
+        .run(cedula_tipo, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs, id);
     return resultado.changes > 0;
 }
-function insertarIntegrante({ vivienda_id, numero, apellidos, nombres, cedula_tipo = null, cedula_numero = null, fecha_nacimiento = null, sexo = null, parentesco, nivel_instruccion = null, profesion = null, }) {
+function insertarIntegrante({ vivienda_id, numero, apellidos, nombres, cedula_tipo = null, cedula_numero = null, fecha_nacimiento = null, sexo = null, parentesco, nivel_instruccion = null, profesion = null, ingreso_mensual = null, }) {
     const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null;
     const resultado = exports.db
         .prepare(`
       INSERT INTO integrantes_grupo_familiar
         (vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero,
-         fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-        .run(vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion);
+        .run(vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual);
     return resultado.lastInsertRowid;
 }
 function obtenerIntegrantePorId(id) {
@@ -1062,7 +1129,7 @@ function obtenerIntegrantesPorVivienda(viviendaId) {
         .all(viviendaId);
     return filas;
 }
-function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion, }) {
+function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual, }) {
     const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : undefined;
     const resultado = exports.db
         .prepare(`
@@ -1077,10 +1144,11 @@ function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, ced
           sexo = COALESCE(?, sexo),
           parentesco = COALESCE(?, parentesco),
           nivel_instruccion = COALESCE(?, nivel_instruccion),
-          profesion = COALESCE(?, profesion)
+          profesion = COALESCE(?, profesion),
+          ingreso_mensual = COALESCE(?, ingreso_mensual)
       WHERE id = ?
     `)
-        .run(numero, apellidos, nombres, cedula_tipo, cedula_tipo, cedula_numero, fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, id);
+        .run(numero, apellidos, nombres, cedula_tipo, cedula_tipo, cedula_numero, fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual, id);
     return resultado.changes > 0;
 }
 function eliminarIntegrante(id) {
@@ -1110,6 +1178,90 @@ function crearViviendaCompleta({ vivienda, jefe, integrantes, }) {
         }
         return { viviendaId, jefeId, integrantesIds };
     })();
+}
+// ============================================================================
+// CONSEJOS COMUNALES Y BÚSQUEDA DE VIVIENDA PRINCIPAL
+// ============================================================================
+function listarConsejosComunales({ soloActivos = true } = {}) {
+    const filtro = soloActivos ? 'WHERE activo = 1' : '';
+    const filas = exports.db
+        .prepare(`
+      SELECT * FROM consejos_comunales
+      ${filtro}
+      ORDER BY nombre COLLATE NOCASE
+    `)
+        .all();
+    return filas.map((fila) => ({
+        id: fila.id,
+        nombre: fila.nombre,
+        sector: fila.sector ?? null,
+        activo: Boolean(fila.activo),
+    }));
+}
+function obtenerConsejoComunalPorId(id) {
+    const fila = exports.db
+        .prepare('SELECT * FROM consejos_comunales WHERE id = ?')
+        .get(id);
+    if (!fila)
+        return null;
+    return {
+        id: fila.id,
+        nombre: fila.nombre,
+        sector: fila.sector ?? null,
+        activo: Boolean(fila.activo),
+    };
+}
+function crearConsejoComunal({ nombre, sector = null, activo = true, }) {
+    const resultado = exports.db
+        .prepare(`
+      INSERT OR IGNORE INTO consejos_comunales (nombre, sector, activo)
+      VALUES (?, ?, ?)
+    `)
+        .run(nombre, sector, activo ? 1 : 0);
+    if (resultado.changes === 0) {
+        exports.db.prepare(`
+      UPDATE consejos_comunales
+      SET sector = COALESCE(?, sector), activo = ?
+      WHERE nombre = ? COLLATE NOCASE
+    `).run(sector, activo ? 1 : 0, nombre);
+        const fila = exports.db
+            .prepare('SELECT id FROM consejos_comunales WHERE nombre = ? COLLATE NOCASE')
+            .get(nombre);
+        return fila ? fila.id : 0;
+    }
+    return Number(resultado.lastInsertRowid);
+}
+function buscarViviendasPrincipales(q, limite = 15) {
+    const like = `%${q.trim()}%`;
+    const filas = exports.db
+        .prepare(`
+      SELECT v.id, v.direccion, v.numero_casa, v.comunidad, v.etapa, v.manzana,
+             j.nombres AS jefe_nombres, j.apellidos AS jefe_apellidos,
+             j.cedula_tipo, j.cedula_numero
+      FROM viviendas v
+      LEFT JOIN jefes_familia j ON j.vivienda_id = v.id
+      WHERE COALESCE(v.es_anexo, 0) = 0
+        AND (
+          v.direccion LIKE ? OR v.numero_casa LIKE ? OR v.comunidad LIKE ?
+          OR j.nombres LIKE ? OR j.apellidos LIKE ? OR j.cedula_numero LIKE ?
+        )
+      ORDER BY v.id DESC
+      LIMIT ?
+    `)
+        .all(like, like, like, like, like, like, limite);
+    return filas.map((fila) => ({
+        id: fila.id,
+        direccion: fila.direccion,
+        numero_casa: fila.numero_casa ?? null,
+        comunidad: fila.comunidad,
+        etapa: fila.etapa ?? null,
+        manzana: fila.manzana ?? null,
+        jefe_nombres: fila.jefe_nombres ?? '',
+        jefe_apellidos: fila.jefe_apellidos ?? '',
+        jefe_cedula: (fila.cedula_tipo === 'V' || fila.cedula_tipo === 'E') && fila.cedula_numero
+            ? `${fila.cedula_tipo}-${fila.cedula_numero}`
+            : 'Sin cédula',
+    }));
 }
 // ============================================================================
 // USUARIOS
@@ -1464,6 +1616,10 @@ module.exports = {
     eliminarJefeFamilia,
     obtenerExpedienteVivienda,
     crearViviendaCompleta,
+    listarConsejosComunales,
+    obtenerConsejoComunalPorId,
+    crearConsejoComunal,
+    buscarViviendasPrincipales,
     listarUsuarios,
     obtenerUsuarioPorId,
     obtenerUsuarioPorUsuario,

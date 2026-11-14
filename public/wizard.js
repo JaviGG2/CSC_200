@@ -304,6 +304,10 @@
       manzana: formData.get('manzana') || null,
       direccion: formData.get('direccion'),
       numero_casa: formData.get('numero_casa') || null,
+      consejo_comunal_id: formData.get('consejo_comunal_id') || null,
+      es_anexo: formData.get('es_anexo') === '1',
+      numero_anexo: formData.get('numero_anexo') || null,
+      vivienda_principal_id: formData.get('vivienda_principal_id') || null,
       sincronizar_neon: formData.get('sincronizar_neon') === '1',
     };
 
@@ -324,6 +328,7 @@
       trabaja_actual: formData.get('trabaja_actual'),
       clasificacion_ingresos: formData.get('clasificacion_ingresos'),
       frecuencia_ingresos: formData.get('frecuencia_ingresos') || null,
+      ingreso_mensual_bs: formData.get('ingreso_mensual_bs') || null,
     };
 
     const integrantes = [];
@@ -343,6 +348,7 @@
         parentesco: inputs.parentesco,
         nivel_instruccion: inputs.nivel_instruccion || null,
         profesion: inputs.profesion || null,
+        ingreso_mensual: inputs.ingreso_mensual || null,
       });
     });
 
@@ -369,10 +375,32 @@
         btnSubmit.disabled = false;
         btnSubmit.textContent = textoOriginal;
         actualizarContador();
-        notificar('Vivienda registrada correctamente.', 'exito');
-        setTimeout(() => {
-          window.location.href = `/?ok=${encodeURIComponent('Vivienda registrada exitosamente.')}#registros`;
-        }, 1200);
+
+        const neon = datos.neon;
+        let mensaje = 'Vivienda registrada correctamente.';
+        let tipo = 'exito';
+        let subidaANeon = true;
+
+        if (neon && neon.configurado === false) {
+          mensaje =
+            'Vivienda registrada en local. Neon no está configurado, así que no se subió.';
+          tipo = 'warn';
+          subidaANeon = false;
+        } else if (neon && neon.ok === false) {
+          mensaje = `Vivienda guardada en local, pero no se pudo subir a Neon: ${neon.mensaje}`;
+          tipo = 'error';
+          subidaANeon = false;
+        } else if (neon && neon.aplicado) {
+          mensaje = 'Vivienda registrada y subida a Neon correctamente.';
+        }
+
+        notificar(mensaje, tipo);
+
+        if (subidaANeon) {
+          setTimeout(() => {
+            window.location.href = `/?ok=${encodeURIComponent(mensaje)}#registros`;
+          }, 1200);
+        }
       } else {
         btnSubmit.disabled = false;
         btnSubmit.textContent = textoOriginal;

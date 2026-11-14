@@ -47,6 +47,9 @@ const {
   eliminarJefeFamilia,
   obtenerExpedienteVivienda,
   crearViviendaCompleta,
+  listarConsejosComunales,
+  obtenerConsejoComunalPorId,
+  buscarViviendasPrincipales,
   listarUsuarios,
   obtenerUsuarioPorId,
   obtenerUsuarioPorUsuario,
@@ -90,8 +93,8 @@ const CLAVE_ADMIN = process.env.CLAVE_ADMIN || 'csc200';
 app.set('view engine', 'ejs');
 app.set('views', path.join(process.cwd(), 'views'));
 app.disable('x-powered-by');
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: false, limit: '12mb' }));
+app.use(express.json({ limit: '12mb' }));
 app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Carga la sesión del usuario a partir de la cookie firmada.
@@ -605,8 +608,60 @@ app.get('/wizard', (req: Request, res: Response) => {
       manzanas: listarTerritorios({ tipo: 'manzana' }),
     },
     configCampos: obtenerConfigCamposMap(),
+    consejos: listarConsejosComunales(),
   });
 });
+
+// ============================================================================
+// LECTURA LOCAL DE PLANILLAS (OCR, SOLO EN MEMORIA)
+// ============================================================================
+
+app.post('/api/escanear-planilla', async (req: Request, res: Response) => {
+  try {
+    const imagen =
+      typeof req.body?.imagen === 'string'
+        ? req.body.imagen
+        : typeof req.body?.imagenBase64 === 'string'
+          ? req.body.imagenBase64
+          : '';
+
+    if (!imagen) {
+      return res.status(400).json({
+        error: 'Debe enviar la imagen de la planilla en Base64 (campo «imagen»).',
+      });
+    }
+
+    // Límite aproximado de 10 MB sobre el Base64 recibido.
+    if (imagen.length > 14 * 1024 * 1024) {
+      return res.status(413).json({
+        error: 'La imagen supera el límite de 10 MB. Intente tomar la foto de nuevo.',
+      });
+    }
+
+    const { escanearPlanilla } = require('./escaneo');
+    const resultado = await escanearPlanilla({
+      imagen,
+      mimeType: typeof req.body?.mimeType === 'string' ? req.body.mimeType : undefined,
+    });
+
+    return res.json({ ok: true, ...resultado });
+  } catch (error: any) {
+    console.error('[escanear-planilla]', error);
+    const mensaje = error?.message || 'No se pudo procesar la planilla.';
+    const status = /vacía|imagen válida|no es una imagen/i.test(mensaje)
+      ? 400
+      : /tamaño máximo/i.test(mensaje)
+        ? 413
+        : 500;
+    return res.status(status).json({ error: mensaje });
+  }
+});
+
+app.get('/api/consejos-comunales', (req: Request, res: Response) => {
+  return res.json({ consejos: listarConsejosComunales() });
+});
+
+
 
 // ============================================================================
 // DIRECTORIO DE PERSONAS Y FICHAS
@@ -1328,7 +1383,7 @@ app.post('/campos/:id/eliminar', requerirAdmin, (req: Request, res: Response, ne
 // API REST - VIVIENDAS (Nivel A: Ubicación y Casa)
 // ============================================================================
 
-app.post('/api/viviendas', (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/viviendas', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { vivienda, jefe, integrantes } = req.body;
 
@@ -1349,6 +1404,35 @@ app.post('/api/viviendas', (req: Request, res: Response, next: NextFunction) => 
       return res.status(400).json({ error: 'Fecha de nacimiento inválida.' });
     }
 
+    const consejoId = Number(vivienda.consejo_comunal_id);
+    const consejoComunalId =
+      Number.isInteger(consejoId) && consejoId > 0 && obtenerConsejoComunalPorId(consejoId)
+        ? consejoId
+        : null;
+
+    const principalId = Number(vivienda.vivienda_principal_id);
+    const viviendaPrincipalId =
+      Number.isInteger(principalId) && principalId > 0 && obtenerViviendaPorId(principalId)
+        ? principalId
+        : null;
+    const esAnexo =
+      vivienda.es_anexo === true ||
+      vivienda.es_anexo === 1 ||
+      vivienda.es_anexo === '1' ||
+      vivienda.es_anexo === 'true';
+
+    const ingresoJefe = Number(jefe.ingreso_mensual_bs);
+    const ingresoJefeValor = Number.isFinite(ingresoJefe) ? ingresoJefe : null;
+
+    // Acepta true/1/"Sí"/"si" para no violar el CHECK de la base local.
+    const trabajaActual: 'Sí' | 'No' =
+      jefe.trabaja_actual === true ||
+      jefe.trabaja_actual === 1 ||
+      jefe.trabaja_actual === '1' ||
+      /^s[ií]$/i.test(String(jefe.trabaja_actual ?? ''))
+        ? 'Sí'
+        : 'No';
+
     try {
       const resultado = crearViviendaCompleta({
         vivienda: {
@@ -1360,6 +1444,10 @@ app.post('/api/viviendas', (req: Request, res: Response, next: NextFunction) => 
           manzana: vivienda.manzana ?? null,
           direccion: vivienda.direccion,
           numero_casa: vivienda.numero_casa ?? null,
+          consejo_comunal_id: consejoComunalId,
+          es_anexo: esAnexo,
+          numero_anexo: esAnexo ? vivienda.numero_anexo ?? null : null,
+          vivienda_principal_id: esAnexo ? viviendaPrincipalId : null,
           sincronizar_neon: vivienda.sincronizar_neon ?? true,
         },
         jefe: {
@@ -1376,28 +1464,41 @@ app.post('/api/viviendas', (req: Request, res: Response, next: NextFunction) => 
           nivel_instruccion: jefe.nivel_instruccion,
           estado_civil: jefe.estado_civil,
           profesion: jefe.profesion ?? null,
-          trabaja_actual: jefe.trabaja_actual,
+          trabaja_actual: trabajaActual,
           clasificacion_ingresos: jefe.clasificacion_ingresos,
           frecuencia_ingresos: jefe.frecuencia_ingresos ?? null,
+          ingreso_mensual_bs: ingresoJefeValor,
         },
-        integrantes: (integrantes || []).map((integrante: any, index: number) => ({
-          numero: index + 1,
-          apellidos: integrante.apellidos,
-          nombres: integrante.nombres,
-          ...normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero),
-          fecha_nacimiento: integrante.fecha_nacimiento ?? null,
-          sexo: integrante.sexo ?? null,
-          parentesco: integrante.parentesco,
-          nivel_instruccion: integrante.nivel_instruccion ?? null,
-          profesion: integrante.profesion ?? null,
-        })),
+        integrantes: (integrantes || []).map((integrante: any, index: number) => {
+          const ingreso = Number(integrante.ingreso_mensual);
+          return {
+            numero: index + 1,
+            apellidos: integrante.apellidos,
+            nombres: integrante.nombres,
+            ...normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero),
+            fecha_nacimiento: integrante.fecha_nacimiento ?? null,
+            sexo: integrante.sexo ?? null,
+            parentesco: integrante.parentesco,
+            nivel_instruccion: integrante.nivel_instruccion ?? null,
+            profesion: integrante.profesion ?? null,
+            ingreso_mensual: Number.isFinite(ingreso) ? ingreso : null,
+          };
+        }),
       });
+
+      let neon: any = null;
+      if (vivienda.sincronizar_neon !== false) {
+        const { guardarViviendaEnNeon } = require('./neon');
+        neon = await guardarViviendaEnNeon(resultado.viviendaId);
+        if (!neon.ok) console.error('[neon]', neon.mensaje);
+      }
 
       return res.status(201).json({
         ok: true,
         viviendaId: resultado.viviendaId,
         jefeId: resultado.jefeId,
         integrantesIds: resultado.integrantesIds,
+        neon,
         mensaje: 'Vivienda registrada correctamente.',
       });
     } catch (error: any) {
@@ -1447,6 +1548,12 @@ app.get('/api/viviendas', (req: Request, res: Response, next: NextFunction) => {
 // ============================================================================
 // API - AGRUPACIÓN POR UBICACIÓN (Comunidad / Manzana / Etapa)
 // ============================================================================
+
+app.get('/api/viviendas/buscar-principal', (req: Request, res: Response) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const viviendas = q ? buscarViviendasPrincipales(q) : [];
+  return res.json({ viviendas });
+});
 
 app.get('/api/viviendas/agrupacion', (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -2451,22 +2558,34 @@ function direccionesDeRed(): string[] {
 }
 
 if (require.main === module) {
-  app.listen(PUERTO, HOST, () => {
-    console.log('');
-    console.log('  Comuna Socialista Carabobo 200 - Censo local');
-    console.log(`  Servidor:    http://localhost:${PUERTO}`);
-    console.log(`  Base local:  ${rutaBaseDatos}`);
-
-    if (HOST === '0.0.0.0') {
-      for (const direccion of direccionesDeRed()) {
-        console.log(`  Red local:   http://${direccion}:${PUERTO}`);
-      }
+  // Crea en Neon todas las tablas necesarias antes de aceptar peticiones.
+  // Si Neon no responde, el servidor arranca igual y se reintenta al guardar.
+  (async () => {
+    try {
+      const { inicializarEsquemaNeon } = require('./neon');
+      const esquema = await inicializarEsquemaNeon();
+      console.log(`  Neon:        ${esquema.mensaje}`);
+    } catch (error: any) {
+      console.error(`  Neon:        ${error?.message || error}`);
     }
 
-    console.log('');
-    console.log('  Presione Ctrl+C para detener el servidor.');
-    console.log('');
-  });
+    app.listen(PUERTO, HOST, () => {
+      console.log('');
+      console.log('  Comuna Socialista Carabobo 200 - Censo local');
+      console.log(`  Servidor:    http://localhost:${PUERTO}`);
+      console.log(`  Base local:  ${rutaBaseDatos}`);
+
+      if (HOST === '0.0.0.0') {
+        for (const direccion of direccionesDeRed()) {
+          console.log(`  Red local:   http://${direccion}:${PUERTO}`);
+        }
+      }
+
+      console.log('');
+      console.log('  Presione Ctrl+C para detener el servidor.');
+      console.log('');
+    });
+  })();
 }
 
 module.exports = app;

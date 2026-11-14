@@ -11,10 +11,20 @@ export type Vivienda = {
     manzana: string | null;
     direccion: string;
     numero_casa: string | null;
+    consejo_comunal_id: number | null;
+    es_anexo: boolean;
+    numero_anexo: string | null;
+    vivienda_principal_id: number | null;
     fecha_registro: string;
     sincronizado: boolean;
     sincronizado_en: string | null;
     sincronizar_neon: boolean;
+};
+export type ConsejoComunal = {
+    id: number;
+    nombre: string;
+    sector: string | null;
+    activo: boolean;
 };
 export type CedulaTipo = 'V' | 'E' | 'S';
 export type JefeFamilia = {
@@ -37,6 +47,7 @@ export type JefeFamilia = {
     trabaja_actual: 'Sí' | 'No';
     clasificacion_ingresos: string;
     frecuencia_ingresos: string | null;
+    ingreso_mensual_bs: number | null;
 };
 export type IntegranteFamiliar = {
     id: number;
@@ -52,6 +63,7 @@ export type IntegranteFamiliar = {
     parentesco: string;
     nivel_instruccion: string | null;
     profesion: string | null;
+    ingreso_mensual: number | null;
 };
 export type CampoFormulario = {
     id: number;
@@ -171,7 +183,7 @@ export declare function eliminarCampo(id: number): boolean;
 export declare function renumerarRegistros(): void;
 export declare function eliminarRegistro(id: number): boolean;
 export declare function vaciarRegistros(): number;
-export declare function insertarVivienda({ estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, sincronizar_neon, }: {
+export declare function insertarVivienda({ estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo, numero_anexo, vivienda_principal_id, sincronizar_neon, }: {
     estado?: string;
     municipio?: string;
     parroquia?: string;
@@ -180,6 +192,10 @@ export declare function insertarVivienda({ estado, municipio, parroquia, comunid
     manzana?: string | null;
     direccion: string;
     numero_casa?: string | null;
+    consejo_comunal_id?: number | null;
+    es_anexo?: boolean;
+    numero_anexo?: string | null;
+    vivienda_principal_id?: number | null;
     sincronizar_neon?: boolean;
 }): number;
 export declare function obtenerViviendaPorId(id: number): Vivienda | null;
@@ -202,7 +218,7 @@ export declare function obtenerViviendas({ q, page, limit, }: {
     viviendas: Vivienda[];
     total: number;
 };
-export declare function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, sincronizar_neon, }: {
+export declare function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo, numero_anexo, vivienda_principal_id, sincronizar_neon, }: {
     id: number;
     estado?: string;
     municipio?: string;
@@ -212,10 +228,14 @@ export declare function actualizarVivienda({ id, estado, municipio, parroquia, c
     manzana?: string | null;
     direccion?: string;
     numero_casa?: string | null;
+    consejo_comunal_id?: number | null;
+    es_anexo?: boolean;
+    numero_anexo?: string | null;
+    vivienda_principal_id?: number | null;
     sincronizar_neon?: boolean;
 }): boolean;
 export declare function eliminarVivienda(id: number): boolean;
-export declare function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, }: {
+export declare function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs, }: {
     vivienda_id: number;
     cedula_tipo: CedulaTipo;
     cedula_numero: string | null;
@@ -233,9 +253,10 @@ export declare function insertarJefeFamilia({ vivienda_id, cedula_tipo, cedula_n
     trabaja_actual: 'Sí' | 'No';
     clasificacion_ingresos: string;
     frecuencia_ingresos?: string | null;
+    ingreso_mensual_bs?: number | null;
 }): number;
 export declare function obtenerJefePorVivienda(viviendaId: number): JefeFamilia | null;
-export declare function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, }: {
+export declare function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs, }: {
     id: number;
     cedula_tipo?: CedulaTipo;
     cedula_numero?: string | null;
@@ -253,8 +274,9 @@ export declare function actualizarJefeFamilia({ id, cedula_tipo, cedula_numero, 
     trabaja_actual?: 'Sí' | 'No';
     clasificacion_ingresos?: string;
     frecuencia_ingresos?: string | null;
+    ingreso_mensual_bs?: number | null;
 }): boolean;
-export declare function insertarIntegrante({ vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion, }: {
+export declare function insertarIntegrante({ vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual, }: {
     vivienda_id: number;
     numero: number;
     apellidos: string;
@@ -266,10 +288,11 @@ export declare function insertarIntegrante({ vivienda_id, numero, apellidos, nom
     parentesco: string;
     nivel_instruccion?: string | null;
     profesion?: string | null;
+    ingreso_mensual?: number | null;
 }): number;
 export declare function obtenerIntegrantePorId(id: number): IntegranteFamiliar | null;
 export declare function obtenerIntegrantesPorVivienda(viviendaId: number): IntegranteFamiliar[];
-export declare function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion, }: {
+export declare function actualizarIntegrante({ id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual, }: {
     id: number;
     numero?: number;
     apellidos?: string;
@@ -281,6 +304,7 @@ export declare function actualizarIntegrante({ id, numero, apellidos, nombres, c
     parentesco?: string;
     nivel_instruccion?: string | null;
     profesion?: string | null;
+    ingreso_mensual?: number | null;
 }): boolean;
 export declare function eliminarIntegrante(id: number): boolean;
 export declare function eliminarJefeFamilia(id: number): boolean;
@@ -298,6 +322,27 @@ export declare function crearViviendaCompleta({ vivienda, jefe, integrantes, }: 
     jefeId: number;
     integrantesIds: number[];
 };
+export declare function listarConsejosComunales({ soloActivos }?: {
+    soloActivos?: boolean;
+}): ConsejoComunal[];
+export declare function obtenerConsejoComunalPorId(id: number): ConsejoComunal | null;
+export declare function crearConsejoComunal({ nombre, sector, activo, }: {
+    nombre: string;
+    sector?: string | null;
+    activo?: boolean;
+}): number;
+export type ViviendaPrincipalBusqueda = {
+    id: number;
+    direccion: string;
+    numero_casa: string | null;
+    comunidad: string;
+    etapa: string | null;
+    manzana: string | null;
+    jefe_nombres: string;
+    jefe_apellidos: string;
+    jefe_cedula: string;
+};
+export declare function buscarViviendasPrincipales(q: string, limite?: number): ViviendaPrincipalBusqueda[];
 export declare function listarUsuarios(): Usuario[];
 export declare function obtenerUsuarioPorId(id: number): Usuario | null;
 export declare function obtenerUsuarioPorUsuario(usuario: string): (Usuario & {

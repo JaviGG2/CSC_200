@@ -12,6 +12,7 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const pg_1 = require("pg");
 const db_1 = require("./db");
+const neon_1 = require("./neon");
 dotenv_1.default.config({ quiet: true });
 const TAMANO_LOTE = 100;
 const RUTA_ESQUEMA = path_1.default.join(process.cwd(), 'sql', 'neon_schema.sql');
@@ -180,6 +181,9 @@ async function upsertRegistros(cliente, registros) {
     await cliente.query('BEGIN');
     try {
         const resultado = await cliente.query(texto, valores);
+        for (const registro of registros) {
+            await (0, neon_1.guardarViviendaConCliente)(cliente, registro.id);
+        }
         await cliente.query('COMMIT');
         return resultado.rowCount ?? registros.length;
     }
@@ -377,8 +381,7 @@ async function sincronizarConNeon() {
     const fallidas = [];
     try {
         await cliente.connect();
-        const esquema = fs_1.default.readFileSync(RUTA_ESQUEMA, 'utf8');
-        await cliente.query(esquema);
+        await (0, neon_1.aplicarEsquemaNeon)(cliente);
         eliminacionesProcesadas = await procesarEliminacionesNeon(cliente);
         for (let inicio = 0; inicio < pendientes.length; inicio += TAMANO_LOTE) {
             const lote = pendientes.slice(inicio, inicio + TAMANO_LOTE);
