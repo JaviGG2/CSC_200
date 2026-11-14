@@ -992,7 +992,7 @@ function eliminarRegistro(id) {
 function vaciarRegistros() {
     return vaciarRegistrosTransaccion();
 }
-function insertarVivienda({ estado = 'FALCÓN', municipio = 'MIRANDA', parroquia = 'SAN ANTONIO', comunidad, etapa = null, manzana = null, direccion, numero_casa = null, consejo_comunal_id = null, es_anexo = false, numero_anexo = null, vivienda_principal_id = null, sincronizar_neon = true, }) {
+function insertarVivienda({ estado = 'FALCÓN', municipio = 'MIRANDA', parroquia = 'SAN ANTONIO', comunidad = '', etapa = null, manzana = null, direccion = '', numero_casa = null, consejo_comunal_id = null, es_anexo = false, numero_anexo = null, vivienda_principal_id = null, sincronizar_neon = true, }) {
     const resultado = exports.db
         .prepare(`
       INSERT INTO viviendas
@@ -1000,7 +1000,7 @@ function insertarVivienda({ estado = 'FALCÓN', municipio = 'MIRANDA', parroquia
          consejo_comunal_id, es_anexo, numero_anexo, vivienda_principal_id, sincronizar_neon)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-        .run(estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo ? 1 : 0, numero_anexo, vivienda_principal_id, sincronizar_neon ? 1 : 0);
+        .run(estado, municipio, parroquia, comunidad = '', etapa, manzana, direccion = '', numero_casa, consejo_comunal_id, es_anexo ? 1 : 0, numero_anexo, vivienda_principal_id, sincronizar_neon ? 1 : 0);
     return resultado.lastInsertRowid;
 }
 function obtenerViviendaPorId(id) {
@@ -1088,7 +1088,7 @@ function obtenerViviendas({ q = '', page = 1, limit = 20, }) {
         total: totalFila.total,
     };
 }
-function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo, numero_anexo, vivienda_principal_id, sincronizar_neon, }) {
+function actualizarVivienda({ id, estado, municipio, parroquia, comunidad = '', etapa, manzana, direccion = '', numero_casa, consejo_comunal_id, es_anexo, numero_anexo, vivienda_principal_id, sincronizar_neon, }) {
     const resultado = exports.db
         .prepare(`
       UPDATE viviendas
@@ -1109,7 +1109,7 @@ function actualizarVivienda({ id, estado, municipio, parroquia, comunidad, etapa
           sincronizado_en = NULL
       WHERE id = ?
     `)
-        .run(estado, municipio, parroquia, comunidad, etapa, manzana, direccion, numero_casa, consejo_comunal_id, es_anexo === undefined ? null : es_anexo ? 1 : 0, numero_anexo, vivienda_principal_id, sincronizar_neon === undefined ? null : sincronizar_neon ? 1 : 0, id);
+        .run(estado, municipio, parroquia, comunidad = '', etapa, manzana, direccion = '', numero_casa, consejo_comunal_id, es_anexo === undefined ? null : es_anexo ? 1 : 0, numero_anexo, vivienda_principal_id, sincronizar_neon === undefined ? null : sincronizar_neon ? 1 : 0, id);
     return resultado.changes > 0;
 }
 const eliminarViviendaTransaccion = exports.db.transaction((id) => {
