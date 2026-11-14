@@ -1,211 +1,407 @@
+<%
+  const listaConsejos = typeof consejos !== 'undefined' ? consejos : [];
+  const filtrosVista = typeof filtros !== 'undefined' ? filtros : { consejo: '', q: '' };
+  const gruposCenso = typeof grupos !== 'undefined' ? grupos : [];
+  const statsVista = typeof stats !== 'undefined' ? stats : { viviendas: 0, anexos: 0, personas: 0 };
+  const sincronizacion = typeof statsSync !== 'undefined' ? statsSync : { pendientes: 0, sincronizados: 0, solo_local: 0 };
+  const usuarioActual = typeof usuario !== 'undefined' ? usuario : null;
+  const admin = typeof esAdmin !== 'undefined' ? esAdmin : Boolean(usuarioActual && usuarioActual.rol === 'admin');
+  const config = typeof configNeon !== 'undefined' ? configNeon : null;
+
+  const cedulaTexto = (tipo, numero) =>
+    (tipo === 'V' || tipo === 'E') && numero ? `${tipo}-${numero}` : 'Sin cédula';
+  const nombreCompleto = (persona) =>
+    persona ? `${persona.apellidos || ''}, ${persona.nombres || ''}`.replace(/^, |, $/g, '') : '';
+  const fechaCorta = (valor) => (valor ? String(valor).slice(0, 10).split('-').reverse().join('/') : '—');
+%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#ffffff">
-  <title>Censo | Comuna Carabobo 200</title>
+  <title>Censo General · Inicio | Comuna Carabobo 200</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <%- include('partials/topbar', { activo: 'censo' }) %>
+  <%- include('partials/topbar') %>
 
-  <main class="contenedor pagina">
-    <% if (ok) { %>
+  <main class="contenedor pagina pagina--dashboard">
+    <% if (typeof ok !== 'undefined' && ok) { %>
       <div class="alerta alerta--exito" role="status"><%= ok %></div>
     <% } %>
-
-    <% if (error) { %>
+    <% if (typeof error !== 'undefined' && error) { %>
       <div class="alerta alerta--error" role="alert"><%= error %></div>
     <% } %>
 
-    <div class="resumen">
-      <span><strong><%= stats.total || 0 %></strong> registros</span>
-      <span><strong><%= stats.pendientes || 0 %></strong> pendientes</span>
-      <span><strong><%= stats.sincronizados || 0 %></strong> sincronizados</span>
-      <span><strong><%= stats.solo_local || 0 %></strong> solo local</span>
-    </div>
-
-    <div class="panel" id="buscador-viviendas">
-      <div class="panel-head">
-        <h2>Buscar Vivienda / Expediente</h2>
-        <p>Busque por cédula, nombre, manzana o etapa.</p>
+    <section class="censo-hero">
+      <div class="censo-hero-texto">
+        <span class="eyebrow">Censo General · Sección Inicio</span>
+        <h2>Consulta y exploración del censo</h2>
+        <p>
+          Consulte viviendas, anexos y personas por consejo comunal. Los catálogos y la
+          configuración se sincronizan con Neon; el registro se conserva en este equipo para
+          trabajar en campo.
+        </p>
       </div>
-      <div class="campos">
-        <div class="campo campo-ancho">
-          <input
-            type="search"
-            id="buscador-vivienda"
-            name="q"
-            placeholder="Cédula, nombre, manzana, etapa..."
-            autocomplete="off"
-          >
-          <button type="button" class="boton boton--primario" id="btn-buscar-vivienda">Buscar</button>
-          <a href="/wizard" class="boton boton--secundario">+ Registrar Nueva Vivienda</a>
-        </div>
-      </div>
-      <div id="resultados-busqueda" class="tabla-scroll" style="margin-top:1rem;"></div>
-    </div>
-
-    <section class="panel" id="viviendas-dashboard">
-      <div class="panel-head panel-head--fila">
-        <div>
-          <h2>Viviendas Censadas</h2>
-          <p>Expedientes registrados por casa/vivienda.</p>
-        </div>
-        <div class="panel-head-acciones">
-          <span class="contador" id="contador-viviendas">0</span>
+      <div class="censo-hero-acciones">
+        <a href="/wizard" class="boton boton--primario">+ Registrar vivienda</a>
+        <button type="button" class="boton boton--secundario" id="btn-sincronizar-neon">
+          Subir a Neon
+        </button>
+        <button
+          type="button"
+          class="boton boton--secundario"
+          id="btn-sincronizar-locales"
+          <%= sincronizacion.solo_local ? '' : 'disabled' %>
+        >Subir solo local (<%= sincronizacion.solo_local || 0 %>)</button>
+        <% if (admin) { %>
           <button
             type="button"
-            class="boton boton--mini boton--primario"
-            id="btn-sincronizar-neon"
-          >Subir a Neon</button>
-          <button
-            type="button"
-            class="boton boton--mini boton--secundario"
-            id="btn-sincronizar-locales"
-            title="Marca las viviendas guardadas solo en local y las sube a Neon"
-            <%= stats.solo_local ? '' : 'disabled' %>
-          >Subir solo local (<%= stats.solo_local || 0 %>)</button>
-          <button
-            type="button"
-            class="boton boton--mini boton--peligro"
+            class="boton boton--peligro"
             data-abrir-password
             data-accion="/registros/vaciar"
             data-titulo="Vaciar base de datos"
             data-mensaje="Se eliminarán todos los registros del censo y la numeración volverá a empezar en 1. Esta acción no se puede deshacer."
             data-texto-boton="Vaciar registros"
           >Vaciar BD</button>
-        </div>
+        <% } %>
       </div>
-
-      <div id="viviendas-vacias" class="tabla-vacia" style="display:none;">
-        <strong>No hay viviendas censadas todavía.</strong>
-        <span>Comience registrando su primera vivienda con el asistente de 3 pasos.</span>
-      </div>
-
-      <div class="tarjetas-grid" id="grid-viviendas"></div>
     </section>
 
-    <section class="panel" id="personas-todas">
+    <form class="panel filtros-censo" method="get" action="/" role="search">
+      <div class="filtros-censo-campo">
+        <label for="filtro-consejo">Consejo comunal</label>
+        <select id="filtro-consejo" name="consejo">
+          <option value="">Todos los consejos</option>
+          <% listaConsejos.forEach(function (consejo) { %>
+            <option value="<%= consejo.nombre %>" <%= filtrosVista.consejo === consejo.nombre ? 'selected' : '' %>>
+              <%= consejo.nombre %><%= consejo.sector ? ' · ' + consejo.sector : '' %>
+            </option>
+          <% }); %>
+        </select>
+      </div>
+
+      <div class="filtros-censo-campo filtros-censo-campo--busqueda">
+        <label for="filtro-q">Búsqueda rápida</label>
+        <input
+          type="search"
+          id="filtro-q"
+          name="q"
+          value="<%= filtrosVista.q %>"
+          placeholder="Cédula, nombre, dirección o número de anexo"
+          autocomplete="off"
+        >
+      </div>
+
+      <div class="filtros-censo-acciones">
+        <button type="submit" class="boton boton--primario">Filtrar</button>
+        <% if (filtrosVista.consejo || filtrosVista.q) { %>
+          <a href="/" class="boton boton--texto">Limpiar</a>
+        <% } %>
+      </div>
+
+      <% if (config && !config.ok) { %>
+        <p class="filtros-censo-aviso" role="status"><%= config.mensaje %></p>
+      <% } %>
+    </form>
+
+    <section class="resumen-cards" aria-label="Resumen del filtro">
+      <article class="resumen-card">
+        <span class="resumen-card-icono" aria-hidden="true">⌂</span>
+        <div>
+          <span class="resumen-card-num"><%= statsVista.viviendas || 0 %></span>
+          <h3>Viviendas principales</h3>
+          <p>Según el filtro seleccionado</p>
+        </div>
+      </article>
+      <article class="resumen-card">
+        <span class="resumen-card-icono" aria-hidden="true">⌐</span>
+        <div>
+          <span class="resumen-card-num"><%= statsVista.anexos || 0 %></span>
+          <h3>Anexos vinculados</h3>
+          <p>Pisos, locales o dependencias</p>
+        </div>
+      </article>
+      <article class="resumen-card">
+        <span class="resumen-card-icono" aria-hidden="true">☷</span>
+        <div>
+          <span class="resumen-card-num"><%= statsVista.personas || 0 %></span>
+          <h3>Personas censadas</h3>
+          <p>Jefes de familia e integrantes</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel censo-panel">
       <div class="panel-head panel-head--fila">
         <div>
-          <h2>Todas las Personas Censadas</h2>
-          <p>Listado completo de jefes de familia e integrantes, sin importar la vivienda.</p>
+          <h2>Viviendas y personas</h2>
+          <p>
+            <%= gruposCenso.length %> vivienda(s) principal(es) en el filtro actual.
+            Los anexos aparecen vinculados a su vivienda principal.
+          </p>
         </div>
         <div class="panel-head-acciones">
-          <span class="contador" id="contador-personas">0</span>
+          <span class="contador"><%= statsVista.personas || 0 %> personas</span>
+          <span class="insignia insignia--sincronizado"><%= sincronizacion.sincronizados || 0 %> en Neon</span>
+          <span class="insignia insignia--pendiente"><%= sincronizacion.pendientes || 0 %> pendientes</span>
         </div>
       </div>
 
-      <div class="campos" style="margin-bottom: 1rem;">
-        <div class="campo campo-ancho" style="max-width: 400px;">
-          <input
-            type="search"
-            id="buscador-personas"
-            name="q"
-            placeholder="Buscar persona por cédula, nombre o comunidad..."
-            autocomplete="off"
-          >
+      <% if (!gruposCenso.length) { %>
+        <div class="estado-vacio">
+          <strong>No hay viviendas para este filtro.</strong>
+          <p>Pruebe con otro consejo comunal, limpie la búsqueda o registre una nueva vivienda.</p>
+          <a href="/wizard" class="boton boton--primario">Registrar la primera vivienda</a>
         </div>
-      </div>
+      <% } else { %>
+        <div class="censo-lista">
+          <% gruposCenso.forEach(function (grupo) { %>
+            <article class="censo-vivienda" id="vivienda-<%= grupo.id %>">
+              <div class="censo-vivienda-cabecera">
+                <div class="censo-vivienda-titulo">
+                  <span class="censo-id">Vivienda N.º <%= grupo.id %></span>
+                  <strong><%= grupo.direccion || 'Dirección sin registrar' %></strong>
+                  <span class="censo-subtitulo">
+                    <%= grupo.consejo_nombre || grupo.comunidad || 'Sin consejo comunal' %>
+                    · <%= grupo.etapa || 'Sin etapa' %> / <%= grupo.manzana || 'Sin manzana' %>
+                    <% if (grupo.numero_casa) { %> · Casa <%= grupo.numero_casa %><% } %>
+                  </span>
+                </div>
+                <div class="censo-vivienda-estado">
+                  <% if (grupo.sincronizado) { %>
+                    <span class="insignia insignia--sincronizado">En Neon</span>
+                  <% } else if (grupo.sincronizar_neon) { %>
+                    <span class="insignia insignia--pendiente">Pendiente</span>
+                  <% } else { %>
+                    <span class="insignia insignia--local">Solo local</span>
+                  <% } %>
+                  <span class="censo-fecha">Registro: <%= fechaCorta(grupo.fecha_registro) %></span>
+                </div>
+              </div>
 
-      <div id="personas-vacias" class="tabla-vacia" style="display:none;">
-        <strong>No hay personas censadas todavía.</strong>
-        <span>Registre su primera vivienda con el asistente de 3 pasos.</span>
-      </div>
+              <div class="censo-vivienda-datos">
+                <div class="dato-fila">
+                  <span class="dato-label">Jefe de familia</span>
+                  <span class="dato-valor"><%= nombreCompleto(grupo.jefe) || 'Sin jefe registrado' %></span>
+                </div>
+                <div class="dato-fila">
+                  <span class="dato-label">Cédula</span>
+                  <span class="dato-valor">
+                    <%= grupo.jefe ? cedulaTexto(grupo.jefe.cedula_tipo, grupo.jefe.cedula_numero) : '—' %>
+                  </span>
+                </div>
+                <div class="dato-fila">
+                  <span class="dato-label">Habitantes</span>
+                  <span class="dato-valor">
+                    <%= (grupo.jefe ? 1 : 0) + (grupo.integrantes ? grupo.integrantes.length : 0) %>
+                  </span>
+                </div>
+                <div class="dato-fila">
+                  <span class="dato-label">Anexos</span>
+                  <span class="dato-valor"><%= grupo.anexos ? grupo.anexos.length : 0 %></span>
+                </div>
+              </div>
 
-      <div class="tabla-scroll" id="contenedor-personas">
-        <table class="tabla-personas">
-          <thead>
-            <tr>
-              <th scope="col">Tipo</th>
-              <th scope="col">Cédula</th>
-              <th scope="col">Apellidos y Nombres</th>
-              <th scope="col">Edad</th>
-              <th scope="col">Sexo</th>
-              <th scope="col">Parentesco</th>
-              <th scope="col">Comunidad</th>
-              <th scope="col">Etapa / Manzana</th>
-              <th scope="col">Dirección</th>
-              <th scope="col">Número Casa</th>
-              <th scope="col">Estado Neon</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-personas">
-          </tbody>
-        </table>
-      </div>
+              <div class="censo-vivienda-acciones">
+                <a href="/viviendas/<%= grupo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
+                <a href="/viviendas/<%= grupo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
+                <% if (admin) { %>
+                  <button
+                    type="button"
+                    class="boton boton--mini boton--peligro"
+                    data-abrir-password
+                    data-accion="/viviendas/<%= grupo.id %>/eliminar"
+                    data-titulo="Eliminar vivienda"
+                    data-mensaje="Se eliminará la vivienda N.º <%= grupo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
+                    data-texto-boton="Eliminar vivienda"
+                  >Eliminar</button>
+                <% } %>
+              </div>
+
+              <details class="censo-detalle" <%= (grupo.jefe ? 1 : 0) + (grupo.integrantes ? grupo.integrantes.length : 0) <= 6 ? 'open' : '' %>>
+                <summary>
+                  Personas de esta vivienda
+                  (<%= (grupo.jefe ? 1 : 0) + (grupo.integrantes ? grupo.integrantes.length : 0) %>)
+                </summary>
+                <div class="tabla-scroll">
+                  <table class="tabla-personas tabla-censo">
+                    <thead>
+                      <tr>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Cédula</th>
+                        <th scope="col">Apellidos y nombres</th>
+                        <th scope="col">Edad</th>
+                        <th scope="col">Sexo</th>
+                        <th scope="col">Parentesco</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% if (grupo.jefe) { %>
+                        <tr>
+                          <td><span class="tipo-badge tipo-badge--jefe">Jefe</span></td>
+                          <td class="cedula"><%= cedulaTexto(grupo.jefe.cedula_tipo, grupo.jefe.cedula_numero) %></td>
+                          <td class="col-persona">
+                            <strong><%= grupo.jefe.apellidos %></strong>
+                            <span><%= grupo.jefe.nombres %></span>
+                          </td>
+                          <td><%= grupo.jefe.edad ?? '—' %></td>
+                          <td><%= grupo.jefe.sexo || '—' %></td>
+                          <td>Jefe de familia</td>
+                        </tr>
+                      <% } %>
+                      <% (grupo.integrantes || []).forEach(function (persona, indice) { %>
+                        <tr>
+                          <td><span class="tipo-badge tipo-badge--integrante">Integrante</span></td>
+                          <td class="cedula"><%= cedulaTexto(persona.cedula_tipo, persona.cedula_numero) %></td>
+                          <td class="col-persona">
+                            <strong><%= persona.apellidos %></strong>
+                            <span><%= persona.nombres %></span>
+                          </td>
+                          <td><%= persona.edad ?? '—' %></td>
+                          <td><%= persona.sexo || '—' %></td>
+                          <td><%= persona.parentesco || '—' %></td>
+                        </tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+
+              <% if (grupo.anexos && grupo.anexos.length) { %>
+                <div class="censo-anexos">
+                  <h4 class="censo-anexos-titulo">
+                    Anexos vinculados a la vivienda N.º <%= grupo.id %>
+                  </h4>
+
+                  <% grupo.anexos.forEach(function (anexo) { %>
+                    <article class="censo-anexo" id="vivienda-<%= anexo.id %>">
+                      <div class="censo-anexo-cabecera">
+                        <div>
+                          <span class="insignia insignia--anexo">Anexo</span>
+                          <strong><%= anexo.numero_anexo || 'Anexo sin etiqueta' %></strong>
+                          <span class="censo-subtitulo"><%= anexo.direccion || '—' %></span>
+                        </div>
+                        <div class="censo-vivienda-estado">
+                          <% if (anexo.sincronizado) { %>
+                            <span class="insignia insignia--sincronizado">En Neon</span>
+                          <% } else if (anexo.sincronizar_neon) { %>
+                            <span class="insignia insignia--pendiente">Pendiente</span>
+                          <% } else { %>
+                            <span class="insignia insignia--local">Solo local</span>
+                          <% } %>
+                        </div>
+                      </div>
+
+                      <p class="censo-anexo-vinculo">
+                        Pertenece a la vivienda principal N.º <%= grupo.id %>
+                        (<%= grupo.direccion || 'sin dirección' %><%= grupo.numero_casa ? ', casa ' + grupo.numero_casa : '' %>).
+                      </p>
+
+                      <div class="censo-vivienda-datos">
+                        <div class="dato-fila">
+                          <span class="dato-label">Jefe de familia</span>
+                          <span class="dato-valor"><%= nombreCompleto(anexo.jefe) || 'Sin jefe registrado' %></span>
+                        </div>
+                        <div class="dato-fila">
+                          <span class="dato-label">Cédula</span>
+                          <span class="dato-valor">
+                            <%= anexo.jefe ? cedulaTexto(anexo.jefe.cedula_tipo, anexo.jefe.cedula_numero) : '—' %>
+                          </span>
+                        </div>
+                        <div class="dato-fila">
+                          <span class="dato-label">Habitantes</span>
+                          <span class="dato-valor">
+                            <%= (anexo.jefe ? 1 : 0) + (anexo.integrantes ? anexo.integrantes.length : 0) %>
+                          </span>
+                        </div>
+                        <div class="dato-fila">
+                          <span class="dato-label">Registro</span>
+                          <span class="dato-valor"><%= fechaCorta(anexo.fecha_registro) %></span>
+                        </div>
+                      </div>
+
+                      <div class="censo-vivienda-acciones">
+                        <a href="/viviendas/<%= anexo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
+                        <a href="/viviendas/<%= anexo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
+                        <% if (admin) { %>
+                          <button
+                            type="button"
+                            class="boton boton--mini boton--peligro"
+                            data-abrir-password
+                            data-accion="/viviendas/<%= anexo.id %>/eliminar"
+                            data-titulo="Eliminar anexo"
+                            data-mensaje="Se eliminará el anexo N.º <%= anexo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
+                            data-texto-boton="Eliminar anexo"
+                          >Eliminar</button>
+                        <% } %>
+                      </div>
+
+                      <details class="censo-detalle">
+                        <summary>
+                          Personas del anexo
+                          (<%= (anexo.jefe ? 1 : 0) + (anexo.integrantes ? anexo.integrantes.length : 0) %>)
+                        </summary>
+                        <div class="tabla-scroll">
+                          <table class="tabla-personas tabla-censo">
+                            <thead>
+                              <tr>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Cédula</th>
+                                <th scope="col">Apellidos y nombres</th>
+                                <th scope="col">Edad</th>
+                                <th scope="col">Sexo</th>
+                                <th scope="col">Parentesco</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <% if (anexo.jefe) { %>
+                                <tr>
+                                  <td><span class="tipo-badge tipo-badge--jefe">Jefe</span></td>
+                                  <td class="cedula"><%= cedulaTexto(anexo.jefe.cedula_tipo, anexo.jefe.cedula_numero) %></td>
+                                  <td class="col-persona">
+                                    <strong><%= anexo.jefe.apellidos %></strong>
+                                    <span><%= anexo.jefe.nombres %></span>
+                                  </td>
+                                  <td><%= anexo.jefe.edad ?? '—' %></td>
+                                  <td><%= anexo.jefe.sexo || '—' %></td>
+                                  <td>Jefe de familia</td>
+                                </tr>
+                              <% } %>
+                              <% (anexo.integrantes || []).forEach(function (persona) { %>
+                                <tr>
+                                  <td><span class="tipo-badge tipo-badge--integrante">Integrante</span></td>
+                                  <td class="cedula"><%= cedulaTexto(persona.cedula_tipo, persona.cedula_numero) %></td>
+                                  <td class="col-persona">
+                                    <strong><%= persona.apellidos %></strong>
+                                    <span><%= persona.nombres %></span>
+                                  </td>
+                                  <td><%= persona.edad ?? '—' %></td>
+                                  <td><%= persona.sexo || '—' %></td>
+                                  <td><%= persona.parentesco || '—' %></td>
+                                </tr>
+                              <% }); %>
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    </article>
+                  <% }); %>
+                </div>
+              <% } %>
+            </article>
+          <% }); %>
+        </div>
+      <% } %>
     </section>
   </main>
 
   <footer class="pie">
     <div class="contenedor">
-      Comuna Socialista Carabobo 200 · Censo local
+      Comuna Socialista Carabobo 200 · Censo General
     </div>
   </footer>
-
-  <dialog class="dialogo" id="dialogo-campo" data-abrir="<%= abrirCampo ? 'true' : 'false' %>">
-    <form method="post" action="/campos" class="dialogo-form" data-bloquear>
-      <div class="dialogo-head">
-        <h2>Agregar campo</h2>
-        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
-      </div>
-
-      <% if (errorCampo) { %>
-        <div class="alerta alerta--error" role="alert"><%= errorCampo %></div>
-      <% } %>
-
-      <div class="campos">
-        <div class="campo">
-          <label for="etiqueta-campo">Nombre del campo <span class="requerido">*</span></label>
-          <input
-            type="text"
-            id="etiqueta-campo"
-            name="etiqueta"
-            value="<%= valoresCampo.etiqueta || '' %>"
-            maxlength="80"
-            placeholder="Ej.: Discapacidad"
-            required
-          >
-        </div>
-
-        <div class="campo">
-          <label for="tipo-campo">Tipo de campo</label>
-          <select id="tipo-campo" name="tipo" required>
-            <option value="text" <% if ((valoresCampo.tipo || 'text') === 'text') { %>selected<% } %>>Texto corto</option>
-            <option value="textarea" <% if (valoresCampo.tipo === 'textarea') { %>selected<% } %>>Párrafo</option>
-            <option value="number" <% if (valoresCampo.tipo === 'number') { %>selected<% } %>>Número</option>
-            <option value="date" <% if (valoresCampo.tipo === 'date') { %>selected<% } %>>Fecha</option>
-            <option value="tel" <% if (valoresCampo.tipo === 'tel') { %>selected<% } %>>Teléfono</option>
-            <option value="email" <% if (valoresCampo.tipo === 'email') { %>selected<% } %>>Correo</option>
-            <option value="select" <% if (valoresCampo.tipo === 'select') { %>selected<% } %>>Lista de opciones</option>
-          </select>
-        </div>
-
-        <div class="campo bloque-opciones" id="bloque-opciones" <% if ((valoresCampo.tipo || 'text') !== 'select') { %>hidden<% } %>>
-          <label for="opciones-campo">Opciones</label>
-          <textarea
-            id="opciones-campo"
-            name="opciones"
-            rows="3"
-            placeholder="Sí&#10;No&#10;No sabe"
-          ><%= valoresCampo.opciones || '' %></textarea>
-          <p class="ayuda">Una opción por línea o separadas por comas.</p>
-        </div>
-
-        <label class="check">
-          <input type="checkbox" name="requerido" value="1" <% if (valoresCampo.requerido) { %>checked<% } %>>
-          Campo obligatorio
-        </label>
-      </div>
-
-      <div class="dialogo-acciones">
-        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
-        <button type="submit" class="boton boton--primario">Agregar campo</button>
-      </div>
-    </form>
-  </dialog>
 
   <dialog class="dialogo" id="dialogo-password">
     <form method="post" action="" id="form-password" class="dialogo-form" data-bloquear>

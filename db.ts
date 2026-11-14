@@ -206,6 +206,19 @@ db.exec(`
     activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1))
   );
 
+  CREATE TABLE IF NOT EXISTS opciones_campos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campo TEXT NOT NULL,
+    valor TEXT NOT NULL,
+    etiqueta TEXT,
+    orden INTEGER NOT NULL DEFAULT 0,
+    activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+    UNIQUE (campo, valor)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_opciones_campos_campo
+    ON opciones_campos (campo, activo, orden);
+
   CREATE TABLE IF NOT EXISTS consejos_comunales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
@@ -535,6 +548,56 @@ const insertarConfigCampo = db.prepare(`
 db.transaction((campos: typeof CONFIG_CAMPOS_INICIALES) => {
   for (const campo of campos) insertarConfigCampo.run(campo);
 })(CONFIG_CAMPOS_INICIALES);
+
+// Opciones iniciales de las listas desplegables. Neon es la fuente central;
+// estas filas permiten que el formulario funcione también sin conexión.
+const OPCIONES_CAMPOS_INICIALES: Array<{
+  campo: string;
+  valor: string;
+  etiqueta: string;
+  orden: number;
+}> = [
+  { campo: 'sexo', valor: 'M', etiqueta: 'Masculino', orden: 10 },
+  { campo: 'sexo', valor: 'F', etiqueta: 'Femenino', orden: 20 },
+  { campo: 'nivel_instruccion', valor: 'Primaria', etiqueta: 'Primaria', orden: 10 },
+  { campo: 'nivel_instruccion', valor: 'Bachillerato', etiqueta: 'Bachillerato', orden: 20 },
+  { campo: 'nivel_instruccion', valor: 'Técnico', etiqueta: 'Técnico', orden: 30 },
+  { campo: 'nivel_instruccion', valor: 'Universitario', etiqueta: 'Universitario', orden: 40 },
+  { campo: 'nivel_instruccion', valor: 'Posgrado', etiqueta: 'Posgrado', orden: 50 },
+  { campo: 'nivel_instruccion', valor: 'Ninguno', etiqueta: 'Ninguno', orden: 60 },
+  { campo: 'estado_civil', valor: 'Soltero/a', etiqueta: 'Soltero/a', orden: 10 },
+  { campo: 'estado_civil', valor: 'Casado/a', etiqueta: 'Casado/a', orden: 20 },
+  { campo: 'estado_civil', valor: 'Divorciado/a', etiqueta: 'Divorciado/a', orden: 30 },
+  { campo: 'estado_civil', valor: 'Viudo/a', etiqueta: 'Viudo/a', orden: 40 },
+  { campo: 'estado_civil', valor: 'Concubino/a', etiqueta: 'Concubino/a', orden: 50 },
+  { campo: 'parentesco', valor: 'Cónyuge', etiqueta: 'Cónyuge', orden: 10 },
+  { campo: 'parentesco', valor: 'Hijo/a', etiqueta: 'Hijo/a', orden: 20 },
+  { campo: 'parentesco', valor: 'Padre/Madre', etiqueta: 'Padre/Madre', orden: 30 },
+  { campo: 'parentesco', valor: 'Hermano/a', etiqueta: 'Hermano/a', orden: 40 },
+  { campo: 'parentesco', valor: 'Nieto/a', etiqueta: 'Nieto/a', orden: 50 },
+  { campo: 'parentesco', valor: 'Otro', etiqueta: 'Otro', orden: 60 },
+  { campo: 'clasificacion_ingresos', valor: 'Diario', etiqueta: 'Diario', orden: 10 },
+  { campo: 'clasificacion_ingresos', valor: 'Semanal', etiqueta: 'Semanal', orden: 20 },
+  { campo: 'clasificacion_ingresos', valor: 'Quincenal', etiqueta: 'Quincenal', orden: 30 },
+  { campo: 'clasificacion_ingresos', valor: 'Mensual', etiqueta: 'Mensual', orden: 40 },
+  { campo: 'clasificacion_ingresos', valor: 'Por Trabajo Independiente/Informal', etiqueta: 'Por Trabajo Independiente/Informal', orden: 50 },
+  { campo: 'frecuencia_ingresos', valor: 'Diario', etiqueta: 'Diario', orden: 10 },
+  { campo: 'frecuencia_ingresos', valor: 'Semanal', etiqueta: 'Semanal', orden: 20 },
+  { campo: 'frecuencia_ingresos', valor: 'Quincenal', etiqueta: 'Quincenal', orden: 30 },
+  { campo: 'frecuencia_ingresos', valor: 'Mensual', etiqueta: 'Mensual', orden: 40 },
+  { campo: 'frecuencia_ingresos', valor: 'Variable', etiqueta: 'Variable', orden: 50 },
+  { campo: 'trabaja_actual', valor: 'Sí', etiqueta: 'Sí', orden: 10 },
+  { campo: 'trabaja_actual', valor: 'No', etiqueta: 'No', orden: 20 },
+];
+
+const insertarOpcionCampo = db.prepare(`
+  INSERT OR IGNORE INTO opciones_campos (campo, valor, etiqueta, orden)
+  VALUES (@campo, @valor, @etiqueta, @orden)
+`);
+
+db.transaction((opciones: typeof OPCIONES_CAMPOS_INICIALES) => {
+  for (const opcion of opciones) insertarOpcionCampo.run(opcion);
+})(OPCIONES_CAMPOS_INICIALES);
 
 function sembrarTerritoriosIniciales() {
   const { total } = db.prepare('SELECT COUNT(*) AS total FROM territorios').get() as {
@@ -2125,6 +2188,155 @@ export function actualizarConfigCampo({
 }
 
 // ============================================================================
+// OPCIONES DE CAMPOS CONFIGURABLES (listas desplegables)
+// ============================================================================
+
+export type OpcionCampo = {
+  id: number;
+  campo: string;
+  valor: string;
+  etiqueta: string;
+  orden: number;
+  activo: boolean;
+};
+
+export const CAMPOS_OPCIONES: Record<string, string> = {
+  sexo: 'Sexo',
+  nivel_instruccion: 'Nivel de instrucción',
+  estado_civil: 'Estado civil',
+  parentesco: 'Parentesco',
+  clasificacion_ingresos: 'Clasificación de ingresos',
+  frecuencia_ingresos: 'Frecuencia de ingresos',
+  trabaja_actual: '¿Trabaja actualmente?',
+};
+
+function formatearOpcionCampo(fila: any): OpcionCampo {
+  return {
+    id: fila.id,
+    campo: fila.campo,
+    valor: fila.valor,
+    etiqueta: fila.etiqueta || fila.valor,
+    orden: fila.orden,
+    activo: Boolean(fila.activo),
+  };
+}
+
+export function listarOpcionesCampo(
+  campo: string,
+  { soloActivas = true }: { soloActivas?: boolean } = {}
+): OpcionCampo[] {
+  const filtro = soloActivas ? 'AND activo = 1' : '';
+  const filas = db
+    .prepare(`
+      SELECT * FROM opciones_campos
+      WHERE campo = ? ${filtro}
+      ORDER BY orden, valor COLLATE NOCASE
+    `)
+    .all(campo) as any[];
+  return filas.map(formatearOpcionCampo);
+}
+
+// Devuelve todas las listas que consume el formulario de registro.
+export function listarOpcionesFormulario(): Record<string, OpcionCampo[]> {
+  const opciones: Record<string, OpcionCampo[]> = {};
+  for (const campo of Object.keys(CAMPOS_OPCIONES)) {
+    opciones[campo] = listarOpcionesCampo(campo);
+  }
+  return opciones;
+}
+
+export function listarCamposConOpciones(): string[] {
+  const filas = db
+    .prepare('SELECT DISTINCT campo FROM opciones_campos ORDER BY campo COLLATE NOCASE')
+    .all() as Array<{ campo: string }>;
+  return filas.map((fila) => fila.campo);
+}
+
+export function obtenerOpcionCampoPorId(id: number): OpcionCampo | null {
+  const fila = db.prepare('SELECT * FROM opciones_campos WHERE id = ?').get(id) as any;
+  return fila ? formatearOpcionCampo(fila) : null;
+}
+
+export function crearOpcionCampo({
+  campo,
+  valor,
+  etiqueta = null,
+  orden = 0,
+  activo = true,
+}: {
+  campo: string;
+  valor: string;
+  etiqueta?: string | null;
+  orden?: number;
+  activo?: boolean;
+}): number {
+  const resultado = db
+    .prepare(`
+      INSERT OR IGNORE INTO opciones_campos (campo, valor, etiqueta, orden, activo)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+    .run(campo, valor, etiqueta, orden, activo ? 1 : 0);
+
+  if (resultado.changes === 0) {
+    db.prepare(`
+      UPDATE opciones_campos
+      SET etiqueta = COALESCE(?, etiqueta), orden = ?, activo = ?
+      WHERE campo = ? AND valor = ?
+    `).run(etiqueta, orden, activo ? 1 : 0, campo, valor);
+    const fila = db
+      .prepare('SELECT id FROM opciones_campos WHERE campo = ? AND valor = ?')
+      .get(campo, valor) as { id: number } | undefined;
+    return fila ? fila.id : 0;
+  }
+
+  return Number(resultado.lastInsertRowid);
+}
+
+export function actualizarOpcionCampo({
+  id,
+  valor,
+  etiqueta,
+  orden,
+  activo,
+}: {
+  id: number;
+  valor?: string;
+  etiqueta?: string | null;
+  orden?: number;
+  activo?: boolean;
+}): boolean {
+  const resultado = db
+    .prepare(`
+      UPDATE opciones_campos
+      SET valor = COALESCE(?, valor),
+          etiqueta = COALESCE(?, etiqueta),
+          orden = COALESCE(?, orden),
+          activo = COALESCE(?, activo)
+      WHERE id = ?
+    `)
+    .run(
+      valor ?? null,
+      etiqueta === undefined ? null : etiqueta,
+      orden === undefined ? null : orden,
+      activo === undefined ? null : activo ? 1 : 0,
+      id
+    );
+  return resultado.changes > 0;
+}
+
+export function cambiarEstadoOpcionCampo(id: number): boolean {
+  return (
+    db
+      .prepare('UPDATE opciones_campos SET activo = CASE activo WHEN 1 THEN 0 ELSE 1 END WHERE id = ?')
+      .run(id).changes > 0
+  );
+}
+
+export function eliminarOpcionCampo(id: number): boolean {
+  return db.prepare('DELETE FROM opciones_campos WHERE id = ?').run(id).changes > 0;
+}
+
+// ============================================================================
 // VISTA UNIFICADA DE PERSONAS
 // ============================================================================
 
@@ -2353,6 +2565,15 @@ module.exports = {
   listarConfigCampos,
   obtenerConfigCamposMap,
   actualizarConfigCampo,
+  listarOpcionesCampo,
+  listarOpcionesFormulario,
+  listarCamposConOpciones,
+  obtenerOpcionCampoPorId,
+  crearOpcionCampo,
+  actualizarOpcionCampo,
+  cambiarEstadoOpcionCampo,
+  eliminarOpcionCampo,
+  CAMPOS_OPCIONES,
   obtenerPersonas,
   obtenerPersonaIndividual,
   contarPersonas,

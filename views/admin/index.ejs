@@ -16,7 +16,7 @@
     <section class="panel">
       <div class="panel-head">
         <h2>Panel de Administración</h2>
-        <p>Gestión de usuarios, territorio, formulario y reportes del censo.</p>
+        <p>Gestión centralizada en Neon: consejos comunales, opciones del formulario, territorio, usuarios y reportes.</p>
       </div>
 
       <div class="admin-cards">
@@ -51,9 +51,21 @@
         </article>
 
         <article class="admin-card">
+          <span class="admin-card-num"><%= stats.consejos %></span>
+          <h3>Consejos comunales</h3>
+          <a href="/admin/consejos" class="boton boton--mini boton--secundario">Gestionar</a>
+        </article>
+
+        <article class="admin-card">
           <span class="admin-card-num"><%= stats.campos %></span>
           <h3>Campos del formulario</h3>
           <a href="/admin/formulario" class="boton boton--mini boton--secundario">Configurar</a>
+        </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.opciones %></span>
+          <h3>Listas de opciones</h3>
+          <a href="/admin/opciones" class="boton boton--mini boton--secundario">Configurar</a>
         </article>
       </div>
     </section>

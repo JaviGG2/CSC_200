@@ -240,6 +240,60 @@ CREATE INDEX IF NOT EXISTS idx_campos_formulario_activo
   ON campos_formulario (activo, orden);
 
 -- ---------------------------------------------------------------------------
+-- Opciones de los campos configurables del formulario (listas desplegables)
+-- Ej.: parentesco, nivel_instruccion, estado_civil, clasificacion_ingresos...
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS opciones_campos (
+  id BIGSERIAL PRIMARY KEY,
+  campo VARCHAR(120) NOT NULL,
+  valor VARCHAR(160) NOT NULL,
+  etiqueta VARCHAR(160),
+  orden INTEGER NOT NULL DEFAULT 0,
+  activo BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (campo, valor)
+);
+
+CREATE INDEX IF NOT EXISTS idx_opciones_campos_campo
+  ON opciones_campos (campo, activo, orden);
+
+-- Catálogo inicial de opciones (idempotente).
+INSERT INTO opciones_campos (campo, valor, etiqueta, orden) VALUES
+  ('sexo', 'M', 'Masculino', 10),
+  ('sexo', 'F', 'Femenino', 20),
+  ('nivel_instruccion', 'Primaria', 'Primaria', 10),
+  ('nivel_instruccion', 'Bachillerato', 'Bachillerato', 20),
+  ('nivel_instruccion', 'Técnico', 'Técnico', 30),
+  ('nivel_instruccion', 'Universitario', 'Universitario', 40),
+  ('nivel_instruccion', 'Posgrado', 'Posgrado', 50),
+  ('nivel_instruccion', 'Ninguno', 'Ninguno', 60),
+  ('estado_civil', 'Soltero/a', 'Soltero/a', 10),
+  ('estado_civil', 'Casado/a', 'Casado/a', 20),
+  ('estado_civil', 'Divorciado/a', 'Divorciado/a', 30),
+  ('estado_civil', 'Viudo/a', 'Viudo/a', 40),
+  ('estado_civil', 'Concubino/a', 'Concubino/a', 50),
+  ('parentesco', 'Cónyuge', 'Cónyuge', 10),
+  ('parentesco', 'Hijo/a', 'Hijo/a', 20),
+  ('parentesco', 'Padre/Madre', 'Padre/Madre', 30),
+  ('parentesco', 'Hermano/a', 'Hermano/a', 40),
+  ('parentesco', 'Nieto/a', 'Nieto/a', 50),
+  ('parentesco', 'Otro', 'Otro', 60),
+  ('clasificacion_ingresos', 'Diario', 'Diario', 10),
+  ('clasificacion_ingresos', 'Semanal', 'Semanal', 20),
+  ('clasificacion_ingresos', 'Quincenal', 'Quincenal', 30),
+  ('clasificacion_ingresos', 'Mensual', 'Mensual', 40),
+  ('clasificacion_ingresos', 'Por Trabajo Independiente/Informal', 'Por Trabajo Independiente/Informal', 50),
+  ('frecuencia_ingresos', 'Diario', 'Diario', 10),
+  ('frecuencia_ingresos', 'Semanal', 'Semanal', 20),
+  ('frecuencia_ingresos', 'Quincenal', 'Quincenal', 30),
+  ('frecuencia_ingresos', 'Mensual', 'Mensual', 40),
+  ('frecuencia_ingresos', 'Variable', 'Variable', 50),
+  ('trabaja_actual', 'Sí', 'Sí', 10),
+  ('trabaja_actual', 'No', 'No', 20)
+ON CONFLICT (campo, valor) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
 -- Cola de eliminaciones pendientes de propagar a Neon
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS neon_eliminaciones (

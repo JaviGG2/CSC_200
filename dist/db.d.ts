@@ -391,6 +391,37 @@ export declare function actualizarConfigCampo({ clave, visible, requerido, }: {
     visible?: boolean;
     requerido?: boolean;
 }): boolean;
+export type OpcionCampo = {
+    id: number;
+    campo: string;
+    valor: string;
+    etiqueta: string;
+    orden: number;
+    activo: boolean;
+};
+export declare const CAMPOS_OPCIONES: Record<string, string>;
+export declare function listarOpcionesCampo(campo: string, { soloActivas }?: {
+    soloActivas?: boolean;
+}): OpcionCampo[];
+export declare function listarOpcionesFormulario(): Record<string, OpcionCampo[]>;
+export declare function listarCamposConOpciones(): string[];
+export declare function obtenerOpcionCampoPorId(id: number): OpcionCampo | null;
+export declare function crearOpcionCampo({ campo, valor, etiqueta, orden, activo, }: {
+    campo: string;
+    valor: string;
+    etiqueta?: string | null;
+    orden?: number;
+    activo?: boolean;
+}): number;
+export declare function actualizarOpcionCampo({ id, valor, etiqueta, orden, activo, }: {
+    id: number;
+    valor?: string;
+    etiqueta?: string | null;
+    orden?: number;
+    activo?: boolean;
+}): boolean;
+export declare function cambiarEstadoOpcionCampo(id: number): boolean;
+export declare function eliminarOpcionCampo(id: number): boolean;
 export declare function obtenerPersonas(filtros?: {
     q?: string;
     sexo?: string;

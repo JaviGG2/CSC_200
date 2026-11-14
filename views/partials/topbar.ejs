@@ -1,32 +1,141 @@
-<header class="topbar">
-  <div class="contenedor topbar-inner">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">C200</span>
-      <div class="brand-text">
-        <h1>Comuna Carabobo 200</h1>
-        <p>Registro demográfico y socioeconómico</p>
+<%
+  const moduloActual = typeof modulo !== 'undefined' ? modulo : 'censo';
+  const subseccionActual = typeof subseccion !== 'undefined' ? subseccion : 'inicio';
+  const usuarioActual = typeof usuario !== 'undefined' ? usuario : null;
+  const esAdmin = Boolean(usuarioActual && usuarioActual.rol === 'admin');
+%>
+<header class="app-header">
+  <div class="app-header-main">
+    <div class="contenedor app-header-inner">
+      <a class="brand" href="/" aria-label="Ir al Censo General">
+        <span class="brand-mark" aria-hidden="true">C200</span>
+        <span class="brand-text">
+          <strong>Comuna Carabobo 200</strong>
+          <small>Plataforma de gestión comunitaria</small>
+        </span>
+      </a>
+
+      <button
+        type="button"
+        class="nav-toggle"
+        data-nav-toggle
+        aria-expanded="false"
+        aria-controls="nav-global"
+      >
+        <span class="nav-toggle-barras" aria-hidden="true"><i></i><i></i><i></i></span>
+        Menú
+      </button>
+
+      <nav class="nav-global" id="nav-global" aria-label="Módulos de la plataforma">
+        <a
+          href="/"
+          class="nav-modulo <%= moduloActual === 'censo' ? 'nav-modulo--activo' : '' %>"
+          <%= moduloActual === 'censo' ? 'aria-current="page"' : '' %>
+        >
+          <span class="nav-modulo-icono" aria-hidden="true">▦</span>
+          <span class="nav-modulo-texto">Censo General</span>
+        </a>
+
+        <a
+          href="/beneficios"
+          class="nav-modulo nav-modulo--proximamente <%= moduloActual === 'beneficios' ? 'nav-modulo--activo' : '' %>"
+          <%= moduloActual === 'beneficios' ? 'aria-current="page"' : '' %>
+        >
+          <span class="nav-modulo-icono" aria-hidden="true">◈</span>
+          <span class="nav-modulo-texto">Gestión de Beneficios</span>
+          <span class="nav-badge">Próximamente</span>
+        </a>
+
+        <a
+          href="/expedientes-medicos"
+          class="nav-modulo nav-modulo--proximamente <%= moduloActual === 'expedientes' ? 'nav-modulo--activo' : '' %>"
+          <%= moduloActual === 'expedientes' ? 'aria-current="page"' : '' %>
+        >
+          <span class="nav-modulo-icono" aria-hidden="true">✚</span>
+          <span class="nav-modulo-texto">Expedientes Médicos</span>
+          <span class="nav-badge">Próximamente</span>
+        </a>
+      </nav>
+
+      <% if (usuarioActual) { %>
+        <div class="app-user">
+          <span class="app-user-avatar" aria-hidden="true"><%= (usuarioActual.nombre || usuarioActual.usuario || '?').slice(0, 1).toUpperCase() %></span>
+          <span class="app-user-datos">
+            <strong><%= usuarioActual.nombre %></strong>
+            <small><%= usuarioActual.rol === 'admin' ? 'Administrador' : 'Encuestador' %></small>
+          </span>
+          <form method="post" action="/logout" class="logout-form">
+            <button type="submit" class="boton boton--mini boton--secundario">Salir</button>
+          </form>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (moduloActual === 'censo') { %>
+    <div class="app-contextbar">
+      <div class="contenedor app-contextbar-inner">
+        <nav class="nav-censo" aria-label="Secciones del Censo General">
+          <a
+            href="/"
+            class="nav-censo-link <%= subseccionActual === 'inicio' ? 'nav-censo-link--activo' : '' %>"
+            <%= subseccionActual === 'inicio' ? 'aria-current="page"' : '' %>
+          >Inicio</a>
+          <a
+            href="/wizard"
+            class="nav-censo-link <%= subseccionActual === 'registro' ? 'nav-censo-link--activo' : '' %>"
+            <%= subseccionActual === 'registro' ? 'aria-current="page"' : '' %>
+          >Registro</a>
+          <% if (esAdmin) { %>
+            <a
+              href="/admin"
+              class="nav-censo-link <%= subseccionActual === 'admin' ? 'nav-censo-link--activo' : '' %>"
+              <%= subseccionActual === 'admin' ? 'aria-current="page"' : '' %>
+            >Admin</a>
+          <% } %>
+        </nav>
+
+        <span class="contextbar-estado">
+          <span class="estado-punto" aria-hidden="true"></span>
+          Configuración centralizada en Neon
+        </span>
       </div>
     </div>
-
-    <nav class="topbar-nav" aria-label="Secciones">
-      <a href="/" class="topbar-link <%= typeof activo !== 'undefined' && activo === 'censo' ? 'topbar-link--activo' : '' %>">Censo</a>
-      <a href="/wizard" class="topbar-link <%= typeof activo !== 'undefined' && activo === 'wizard' ? 'topbar-link--activo' : '' %>">Nueva Vivienda</a>
-      <a href="/personas" class="topbar-link <%= typeof activo !== 'undefined' && activo === 'personas' ? 'topbar-link--activo' : '' %>">Personas</a>
-      <a href="/ubicacion" class="topbar-link <%= typeof activo !== 'undefined' && activo === 'ubicacion' ? 'topbar-link--activo' : '' %>">Por Ubicación</a>
-      <% if (typeof usuario !== 'undefined' && usuario && usuario.rol === 'admin') { %>
-        <a href="/admin" class="topbar-link <%= typeof activo !== 'undefined' && activo === 'admin' ? 'topbar-link--activo' : '' %>">Administración</a>
-      <% } %>
-    </nav>
-
-    <% if (typeof usuario !== 'undefined' && usuario) { %>
-      <div class="topbar-usuario">
-        <span class="usuario-nombre" title="<%= usuario.usuario %>">
-          <%= usuario.nombre %> · <%= usuario.rol === 'admin' ? 'Admin' : 'Gestor' %>
+  <% } else { %>
+    <div class="app-contextbar app-contextbar--modulo">
+      <div class="contenedor app-contextbar-inner">
+        <span class="contextbar-modulo">
+          <%= moduloActual === 'beneficios' ? 'Módulo en preparación' : 'Módulo en preparación' %>
+          <strong>Próximamente</strong>
         </span>
-        <form method="post" action="/logout" class="logout-form">
-          <button type="submit" class="boton boton--mini boton--secundario">Salir</button>
-        </form>
+        <a href="/" class="contextbar-volver">Volver al Censo General</a>
       </div>
-    <% } %>
-  </div>
+    </div>
+  <% } %>
 </header>
+
+<script>
+  (function () {
+    var boton = document.querySelector('[data-nav-toggle]');
+    var panel = document.getElementById('nav-global');
+    if (!boton || !panel) return;
+
+    function cerrar() {
+      document.body.classList.remove('nav-abierto');
+      boton.setAttribute('aria-expanded', 'false');
+    }
+
+    boton.addEventListener('click', function () {
+      var abierto = document.body.classList.toggle('nav-abierto');
+      boton.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+    });
+
+    panel.addEventListener('click', function (evento) {
+      if (evento.target.closest('a')) cerrar();
+    });
+
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 900) cerrar();
+    });
+  })();
+</script>

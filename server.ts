@@ -49,7 +49,17 @@ const {
   crearViviendaCompleta,
   listarConsejosComunales,
   obtenerConsejoComunalPorId,
+  crearConsejoComunal,
   buscarViviendasPrincipales,
+  listarOpcionesFormulario,
+  listarOpcionesCampo,
+  listarCamposConOpciones,
+  obtenerOpcionCampoPorId,
+  crearOpcionCampo,
+  actualizarOpcionCampo,
+  cambiarEstadoOpcionCampo,
+  eliminarOpcionCampo,
+  CAMPOS_OPCIONES,
   listarUsuarios,
   obtenerUsuarioPorId,
   obtenerUsuarioPorUsuario,
@@ -85,6 +95,18 @@ const {
   requerirAdmin,
 } = require('./auth');
 
+const {
+  sincronizarConfiguracionNeon,
+  invalidarCacheConfiguracion,
+  guardarConsejoEnNeon,
+  guardarOpcionEnNeon,
+  cambiarEstadoOpcionEnNeon,
+  eliminarOpcionEnNeon,
+  guardarConfigCamposEnNeon,
+  guardarTerritorioEnNeon,
+  eliminarTerritorioEnNeon,
+} = require('./configuracion-neon');
+
 const app = express();
 const PUERTO = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -110,6 +132,29 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
   }
 
+  next();
+});
+
+// Estado de navegación global: módulo y sección activos.
+function calcularSeccion(req: Request): { modulo: string; subseccion: string } {
+  const ruta = req.path;
+
+  if (ruta.startsWith('/beneficios')) return { modulo: 'beneficios', subseccion: '' };
+  if (ruta.startsWith('/expedientes-medicos')) {
+    return { modulo: 'expedientes', subseccion: '' };
+  }
+  if (ruta === '/wizard') return { modulo: 'censo', subseccion: 'registro' };
+  if (ruta.startsWith('/admin') || ruta === '/campos') {
+    return { modulo: 'censo', subseccion: 'admin' };
+  }
+  return { modulo: 'censo', subseccion: 'inicio' };
+}
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const { modulo, subseccion } = calcularSeccion(req);
+  res.locals.modulo = modulo;
+  res.locals.subseccion = subseccion;
+  res.locals.ruta = req.path;
   next();
 });
 
@@ -451,18 +496,18 @@ function renderizar(
     nuevoCampo = null,
   }: any = {}
 ) {
+  const { grupos, stats } = construirCensoFiltrado({});
+
   return res.status(status).render('index', {
-    campos: obtenerCamposFormulario(),
-    registros: obtenerRegistros(),
-    stats: obtenerEstadisticasViviendas(),
-    error,
     ok,
-    valores,
-    errorCampo,
-    abrirCampo,
-    valoresCampo,
-    nuevoCampo,
-    formatoFecha: formatearFecha,
+    error,
+    consejos: listarConsejosComunales(),
+    filtros: { consejo: '', q: '' },
+    grupos,
+    stats,
+    statsSync: obtenerEstadisticasViviendas(),
+    configNeon: null,
+    esAdmin: (res.locals.usuario as any)?.rol === 'admin',
   });
 }
 
@@ -587,13 +632,165 @@ app.use(requerirAuth);
 // RUTAS WEB (EJS)
 // ============================================================================
 
-app.get('/', (req: Request, res: Response) => {
-  const ok = typeof req.query.ok === 'string' ? req.query.ok.slice(0, 200) : null;
-  const error = typeof req.query.error === 'string' ? req.query.error.slice(0, 300) : null;
-  return renderizar(res, { ok, error, nuevoCampo: leerNuevoCampo(req) });
+function normalizarBusqueda(valor: unknown): string {
+  return String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function personaCoincide(persona: any, busqueda: string): boolean {
+  if (!persona) return false;
+  const cedula =
+    persona.cedula_tipo && persona.cedula_numero
+      ? `${persona.cedula_tipo}-${persona.cedula_numero}`
+      : '';
+  return [
+    persona.nombres,
+    persona.apellidos,
+    persona.cedula_numero,
+    cedula,
+    persona.profesion,
+    persona.parentesco,
+  ].some((valor) => normalizarBusqueda(valor).includes(busqueda));
+}
+
+function viviendaCoincide(vivienda: any, busqueda: string): boolean {
+  if (!busqueda) return true;
+
+  const campos = [
+    vivienda.comunidad,
+    vivienda.consejo_nombre,
+    vivienda.etapa,
+    vivienda.manzana,
+    vivienda.direccion,
+    vivienda.numero_casa,
+    vivienda.numero_anexo,
+  ];
+  if (campos.some((valor) => normalizarBusqueda(valor).includes(busqueda))) return true;
+  if (personaCoincide(vivienda.jefe, busqueda)) return true;
+
+  return (vivienda.integrantes || []).some((persona: any) =>
+    personaCoincide(persona, busqueda)
+  );
+}
+
+// Construye la vista del Censo General: viviendas principales con sus anexos y
+// el detalle de personas, aplicando filtro por consejo comunal y búsqueda rápida.
+function construirCensoFiltrado({
+  consejo = '',
+  q = '',
+}: {
+  consejo?: string;
+  q?: string;
+}) {
+  const { viviendas } = obtenerViviendas({ q: '', page: 1, limit: 100000 });
+
+  const registros = viviendas.map((vivienda: any) => {
+    const expediente = obtenerExpedienteVivienda(vivienda.id);
+    const consejoLocal = vivienda.consejo_comunal_id
+      ? obtenerConsejoComunalPorId(vivienda.consejo_comunal_id)
+      : null;
+
+    return {
+      ...vivienda,
+      consejo_nombre: consejoLocal?.nombre || vivienda.comunidad || '',
+      jefe: expediente?.jefe ?? null,
+      integrantes: expediente?.integrantes ?? [],
+    };
+  });
+
+  const consejoBuscado = normalizarBusqueda(consejo);
+  const filtrados = consejoBuscado
+    ? registros.filter(
+        (registro: any) =>
+          normalizarBusqueda(registro.consejo_nombre) === consejoBuscado ||
+          normalizarBusqueda(registro.comunidad) === consejoBuscado
+      )
+    : registros;
+
+  const grupos: any[] = [];
+  const porId = new Map<number, any>();
+
+  for (const registro of filtrados) {
+    if (!registro.es_anexo) {
+      const grupo = { ...registro, anexos: [] as any[] };
+      grupos.push(grupo);
+      porId.set(registro.id, grupo);
+    }
+  }
+
+  for (const registro of filtrados) {
+    if (!registro.es_anexo) continue;
+    const principal = registro.vivienda_principal_id
+      ? porId.get(registro.vivienda_principal_id)
+      : null;
+
+    if (principal) {
+      principal.anexos.push(registro);
+    } else {
+      // Anexo huérfano: se muestra como registro independiente para no perderlo.
+      grupos.push({ ...registro, anexos: [] });
+    }
+  }
+
+  const busqueda = normalizarBusqueda(q);
+  const visibles = busqueda
+    ? grupos.filter((grupo) =>
+        [grupo, ...grupo.anexos].some((vivienda: any) =>
+          viviendaCoincide(vivienda, busqueda)
+        )
+      )
+    : grupos;
+
+  let anexos = 0;
+  let personas = 0;
+  for (const grupo of visibles) {
+    anexos += grupo.anexos.length;
+    personas += (grupo.jefe ? 1 : 0) + grupo.integrantes.length;
+    for (const anexo of grupo.anexos) {
+      personas += (anexo.jefe ? 1 : 0) + anexo.integrantes.length;
+    }
+  }
+
+  visibles.sort((a, b) =>
+    String(b.fecha_registro || '').localeCompare(String(a.fecha_registro || ''))
+  );
+
+  return {
+    grupos: visibles,
+    stats: { viviendas: visibles.length, anexos, personas },
+  };
+}
+
+app.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const configNeon = await sincronizarConfiguracionNeon();
+    const ok = typeof req.query.ok === 'string' ? req.query.ok.slice(0, 200) : null;
+    const error = typeof req.query.error === 'string' ? req.query.error.slice(0, 300) : null;
+    const consejo = typeof req.query.consejo === 'string' ? req.query.consejo.trim() : '';
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const { grupos, stats } = construirCensoFiltrado({ consejo, q });
+
+    return res.render('index', {
+      ok,
+      error,
+      consejos: listarConsejosComunales(),
+      filtros: { consejo, q },
+      grupos,
+      stats,
+      statsSync: obtenerEstadisticasViviendas(),
+      configNeon,
+      esAdmin: (res.locals.usuario as any)?.rol === 'admin',
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
-app.get('/wizard', (req: Request, res: Response) => {
+app.get('/wizard', async (req: Request, res: Response) => {
+  await sincronizarConfiguracionNeon();
   const ok = typeof req.query.ok === 'string' ? req.query.ok.slice(0, 200) : null;
   return res.render('wizard', {
     ok,
@@ -609,6 +806,36 @@ app.get('/wizard', (req: Request, res: Response) => {
     },
     configCampos: obtenerConfigCamposMap(),
     consejos: listarConsejosComunales(),
+    opciones: listarOpcionesFormulario(),
+  });
+});
+
+// Módulos anunciados en la navegación global, aún no habilitados.
+app.get('/beneficios', (req: Request, res: Response) => {
+  return res.render('modulo-proximamente', {
+    modulo: 'beneficios',
+    titulo: 'Gestión de Beneficios',
+    descripcion:
+      'Administración de ayudas, subsidios y programas sociales entregados a las familias de la comuna.',
+    funciones: [
+      'Registro de beneficiarios por consejo comunal.',
+      'Control de entregas y periódicos de ayudas.',
+      'Historial de beneficios por vivienda y grupo familiar.',
+    ],
+  });
+});
+
+app.get('/expedientes-medicos', (req: Request, res: Response) => {
+  return res.render('modulo-proximamente', {
+    modulo: 'expedientes',
+    titulo: 'Gestión de Expedientes Médicos',
+    descripcion:
+      'Historia clínica comunitaria, condiciones de salud y seguimiento de tratamientos por familia.',
+    funciones: [
+      'Expediente médico por persona y grupo familiar.',
+      'Registro de condiciones crónicas, discapacidad y medicamentos.',
+      'Seguimiento de remisiones y controles médicos.',
+    ],
   });
 });
 
@@ -751,7 +978,7 @@ app.get('/personas/:tipo/:id', (req: Request, res: Response, next: NextFunction)
   }
 });
 
-app.post('/personas/:tipo/:id/eliminar', async (req: Request, res: Response, next: NextFunction) => {
+app.post('/personas/:tipo/:id/eliminar', requerirAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tipo = req.params.tipo;
     const id = Number(req.params.id);
@@ -830,7 +1057,7 @@ app.get('/viviendas/:id', (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-app.post('/viviendas/:id/eliminar', async (req: Request, res: Response, next: NextFunction) => {
+app.post('/viviendas/:id/eliminar', requerirAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = Number(req.params.id);
     const destino = (clave: 'ok' | 'error', mensaje: string) =>
@@ -1189,7 +1416,7 @@ app.post('/registros/:id/editar', (req: Request, res: Response, next: NextFuncti
   }
 });
 
-app.post('/registros/:id/eliminar', (req: Request, res: Response, next: NextFunction) => {
+app.post('/registros/:id/eliminar', requerirAdmin, (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = Number(req.params.id);
 
@@ -1225,7 +1452,7 @@ app.post('/registros/:id/eliminar', (req: Request, res: Response, next: NextFunc
   }
 });
 
-app.post('/registros/vaciar', (req: Request, res: Response, next: NextFunction) => {
+app.post('/registros/vaciar', requerirAdmin, (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!claveAdministracionValida(req.body.clave)) {
       return renderizar(res, {
@@ -1867,7 +2094,7 @@ app.put('/api/viviendas/:id', (req: Request, res: Response, next: NextFunction) 
   }
 });
 
-app.delete('/api/viviendas/:id', async (req: Request, res: Response, next: NextFunction) => {
+app.delete('/api/viviendas/:id', requerirAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
@@ -2003,7 +2230,7 @@ app.put('/api/viviendas/:viviendaId/integrantes/:integranteId', (req: Request, r
   }
 });
 
-app.delete('/api/viviendas/:viviendaId/integrantes/:integranteId', async (req: Request, res: Response, next: NextFunction) => {
+app.delete('/api/viviendas/:viviendaId/integrantes/:integranteId', requerirAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const viviendaId = Number(req.params.viviendaId);
     const integranteId = Number(req.params.integranteId);
@@ -2108,8 +2335,256 @@ app.get('/admin', requerirAdmin, (req: Request, res: Response) => {
       comunidades: listarTerritorios({ tipo: 'comunidad' }).length,
       manzanas: listarTerritorios({ tipo: 'manzana' }).length,
       campos: listarConfigCampos().length,
+      consejos: listarConsejosComunales({ soloActivos: false }).length,
+      opciones: listarCamposConOpciones().length,
     },
   });
+});
+
+// --- Consejos comunales ---
+app.get('/admin/consejos', requerirAdmin, async (req: Request, res: Response) => {
+  const configNeon = await sincronizarConfiguracionNeon();
+  return res.render('admin/consejos', {
+    consejos: listarConsejosComunales({ soloActivos: false }),
+    ok: mensajeQuery(req, 'ok'),
+    error: mensajeQuery(req, 'error'),
+    configNeon,
+  });
+});
+
+app.post('/admin/consejos', requerirAdmin, async (req: Request, res: Response) => {
+  const nombre = normalizarNombre(req.body.nombre);
+  const sector = normalizarNombre(req.body.sector) || null;
+  const activo = ['on', '1', 'true'].includes(valorSimple(req.body.activo));
+
+  if (!nombre) {
+    return res.redirect(
+      '/admin/consejos?error=' + encodeURIComponent('El nombre del consejo es obligatorio.')
+    );
+  }
+
+  try {
+    const neon = await guardarConsejoEnNeon({ nombre, sector, activo });
+    crearConsejoComunal({ nombre, sector, activo });
+
+    const mensaje = neon.ok
+      ? 'Consejo comunal creado y sincronizado con Neon.'
+      : `Consejo guardado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/consejos?ok=' + encodeURIComponent(mensaje));
+  } catch (error) {
+    return res.redirect(
+      '/admin/consejos?error=' + encodeURIComponent('No se pudo crear el consejo comunal.')
+    );
+  }
+});
+
+app.post('/admin/consejos/:id/editar', requerirAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const actual = obtenerConsejoComunalPorId(id);
+    if (!actual) {
+      return res.redirect(
+        '/admin/consejos?error=' + encodeURIComponent('Consejo comunal no encontrado.')
+      );
+    }
+
+    const nombre = normalizarNombre(req.body.nombre);
+    const sector = normalizarNombre(req.body.sector) || null;
+    const activo = ['on', '1', 'true'].includes(valorSimple(req.body.activo));
+
+    if (!nombre) {
+      return res.redirect(
+        '/admin/consejos?error=' + encodeURIComponent('El nombre del consejo es obligatorio.')
+      );
+    }
+
+    const repetido = listarConsejosComunales({ soloActivos: false }).some(
+      (consejo: any) => consejo.id !== id && consejo.nombre.toLowerCase() === nombre.toLowerCase()
+    );
+    if (repetido) {
+      return res.redirect(
+        '/admin/consejos?error=' + encodeURIComponent('Ya existe otro consejo con ese nombre.')
+      );
+    }
+
+    const neon = await guardarConsejoEnNeon({ nombre, sector, activo });
+    db.prepare('UPDATE consejos_comunales SET nombre = ?, sector = ?, activo = ? WHERE id = ?').run(
+      nombre,
+      sector,
+      activo ? 1 : 0,
+      id
+    );
+
+    const mensaje = neon.ok
+      ? 'Consejo comunal actualizado en Neon.'
+      : `Consejo actualizado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/consejos?ok=' + encodeURIComponent(mensaje));
+  } catch (error) {
+    return res.redirect(
+      '/admin/consejos?error=' + encodeURIComponent('No se pudo actualizar el consejo comunal.')
+    );
+  }
+});
+
+app.post('/admin/consejos/:id/estado', requerirAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const actual = obtenerConsejoComunalPorId(id);
+    if (!actual) {
+      return res.redirect(
+        '/admin/consejos?error=' + encodeURIComponent('Consejo comunal no encontrado.')
+      );
+    }
+
+    const activo = !actual.activo;
+    const neon = await guardarConsejoEnNeon({ nombre: actual.nombre, sector: actual.sector, activo });
+    db.prepare('UPDATE consejos_comunales SET activo = ? WHERE id = ?').run(activo ? 1 : 0, id);
+
+    const mensaje = neon.ok
+      ? `Consejo ${activo ? 'activado' : 'desactivado'} en Neon.`
+      : `Estado actualizado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/consejos?ok=' + encodeURIComponent(mensaje));
+  } catch (error) {
+    return res.redirect(
+      '/admin/consejos?error=' + encodeURIComponent('No se pudo cambiar el estado del consejo.')
+    );
+  }
+});
+
+// --- Opciones de listas desplegables ---
+function listarGruposOpciones() {
+  const campos = [
+    ...new Set([...Object.keys(CAMPOS_OPCIONES), ...listarCamposConOpciones()]),
+  ];
+
+  return campos.map((campo) => ({
+    campo,
+    etiqueta: CAMPOS_OPCIONES[campo] || campo,
+    opciones: listarOpcionesCampo(campo, { soloActivas: false }),
+  }));
+}
+
+app.get('/admin/opciones', requerirAdmin, async (req: Request, res: Response) => {
+  const configNeon = await sincronizarConfiguracionNeon();
+  return res.render('admin/opciones', {
+    grupos: listarGruposOpciones(),
+    ok: mensajeQuery(req, 'ok'),
+    error: mensajeQuery(req, 'error'),
+    configNeon,
+  });
+});
+
+app.post('/admin/opciones', requerirAdmin, async (req: Request, res: Response) => {
+  const campo = valorSimple(req.body.campo).toLowerCase();
+  const valor = normalizarNombre(req.body.valor);
+  const etiqueta = normalizarNombre(req.body.etiqueta) || null;
+  const orden = Number(req.body.orden) || 0;
+  const activo = ['on', '1', 'true'].includes(valorSimple(req.body.activo));
+
+  if (!/^[a-z0-9_]{2,60}$/.test(campo) || !valor) {
+    return res.redirect(
+      '/admin/opciones?error=' +
+        encodeURIComponent('Indique un campo técnico válido y el valor de la opción.')
+    );
+  }
+
+  try {
+    const neon = await guardarOpcionEnNeon({ campo, valor, etiqueta, orden, activo });
+    crearOpcionCampo({ campo, valor, etiqueta, orden, activo });
+
+    const mensaje = neon.ok
+      ? 'Opción creada y sincronizada con Neon.'
+      : `Opción guardada localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/opciones?ok=' + encodeURIComponent(mensaje));
+  } catch (error) {
+    return res.redirect(
+      '/admin/opciones?error=' + encodeURIComponent('No se pudo crear la opción.')
+    );
+  }
+});
+
+app.post('/admin/opciones/:id/editar', requerirAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const actual = obtenerOpcionCampoPorId(id);
+    if (!actual) {
+      return res.redirect('/admin/opciones?error=' + encodeURIComponent('Opción no encontrada.'));
+    }
+
+    const valor = normalizarNombre(req.body.valor);
+    const etiqueta = normalizarNombre(req.body.etiqueta) || null;
+    const orden = Number(req.body.orden) || 0;
+    const activo = ['on', '1', 'true'].includes(valorSimple(req.body.activo));
+
+    if (!valor) {
+      return res.redirect(
+        '/admin/opciones?error=' + encodeURIComponent('El valor de la opción es obligatorio.')
+      );
+    }
+
+    const neon = await guardarOpcionEnNeon({
+      campo: actual.campo,
+      valor,
+      valorOriginal: actual.valor,
+      etiqueta,
+      orden,
+      activo,
+    });
+    actualizarOpcionCampo({ id, valor, etiqueta, orden, activo });
+
+    const mensaje = neon.ok
+      ? 'Opción actualizada en Neon.'
+      : `Opción actualizada localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/opciones?ok=' + encodeURIComponent(mensaje));
+  } catch (error) {
+    return res.redirect(
+      '/admin/opciones?error=' + encodeURIComponent('No se pudo actualizar la opción.')
+    );
+  }
+});
+
+app.post('/admin/opciones/:id/estado', requerirAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const actual = obtenerOpcionCampoPorId(id);
+    if (!actual) {
+      return res.redirect('/admin/opciones?error=' + encodeURIComponent('Opción no encontrada.'));
+    }
+
+    const neon = await cambiarEstadoOpcionEnNeon(actual.campo, actual.valor);
+    cambiarEstadoOpcionCampo(id);
+
+    const mensaje = neon.ok
+      ? 'Estado de la opción actualizado en Neon.'
+      : `Estado actualizado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/opciones?ok=' + encodeURIComponent(mensaje));
+  } catch (error) {
+    return res.redirect(
+      '/admin/opciones?error=' + encodeURIComponent('No se pudo cambiar el estado de la opción.')
+    );
+  }
+});
+
+app.post('/admin/opciones/:id/eliminar', requerirAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const actual = obtenerOpcionCampoPorId(id);
+    if (!actual) {
+      return res.redirect('/admin/opciones?error=' + encodeURIComponent('Opción no encontrada.'));
+    }
+
+    const neon = await eliminarOpcionEnNeon(actual.campo, actual.valor);
+    eliminarOpcionCampo(id);
+
+    const mensaje = neon.ok
+      ? 'Opción eliminada de Neon.'
+      : `Opción eliminada localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/opciones?ok=' + encodeURIComponent(mensaje));
+  } catch (error) {
+    return res.redirect(
+      '/admin/opciones?error=' + encodeURIComponent('No se pudo eliminar la opción.')
+    );
+  }
 });
 
 // --- Usuarios ---
@@ -2210,7 +2685,7 @@ app.get('/admin/territorio', requerirAdmin, (req: Request, res: Response) => {
   });
 });
 
-app.post('/admin/territorio', requerirAdmin, (req: Request, res: Response) => {
+app.post('/admin/territorio', requerirAdmin, async (req: Request, res: Response) => {
   try {
     const etapaNombre = normalizarNombre(req.body.etapa);
     const manzanaNombre = normalizarNombre(req.body.manzana);
@@ -2220,12 +2695,15 @@ app.post('/admin/territorio', requerirAdmin, (req: Request, res: Response) => {
     }
 
     const agregados: string[] = [];
+    let neonFallido = false;
 
     if (etapaNombre) {
       const existente = listarTerritorios({ tipo: 'etapa' })
         .find((t: any) => t.nombre.toLowerCase() === etapaNombre.toLowerCase());
       if (!existente) {
         crearTerritorio({ tipo: 'etapa', nombre: etapaNombre });
+        const neon = await guardarTerritorioEnNeon({ tipo: 'etapa', nombre: etapaNombre });
+        neonFallido = neonFallido || !neon.ok;
         agregados.push('etapa');
       }
     }
@@ -2235,6 +2713,8 @@ app.post('/admin/territorio', requerirAdmin, (req: Request, res: Response) => {
         .find((t: any) => t.nombre.toLowerCase() === manzanaNombre.toLowerCase());
       if (!existente) {
         crearTerritorio({ tipo: 'manzana', nombre: manzanaNombre });
+        const neon = await guardarTerritorioEnNeon({ tipo: 'manzana', nombre: manzanaNombre });
+        neonFallido = neonFallido || !neon.ok;
         agregados.push('manzana');
       }
     }
@@ -2243,23 +2723,32 @@ app.post('/admin/territorio', requerirAdmin, (req: Request, res: Response) => {
       return res.redirect('/admin/territorio?error=' + encodeURIComponent('Ya existían los valores indicados.'));
     }
 
-    return res.redirect('/admin/territorio?ok=' + encodeURIComponent('Se agregó: ' + agregados.join(' y ') + '.'));
+    const sufijo = neonFallido ? ' No se pudo sincronizar con Neon; se reintentará.' : ' Sincronizado con Neon.';
+    return res.redirect(
+      '/admin/territorio?ok=' +
+        encodeURIComponent('Se agregó: ' + agregados.join(' y ') + '.' + sufijo)
+    );
   } catch (error) {
     return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo agregar.'));
   }
 });
 
-app.post('/admin/territorio/:id/editar', requerirAdmin, (req: Request, res: Response) => {
+app.post('/admin/territorio/:id/editar', requerirAdmin, async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const nombre = normalizarNombre(req.body.nombre);
     const padreRaw = valorSimple(req.body.padre_id);
     const padreId = padreRaw ? Number(padreRaw) : null;
     const activo = ['on', '1', 'true'].includes(valorSimple(req.body.activo));
+    const actual = obtenerTerritorioPorId(id);
 
-    if (!obtenerTerritorioPorId(id)) {
+    if (!actual) {
       return res.redirect('/admin/territorio?error=' + encodeURIComponent('Territorio no encontrado.'));
     }
+
+    const padre = Number.isInteger(padreId as number) && padreId
+      ? obtenerTerritorioPorId(padreId)
+      : null;
 
     actualizarTerritorio({
       id,
@@ -2267,17 +2756,38 @@ app.post('/admin/territorio/:id/editar', requerirAdmin, (req: Request, res: Resp
       padre_id: Number.isInteger(padreId as number) ? padreId : null,
       activo,
     });
-    return res.redirect('/admin/territorio?ok=' + encodeURIComponent('Territorio actualizado.'));
+
+    const neon = await guardarTerritorioEnNeon({
+      tipo: actual.tipo,
+      nombre: nombre || actual.nombre,
+      padreNombre: padre?.nombre || null,
+      activo,
+    });
+
+    const mensaje = neon.ok
+      ? 'Territorio actualizado y sincronizado con Neon.'
+      : `Territorio actualizado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
   } catch (error) {
     return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo actualizar el territorio.'));
   }
 });
 
-app.post('/admin/territorio/:id/eliminar', requerirAdmin, (req: Request, res: Response) => {
+app.post('/admin/territorio/:id/eliminar', requerirAdmin, async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    const actual = obtenerTerritorioPorId(id);
+    if (!actual) {
+      return res.redirect('/admin/territorio?error=' + encodeURIComponent('Territorio no encontrado.'));
+    }
+
+    const neon = await eliminarTerritorioEnNeon({ tipo: actual.tipo, nombre: actual.nombre });
     eliminarTerritorio(id);
-    return res.redirect('/admin/territorio?ok=' + encodeURIComponent('Territorio eliminado.'));
+
+    const mensaje = neon.ok
+      ? 'Territorio eliminado de Neon.'
+      : `Territorio eliminado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
   } catch (error) {
     return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo eliminar el territorio.'));
   }
@@ -2296,15 +2806,28 @@ app.get('/admin/formulario', requerirAdmin, (req: Request, res: Response) => {
   });
 });
 
-app.post('/admin/formulario', requerirAdmin, (req: Request, res: Response) => {
+app.post('/admin/formulario', requerirAdmin, async (req: Request, res: Response) => {
   try {
     const campos = listarConfigCampos();
-    for (const campo of campos) {
-      const visible = ['on', '1', 'true'].includes(valorSimple(req.body[`visible_${campo.clave}`]));
-      const requerido = ['on', '1', 'true'].includes(valorSimple(req.body[`requerido_${campo.clave}`]));
-      actualizarConfigCampo({ clave: campo.clave, visible, requerido });
+    const actualizados = campos.map((campo: any) => ({
+      ...campo,
+      visible: ['on', '1', 'true'].includes(valorSimple(req.body[`visible_${campo.clave}`])),
+      requerido: ['on', '1', 'true'].includes(valorSimple(req.body[`requerido_${campo.clave}`])),
+    }));
+
+    const neon = await guardarConfigCamposEnNeon(actualizados);
+    for (const campo of actualizados) {
+      actualizarConfigCampo({
+        clave: campo.clave,
+        visible: campo.visible,
+        requerido: campo.requerido,
+      });
     }
-    return res.redirect('/admin/formulario?ok=' + encodeURIComponent('Configuración del formulario guardada.'));
+
+    const mensaje = neon.ok
+      ? 'Configuración del formulario guardada y sincronizada con Neon.'
+      : `Configuración guardada localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/formulario?ok=' + encodeURIComponent(mensaje));
   } catch (error) {
     return res.redirect('/admin/formulario?error=' + encodeURIComponent('No se pudo guardar la configuración.'));
   }
@@ -2565,6 +3088,11 @@ if (require.main === module) {
       const { inicializarEsquemaNeon } = require('./neon');
       const esquema = await inicializarEsquemaNeon();
       console.log(`  Neon:        ${esquema.mensaje}`);
+
+      if (esquema.ok) {
+        const config = await sincronizarConfiguracionNeon({ forzar: true });
+        console.log(`  Config:      ${config.mensaje}`);
+      }
     } catch (error: any) {
       console.error(`  Neon:        ${error?.message || error}`);
     }

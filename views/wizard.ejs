@@ -8,7 +8,12 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <%- include('partials/topbar', { activo: 'wizard' }) %>
+  <%
+    const opcionesVista = typeof opciones !== 'undefined' ? opciones : {};
+    const opcionesDe = (campo, respaldo) =>
+      opcionesVista[campo] && opcionesVista[campo].length ? opcionesVista[campo] : respaldo;
+  %>
+  <%- include('partials/topbar') %>
 
   <main class="contenedor pagina">
     <% if (ok) { %>
@@ -339,9 +344,14 @@
               <div class="campo">
                 <label for="w-j-sexo">Sexo <span class="requerido">*</span></label>
                 <select id="w-j-sexo" name="sexo" required>
-                  <option value="M">Masculino (M)</option>
-                  <option value="F">Femenino (F)</option>
+                  <% opcionesDe('sexo', [
+                    { valor: 'M', etiqueta: 'Masculino (M)' },
+                    { valor: 'F', etiqueta: 'Femenino (F)' },
+                  ]).forEach(function (opcion) { %>
+                    <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                  <% }); %>
                 </select>
+                <p class="ayuda">Catálogo administrado desde Neon.</p>
               </div>
 
               <div class="campos-dobles">
@@ -369,12 +379,16 @@
                 <label for="w-j-nivel-instruccion">Nivel de Instrucción <span class="requerido">*</span></label>
                 <select id="w-j-nivel-instruccion" name="nivel_instruccion" required>
                   <option value="">Seleccione...</option>
-                  <option value="Primaria">Primaria</option>
-                  <option value="Bachillerato">Bachillerato</option>
-                  <option value="Técnico">Técnico</option>
-                  <option value="Universitario">Universitario</option>
-                  <option value="Posgrado">Posgrado</option>
-                  <option value="Ninguno">Ninguno</option>
+                  <% opcionesDe('nivel_instruccion', [
+                    { valor: 'Primaria', etiqueta: 'Primaria' },
+                    { valor: 'Bachillerato', etiqueta: 'Bachillerato' },
+                    { valor: 'Técnico', etiqueta: 'Técnico' },
+                    { valor: 'Universitario', etiqueta: 'Universitario' },
+                    { valor: 'Posgrado', etiqueta: 'Posgrado' },
+                    { valor: 'Ninguno', etiqueta: 'Ninguno' },
+                  ]).forEach(function (opcion) { %>
+                    <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                  <% }); %>
                 </select>
               </div>
 
@@ -382,11 +396,15 @@
                 <label for="w-j-estado-civil">Estado Civil <span class="requerido">*</span></label>
                 <select id="w-j-estado-civil" name="estado_civil" required>
                   <option value="">Seleccione...</option>
-                  <option value="Soltero/a">Soltero/a</option>
-                  <option value="Casado/a">Casado/a</option>
-                  <option value="Divorciado/a">Divorciado/a</option>
-                  <option value="Viudo/a">Viudo/a</option>
-                  <option value="Concubino/a">Concubino/a</option>
+                  <% opcionesDe('estado_civil', [
+                    { valor: 'Soltero/a', etiqueta: 'Soltero/a' },
+                    { valor: 'Casado/a', etiqueta: 'Casado/a' },
+                    { valor: 'Divorciado/a', etiqueta: 'Divorciado/a' },
+                    { valor: 'Viudo/a', etiqueta: 'Viudo/a' },
+                    { valor: 'Concubino/a', etiqueta: 'Concubino/a' },
+                  ]).forEach(function (opcion) { %>
+                    <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                  <% }); %>
                 </select>
               </div>
 
@@ -399,8 +417,12 @@
                 <label for="w-j-trabaja-actual">¿Trabaja Actualmente? <span class="requerido">*</span></label>
                 <select id="w-j-trabaja-actual" name="trabaja_actual" required>
                   <option value="">Seleccione...</option>
-                  <option value="Sí">Sí</option>
-                  <option value="No">No</option>
+                  <% opcionesDe('trabaja_actual', [
+                    { valor: 'Sí', etiqueta: 'Sí' },
+                    { valor: 'No', etiqueta: 'No' },
+                  ]).forEach(function (opcion) { %>
+                    <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                  <% }); %>
                 </select>
               </div>
 
@@ -408,11 +430,15 @@
                 <label for="w-j-clasificacion-ingresos">Clasificación de Ingresos <span class="requerido">*</span></label>
                 <select id="w-j-clasificacion-ingresos" name="clasificacion_ingresos" required>
                   <option value="">Seleccione...</option>
-                  <option value="Diario">Diario</option>
-                  <option value="Semanal">Semanal</option>
-                  <option value="Quincenal">Quincenal</option>
-                  <option value="Mensual">Mensual</option>
-                  <option value="Por Trabajo Independiente/Informal">Por Trabajo Independiente/Informal</option>
+                  <% opcionesDe('clasificacion_ingresos', [
+                    { valor: 'Diario', etiqueta: 'Diario' },
+                    { valor: 'Semanal', etiqueta: 'Semanal' },
+                    { valor: 'Quincenal', etiqueta: 'Quincenal' },
+                    { valor: 'Mensual', etiqueta: 'Mensual' },
+                    { valor: 'Por Trabajo Independiente/Informal', etiqueta: 'Por Trabajo Independiente/Informal' },
+                  ]).forEach(function (opcion) { %>
+                    <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                  <% }); %>
                 </select>
               </div>
 
@@ -420,11 +446,15 @@
                 <label for="w-j-frecuencia-ingresos">Frecuencia de Ingresos</label>
                 <select id="w-j-frecuencia-ingresos" name="frecuencia_ingresos">
                   <option value="">Seleccione...</option>
-                  <option value="Diario">Diario</option>
-                  <option value="Semanal">Semanal</option>
-                  <option value="Quincenal">Quincenal</option>
-                  <option value="Mensual">Mensual</option>
-                  <option value="Variable">Variable</option>
+                  <% opcionesDe('frecuencia_ingresos', [
+                    { valor: 'Diario', etiqueta: 'Diario' },
+                    { valor: 'Semanal', etiqueta: 'Semanal' },
+                    { valor: 'Quincenal', etiqueta: 'Quincenal' },
+                    { valor: 'Mensual', etiqueta: 'Mensual' },
+                    { valor: 'Variable', etiqueta: 'Variable' },
+                  ]).forEach(function (opcion) { %>
+                    <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                  <% }); %>
                 </select>
               </div>
 
@@ -512,8 +542,12 @@
                     <label>Sexo</label>
                     <select name="sexo">
                       <option value="">Seleccione...</option>
-                      <option value="M">Masculino (M)</option>
-                      <option value="F">Femenino (F)</option>
+                      <% opcionesDe('sexo', [
+                        { valor: 'M', etiqueta: 'Masculino (M)' },
+                        { valor: 'F', etiqueta: 'Femenino (F)' },
+                      ]).forEach(function (opcion) { %>
+                        <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                      <% }); %>
                     </select>
                   </div>
 
@@ -521,12 +555,16 @@
                     <label>Parentesco <span class="requerido">*</span></label>
                     <select name="parentesco" required>
                       <option value="">Seleccione...</option>
-                      <option value="Cónyuge">Cónyuge</option>
-                      <option value="Hijo/a">Hijo/a</option>
-                      <option value="Padre/Madre">Padre/Madre</option>
-                      <option value="Hermano/a">Hermano/a</option>
-                      <option value="Nieto/a">Nieto/a</option>
-                      <option value="Otro">Otro</option>
+                      <% opcionesDe('parentesco', [
+                        { valor: 'Cónyuge', etiqueta: 'Cónyuge' },
+                        { valor: 'Hijo/a', etiqueta: 'Hijo/a' },
+                        { valor: 'Padre/Madre', etiqueta: 'Padre/Madre' },
+                        { valor: 'Hermano/a', etiqueta: 'Hermano/a' },
+                        { valor: 'Nieto/a', etiqueta: 'Nieto/a' },
+                        { valor: 'Otro', etiqueta: 'Otro' },
+                      ]).forEach(function (opcion) { %>
+                        <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                      <% }); %>
                     </select>
                   </div>
 
@@ -534,12 +572,16 @@
                     <label>Nivel de Instrucción</label>
                     <select name="nivel_instruccion">
                       <option value="">Seleccione...</option>
-                      <option value="Primaria">Primaria</option>
-                      <option value="Bachillerato">Bachillerato</option>
-                      <option value="Técnico">Técnico</option>
-                      <option value="Universitario">Universitario</option>
-                      <option value="Posgrado">Posgrado</option>
-                      <option value="Ninguno">Ninguno</option>
+                      <% opcionesDe('nivel_instruccion', [
+                        { valor: 'Primaria', etiqueta: 'Primaria' },
+                        { valor: 'Bachillerato', etiqueta: 'Bachillerato' },
+                        { valor: 'Técnico', etiqueta: 'Técnico' },
+                        { valor: 'Universitario', etiqueta: 'Universitario' },
+                        { valor: 'Posgrado', etiqueta: 'Posgrado' },
+                        { valor: 'Ninguno', etiqueta: 'Ninguno' },
+                      ]).forEach(function (opcion) { %>
+                        <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
+                      <% }); %>
                     </select>
                   </div>
 

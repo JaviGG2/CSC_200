@@ -1,7 +1,16 @@
+<%
+  const rutaAdmin = typeof ruta !== 'undefined' ? ruta : '';
+  const enlaceAdmin = (href, etiqueta) => {
+    const activo = href === '/admin' ? rutaAdmin === '/admin' : rutaAdmin.startsWith(href);
+    return `<a href="${href}" class="admin-nav-link${activo ? ' admin-nav-link--activo' : ''}"${activo ? ' aria-current="page"' : ''}>${etiqueta}</a>`;
+  };
+%>
 <nav class="admin-nav" aria-label="Administración">
-  <a href="/admin" class="admin-nav-link">Resumen</a>
-  <a href="/admin/usuarios" class="admin-nav-link">Usuarios</a>
-  <a href="/admin/territorio" class="admin-nav-link">Territorio</a>
-  <a href="/admin/formulario" class="admin-nav-link">Formulario</a>
+  <%- enlaceAdmin('/admin', 'Resumen') %>
+  <%- enlaceAdmin('/admin/consejos', 'Consejos comunales') %>
+  <%- enlaceAdmin('/admin/opciones', 'Opciones de campos') %>
+  <%- enlaceAdmin('/admin/formulario', 'Formulario') %>
+  <%- enlaceAdmin('/admin/territorio', 'Territorio y sectores') %>
+  <%- enlaceAdmin('/admin/usuarios', 'Usuarios') %>
   <a href="/campos" class="admin-nav-link">Campos adicionales</a>
 </nav>

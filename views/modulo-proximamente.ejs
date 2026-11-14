@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title><%= titulo %> · Próximamente | Comuna Carabobo 200</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('partials/topbar') %>
+
+  <main class="contenedor pagina">
+    <section class="panel modulo-placeholder">
+      <span class="modulo-placeholder-icono" aria-hidden="true">🔒</span>
+      <span class="eyebrow">Módulo en preparación</span>
+      <h2><%= titulo %></h2>
+      <p class="modulo-placeholder-descripcion"><%= descripcion %></p>
+
+      <div class="modulo-placeholder-funciones">
+        <h3>Qué incluirá</h3>
+        <ul>
+          <% funciones.forEach(function (funcion) { %>
+            <li><%= funcion %></li>
+          <% }); %>
+        </ul>
+      </div>
+
+      <div class="modulo-placeholder-acciones">
+        <a href="/" class="boton boton--primario">Volver al Censo General</a>
+        <a href="/wizard" class="boton boton--secundario">Registrar una vivienda</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Plataforma de gestión comunitaria</div>
+  </footer>
+</body>
+</html>

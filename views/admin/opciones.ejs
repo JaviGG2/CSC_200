@@ -1,0 +1,191 @@
+<%
+  const config = typeof configNeon !== 'undefined' ? configNeon : null;
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Opciones de campos | Administración</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../partials/topbar') %>
+
+  <main class="contenedor pagina">
+    <%- include('../partials/admin-nav') %>
+
+    <% if (ok) { %><div class="alerta alerta--exito" role="status"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error" role="alert"><%= error %></div><% } %>
+
+    <section class="panel">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Opciones de las listas desplegables</h2>
+          <p>
+            Administre los valores de parentesco, nivel de instrucción, estado civil, ingresos y
+            demás catálogos. El formulario de registro se alimenta directamente de estas opciones.
+          </p>
+        </div>
+        <% if (config) { %>
+          <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
+            <%= config.ok ? 'Sincronizado con Neon' : 'Sin conexión a Neon' %>
+          </span>
+        <% } %>
+      </div>
+
+      <form method="post" action="/admin/opciones" class="formulario formulario--compacto">
+        <div class="campos">
+          <div class="campo">
+            <label for="nueva-opcion-campo">Campo <span class="requerido">*</span></label>
+            <input
+              type="text"
+              id="nueva-opcion-campo"
+              name="campo"
+              list="lista-campos-opciones"
+              maxlength="60"
+              placeholder="Ej.: parentesco"
+              pattern="[a-z0-9_]{2,60}"
+              required
+            >
+            <datalist id="lista-campos-opciones">
+              <% grupos.forEach(function (grupo) { %>
+                <option value="<%= grupo.campo %>"><%= grupo.etiqueta %></option>
+              <% }); %>
+            </datalist>
+            <p class="ayuda">Use el nombre técnico del campo (minúsculas y guion bajo).</p>
+          </div>
+          <div class="campo">
+            <label for="nueva-opcion-valor">Valor <span class="requerido">*</span></label>
+            <input type="text" id="nueva-opcion-valor" name="valor" maxlength="160" placeholder="Ej.: Sobrino/a" required>
+          </div>
+          <div class="campo">
+            <label for="nueva-opcion-etiqueta">Etiqueta visible</label>
+            <input type="text" id="nueva-opcion-etiqueta" name="etiqueta" maxlength="160" placeholder="Ej.: Sobrino/a">
+          </div>
+          <div class="campo">
+            <label for="nueva-opcion-orden">Orden</label>
+            <input type="number" id="nueva-opcion-orden" name="orden" value="0" step="1">
+          </div>
+          <div class="campo">
+            <label for="nueva-opcion-activo">Estado</label>
+            <select id="nueva-opcion-activo" name="activo">
+              <option value="1" selected>Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </div>
+        </div>
+        <div class="acciones-form--fila">
+          <button type="submit" class="boton boton--primario">Agregar opción</button>
+        </div>
+      </form>
+    </section>
+
+    <% grupos.forEach(function (grupo) { %>
+      <section class="panel">
+        <div class="panel-head panel-head--fila">
+          <div>
+            <h2><%= grupo.etiqueta %></h2>
+            <p><code><%= grupo.campo %></code> · <%= grupo.opciones.length %> opción(es).</p>
+          </div>
+          <span class="contador"><%= grupo.opciones.filter(function (opcion) { return opcion.activo; }).length %> activas</span>
+        </div>
+
+        <% if (!grupo.opciones.length) { %>
+          <p class="sin-datos">Este campo no tiene opciones configuradas.</p>
+        <% } else { %>
+          <div class="tabla-scroll">
+            <table class="tabla-personas">
+              <thead>
+                <tr>
+                  <th scope="col">Valor guardado</th>
+                  <th scope="col">Etiqueta visible</th>
+                  <th scope="col">Orden</th>
+                  <th scope="col">Activo</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% grupo.opciones.forEach(function (opcion) { %>
+                  <tr>
+                    <td>
+                      <input
+                        form="opcion-<%= opcion.id %>"
+                        type="text"
+                        name="valor"
+                        value="<%= opcion.valor %>"
+                        class="input-tabla"
+                        maxlength="160"
+                        required
+                      >
+                    </td>
+                    <td>
+                      <input
+                        form="opcion-<%= opcion.id %>"
+                        type="text"
+                        name="etiqueta"
+                        value="<%= opcion.etiqueta %>"
+                        class="input-tabla"
+                        maxlength="160"
+                      >
+                    </td>
+                    <td>
+                      <input
+                        form="opcion-<%= opcion.id %>"
+                        type="number"
+                        name="orden"
+                        value="<%= opcion.orden %>"
+                        class="input-tabla input-tabla--corto"
+                        step="1"
+                      >
+                    </td>
+                    <td>
+                      <label class="check-inline">
+                        <input
+                          form="opcion-<%= opcion.id %>"
+                          type="checkbox"
+                          name="activo"
+                          value="1"
+                          <%= opcion.activo ? 'checked' : '' %>
+                        >
+                        <%= opcion.activo ? 'Sí' : 'No' %>
+                      </label>
+                    </td>
+                    <td class="col-acciones">
+                      <div class="acciones-fila">
+                        <button form="opcion-<%= opcion.id %>" type="submit" class="boton boton--mini boton--primario">Guardar</button>
+                        <form method="post" action="/admin/opciones/<%= opcion.id %>/estado" style="display:inline;">
+                          <button type="submit" class="boton boton--mini boton--secundario">
+                            <%= opcion.activo ? 'Desactivar' : 'Activar' %>
+                          </button>
+                        </form>
+                        <form
+                          method="post"
+                          action="/admin/opciones/<%= opcion.id %>/eliminar"
+                          style="display:inline;"
+                          onsubmit="return confirm('¿Eliminar la opción «<%= opcion.valor %>» de <%= grupo.etiqueta %>?');"
+                        >
+                          <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+
+          <% grupo.opciones.forEach(function (opcion) { %>
+            <form id="opcion-<%= opcion.id %>" method="post" action="/admin/opciones/<%= opcion.id %>/editar"></form>
+          <% }); %>
+        <% } %>
+      </section>
+    <% }); %>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Opciones de campos</div>
+  </footer>
+</body>
+</html>
