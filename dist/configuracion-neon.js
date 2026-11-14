@@ -37,9 +37,9 @@ async function sembrarNeonSiEstaVacio(cliente) {
         const locales = (0, db_1.listarConsejosComunales)({ soloActivos: false });
         for (const consejo of locales) {
             await cliente.query(`INSERT INTO consejos_comunales (nombre, sector, activo)
-         SELECT $1, $2, $3
+         SELECT $1::text, $2::text, $3::boolean
          WHERE NOT EXISTS (
-           SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1)
+           SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
          )`, [consejo.nombre, consejo.sector, consejo.activo]);
         }
         // Si tampoco había consejos locales, se derivan de las comunidades.
@@ -48,9 +48,9 @@ async function sembrarNeonSiEstaVacio(cliente) {
             .all();
         for (const comunidad of comunidades) {
             await cliente.query(`INSERT INTO consejos_comunales (nombre)
-         SELECT $1
+         SELECT $1::text
          WHERE NOT EXISTS (
-           SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1)
+           SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
          )`, [comunidad.nombre]);
         }
     }

@@ -1683,7 +1683,7 @@ app.post('/api/viviendas', async (req: Request, res: Response, next: NextFunctio
           nombres: jefe.nombres,
           apellidos: jefe.apellidos,
           fecha_nacimiento: jefe.fecha_nacimiento,
-          sexo: jefe.sexo,
+          sexo: valorSimple(jefe.sexo) === 'F' ? 'F' : 'M',
           telefono_movil: jefe.telefono_movil ?? null,
           telefono_habitacion: jefe.telefono_habitacion ?? null,
           telefono_trabajo: jefe.telefono_trabajo ?? null,
