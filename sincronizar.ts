@@ -10,7 +10,12 @@ import {
   eliminarEliminacionNeon,
   marcarViviendaSincronizada,
 } from './db';
-import { aplicarEsquemaNeon, crearClienteNeon, guardarViviendaConCliente } from './neon';
+import {
+  aplicarEsquemaNeon,
+  asegurarEsquema,
+  crearClienteNeon,
+  guardarViviendaConCliente,
+} from './neon';
 
 dotenv.config({ quiet: true });
 
@@ -303,14 +308,130 @@ async function subirLote(
   }
 }
 
+export type SolicitudEliminacionNeon = {
+  cedula?: string | null;
+  viviendaId?: number | null;
+  tipo?: 'vivienda' | 'jefe';
+};
+
+function normalizarSolicitudEliminacion(
+  entrada: string | SolicitudEliminacionNeon
+): { cedula: string | null; viviendaId: number | null; tipo: 'vivienda' | 'jefe' } {
+  if (typeof entrada === 'string') {
+    const cedula = entrada.trim() || null;
+    const matchLocal = cedula ? /^(?:S|VIVIENDA)-(\d+)$/i.exec(cedula) : null;
+    return {
+      cedula: cedula && !/^VIVIENDA-/i.test(cedula) ? cedula : null,
+      viviendaId: matchLocal ? Number(matchLocal[1]) : null,
+      tipo: 'vivienda',
+    };
+  }
+
+  const cedulaRaw = entrada.cedula ? String(entrada.cedula).trim() : null;
+  const matchLocal = cedulaRaw ? /^(?:S|VIVIENDA)-(\d+)$/i.exec(cedulaRaw) : null;
+  const viviendaIdNum = Number(entrada.viviendaId);
+  const viviendaId =
+    Number.isInteger(viviendaIdNum) && viviendaIdNum > 0
+      ? viviendaIdNum
+      : matchLocal
+        ? Number(matchLocal[1])
+        : null;
+
+  return {
+    cedula: cedulaRaw && !/^VIVIENDA-/i.test(cedulaRaw) ? cedulaRaw : null,
+    viviendaId,
+    tipo: entrada.tipo === 'jefe' ? 'jefe' : 'vivienda',
+  };
+}
+
+async function ejecutarEliminacionEnNeon(
+  cliente: Client,
+  entrada: string | SolicitudEliminacionNeon
+): Promise<number> {
+  const { cedula, viviendaId, tipo } = normalizarSolicitudEliminacion(entrada);
+  const matchVE = cedula ? /^([VE])-(.+)$/i.exec(cedula) : null;
+  const cedulaTipo = matchVE ? matchVE[1].toUpperCase() : null;
+  const cedulaNumero = matchVE ? matchVE[2].trim() : null;
+
+  const cedulasRegistro = Array.from(
+    new Set([cedula, viviendaId ? `S-${viviendaId}` : null].filter(Boolean) as string[])
+  );
+
+  let eliminados = 0;
+
+  await cliente.query('BEGIN');
+  try {
+    if (tipo === 'jefe') {
+      if (viviendaId) {
+        const resJefeViv = await cliente.query(
+          `
+            DELETE FROM jefes_familia
+            WHERE vivienda_id IN (
+              SELECT id FROM viviendas WHERE origen = 'local' AND origen_id = $1
+            )
+          `,
+          [viviendaId]
+        );
+        eliminados += resJefeViv.rowCount ?? 0;
+      }
+
+      if (cedulaTipo && cedulaNumero) {
+        const resJefeCed = await cliente.query(
+          'DELETE FROM jefes_familia WHERE cedula_tipo = $1 AND cedula_numero = $2',
+          [cedulaTipo, cedulaNumero]
+        );
+        eliminados += resJefeCed.rowCount ?? 0;
+      }
+    } else {
+      if (viviendaId) {
+        const resVivOrigen = await cliente.query(
+          "DELETE FROM viviendas WHERE origen = 'local' AND origen_id = $1",
+          [viviendaId]
+        );
+        eliminados += resVivOrigen.rowCount ?? 0;
+      }
+
+      if (cedulaTipo && cedulaNumero) {
+        const resVivCed = await cliente.query(
+          `
+            DELETE FROM viviendas
+            WHERE id IN (
+              SELECT vivienda_id FROM jefes_familia
+              WHERE cedula_tipo = $1 AND cedula_numero = $2
+            )
+          `,
+          [cedulaTipo, cedulaNumero]
+        );
+        eliminados += resVivCed.rowCount ?? 0;
+      }
+    }
+
+    if (cedulasRegistro.length) {
+      const resReg = await cliente.query(
+        'DELETE FROM registros_censo WHERE cedula = ANY($1::text[])',
+        [cedulasRegistro]
+      );
+      eliminados += resReg.rowCount ?? 0;
+    }
+
+    await cliente.query('COMMIT');
+    return eliminados;
+  } catch (error) {
+    await cliente.query('ROLLBACK');
+    throw error;
+  }
+}
+
 async function procesarEliminacionesNeon(cliente: Client): Promise<number> {
   const pendientes = listarEliminacionesNeon();
   let procesadas = 0;
 
   for (const eliminacion of pendientes) {
-    await cliente.query('DELETE FROM registros_censo WHERE cedula = $1', [
-      eliminacion.cedula,
-    ]);
+    await ejecutarEliminacionEnNeon(cliente, {
+      cedula: eliminacion.cedula,
+      viviendaId: eliminacion.vivienda_id,
+      tipo: eliminacion.tipo,
+    });
     eliminarEliminacionNeon(eliminacion.id);
     procesadas += 1;
   }
@@ -318,8 +439,10 @@ async function procesarEliminacionesNeon(cliente: Client): Promise<number> {
   return procesadas;
 }
 
-// Elimina de Neon el registro de una vivienda identificado por la cédula del jefe.
-export async function eliminarRegistroEnNeon(cedula: string): Promise<ResultadoNeon> {
+// Elimina de Neon la vivienda (o solo el jefe) junto con su resumen en registros_censo.
+export async function eliminarRegistroEnNeon(
+  entrada: string | SolicitudEliminacionNeon
+): Promise<ResultadoNeon> {
   const cliente = crearClienteNeon();
 
   if (!cliente) {
@@ -333,11 +456,8 @@ export async function eliminarRegistroEnNeon(cedula: string): Promise<ResultadoN
 
   try {
     await cliente.connect();
-    const resultado = await cliente.query(
-      'DELETE FROM registros_censo WHERE cedula = $1',
-      [cedula]
-    );
-    const eliminados = resultado.rowCount ?? 0;
+    await asegurarEsquema(cliente);
+    const eliminados = await ejecutarEliminacionEnNeon(cliente, entrada);
 
     return {
       ok: true,

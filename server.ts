@@ -397,25 +397,42 @@ function claveAdministracionValida(valor: unknown): boolean {
 }
 
 // Si falla la conexión, la eliminación queda en cola para el próximo "Subir a Neon".
-async function propagarEliminacionNeon(cedula: string | null | undefined): Promise<string> {
-  if (!cedula) return '';
+async function propagarEliminacionNeon(
+  entrada:
+    | string
+    | { cedula?: string | null; viviendaId?: number | null; tipo?: 'vivienda' | 'jefe' }
+    | null
+    | undefined
+): Promise<string> {
+  if (!entrada) return '';
+
+  const payload =
+    typeof entrada === 'string'
+      ? { cedula: entrada, viviendaId: null, tipo: 'vivienda' as const }
+      : {
+          cedula: entrada.cedula ?? null,
+          viviendaId: entrada.viviendaId ?? null,
+          tipo: entrada.tipo ?? ('vivienda' as const),
+        };
+
+  if (!payload.cedula && !payload.viviendaId) return '';
 
   try {
     const { eliminarRegistroEnNeon } = require('./sincronizar');
-    const resultado = await eliminarRegistroEnNeon(cedula);
+    const resultado = await eliminarRegistroEnNeon(payload);
 
     if (!resultado.ok) {
-      encolarEliminacionNeon(cedula);
+      encolarEliminacionNeon(payload);
       return ' No se pudo eliminar de Neon; se reintentará al sincronizar.';
     }
     if (!resultado.configurado) {
-      encolarEliminacionNeon(cedula);
+      encolarEliminacionNeon(payload);
       return ' Neon no está configurado; la eliminación quedará en cola para el próximo sincronizado.';
     }
     if (resultado.aplicado) return ' También se eliminó de Neon.';
     return ' No había registro en Neon.';
   } catch {
-    encolarEliminacionNeon(cedula);
+    encolarEliminacionNeon(payload);
     return ' No se pudo eliminar de Neon; se reintentará al sincronizar.';
   }
 }
@@ -1036,7 +1053,13 @@ app.post('/personas/:tipo/:id/eliminar', requerirAdmin, async (req: Request, res
       if (!eliminarJefeFamilia(id)) {
         return res.redirect(303, destino('error', 'La persona ya no existe.'));
       }
-      const sufijoNeon = await propagarEliminacionNeon(cedula);
+      const sufijoNeon = debePropagar
+        ? await propagarEliminacionNeon({
+            cedula,
+            viviendaId: persona.vivienda_id,
+            tipo: 'jefe',
+          })
+        : '';
       mensaje = `Jefe de familia eliminado. La vivienda quedó sin jefe registrado.${sufijoNeon}`;
     } else {
       if (!eliminarIntegrante(id)) {
@@ -1108,7 +1131,9 @@ app.post('/viviendas/:id/eliminar', requerirAdmin, async (req: Request, res: Res
       return res.redirect(303, destino('error', 'La vivienda ya no existe.'));
     }
 
-    const sufijoNeon = await propagarEliminacionNeon(cedula);
+    const sufijoNeon = debePropagar
+      ? await propagarEliminacionNeon({ cedula, viviendaId: id, tipo: 'vivienda' })
+      : '';
     return res.redirect(303, destino(
       'ok',
       `Vivienda eliminada junto con su grupo familiar.${sufijoNeon}`
@@ -2240,7 +2265,9 @@ app.delete('/api/viviendas/:id', requerirAdmin, async (req: Request, res: Respon
       return res.status(404).json({ error: 'Vivienda no encontrada.' });
     }
 
-    const sufijoNeon = await propagarEliminacionNeon(cedula);
+    const sufijoNeon = debePropagar
+      ? await propagarEliminacionNeon({ cedula, viviendaId: id, tipo: 'vivienda' })
+      : '';
     return res.json({ ok: true, mensaje: `Vivienda eliminada.${sufijoNeon}` });
   } catch (error) {
     return next(error);

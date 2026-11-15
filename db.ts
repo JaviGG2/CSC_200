@@ -305,6 +305,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS neon_eliminaciones (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cedula TEXT NOT NULL UNIQUE,
+    vivienda_id INTEGER,
+    tipo TEXT NOT NULL DEFAULT 'vivienda' CHECK (tipo IN ('vivienda', 'jefe')),
     creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
   );
 `);
@@ -355,6 +357,14 @@ function asegurarColumnasNuevas() {
   }
   if (!columnasDe('integrantes_grupo_familiar').includes('ingreso_mensual')) {
     db.exec('ALTER TABLE integrantes_grupo_familiar ADD COLUMN ingreso_mensual REAL');
+  }
+
+  const eliminaciones = columnasDe('neon_eliminaciones');
+  if (!eliminaciones.includes('vivienda_id')) {
+    db.exec('ALTER TABLE neon_eliminaciones ADD COLUMN vivienda_id INTEGER');
+  }
+  if (!eliminaciones.includes('tipo')) {
+    db.exec("ALTER TABLE neon_eliminaciones ADD COLUMN tipo TEXT NOT NULL DEFAULT 'vivienda'");
   }
 }
 
@@ -1335,21 +1345,44 @@ export function marcarSoloLocalParaSincronizar(): number {
 export type EliminacionNeon = {
   id: number;
   cedula: string;
+  vivienda_id: number | null;
+  tipo: 'vivienda' | 'jefe';
 };
 
 // Cola de eliminaciones que no se pudieron propagar a Neon en el momento.
 // Se reintentan al pulsar "Subir a Neon".
-export function encolarEliminacionNeon(cedula: string): void {
+export function encolarEliminacionNeon(
+  entrada:
+    | string
+    | { cedula?: string | null; viviendaId?: number | null; tipo?: 'vivienda' | 'jefe' }
+): void {
+  const cedulaRaw = typeof entrada === 'string' ? entrada : entrada.cedula ?? null;
+  const viviendaId =
+    typeof entrada === 'string'
+      ? null
+      : Number.isInteger(Number(entrada.viviendaId)) && Number(entrada.viviendaId) > 0
+        ? Number(entrada.viviendaId)
+        : null;
+  const tipo: 'vivienda' | 'jefe' =
+    typeof entrada === 'string' || entrada.tipo !== 'jefe' ? 'vivienda' : 'jefe';
+
+  const clave =
+    (cedulaRaw && String(cedulaRaw).trim()) ||
+    (viviendaId ? `VIVIENDA-${viviendaId}` : '');
+  if (!clave) return;
+
   db.prepare(`
-    INSERT INTO neon_eliminaciones (cedula)
-    VALUES (?)
-    ON CONFLICT(cedula) DO NOTHING
-  `).run(cedula);
+    INSERT INTO neon_eliminaciones (cedula, vivienda_id, tipo)
+    VALUES (?, ?, ?)
+    ON CONFLICT(cedula) DO UPDATE SET
+      vivienda_id = COALESCE(excluded.vivienda_id, neon_eliminaciones.vivienda_id),
+      tipo = excluded.tipo
+  `).run(clave, viviendaId, tipo);
 }
 
 export function listarEliminacionesNeon(): EliminacionNeon[] {
   return db
-    .prepare('SELECT id, cedula FROM neon_eliminaciones ORDER BY id')
+    .prepare("SELECT id, cedula, vivienda_id, COALESCE(tipo, 'vivienda') AS tipo FROM neon_eliminaciones ORDER BY id")
     .all() as EliminacionNeon[];
 }
 

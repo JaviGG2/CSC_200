@@ -160,7 +160,7 @@ export async function aplicarEsquemaNeon(cliente: Client): Promise<void> {
   await cliente.query(esquema);
 }
 
-async function asegurarEsquema(cliente: Client): Promise<void> {
+export async function asegurarEsquema(cliente: Client): Promise<void> {
   if (esquemaListo) return;
 
   await aplicarEsquemaNeon(cliente);
