@@ -16,6 +16,7 @@ import {
   crearClienteNeon,
   guardarViviendaConCliente,
 } from './neon';
+import { sincronizarConfiguracionNeon } from './configuracion-neon';
 
 dotenv.config({ quiet: true });
 
@@ -586,7 +587,9 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
   const eliminacionesPendientes = listarEliminacionesNeon().length;
 
   if (!pendientes.length && !eliminacionesPendientes) {
+    const config = await sincronizarConfiguracionNeon({ forzar: true });
     const avisos = describirOmitidas(clasificacion.soloLocal, clasificacion.sinJefe, []);
+    const detalleConfig = config.ok ? ` ${config.mensaje}` : '';
 
     return {
       ok: true,
@@ -596,8 +599,8 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
       fallidas: [],
       omitidas,
       mensaje: avisos.length
-        ? `No hay viviendas por subir. ${avisos.join('. ')}.`
-        : 'No hay viviendas ni eliminaciones pendientes de sincronización.',
+        ? `No hay viviendas por subir. ${avisos.join('. ')}.${detalleConfig}`
+        : `No hay viviendas ni eliminaciones pendientes de sincronización.${detalleConfig}`,
     };
   }
 
@@ -623,6 +626,8 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
       procesados += resultado.subidas.length;
       fallidas.push(...resultado.fallidas);
     }
+
+    await sincronizarConfiguracionNeon({ forzar: true });
 
     const partes: string[] = [];
     if (procesados) partes.push(`${procesados} vivienda(s) subida(s)`);

@@ -62,10 +62,13 @@ const {
   CAMPOS_OPCIONES,
   listarUsuarios,
   obtenerUsuarioPorId,
+  obtenerUsuarioConHashPorId,
   obtenerUsuarioPorUsuario,
   crearUsuario,
   actualizarUsuario,
   eliminarUsuario,
+  marcarUsuarioSincronizado,
+  encolarEliminacionUsuarioNeon,
   contarAdminsActivos,
   listarTerritorios,
   obtenerTerritorioPorId,
@@ -105,6 +108,8 @@ const {
   guardarConfigCamposEnNeon,
   guardarTerritorioEnNeon,
   eliminarTerritorioEnNeon,
+  guardarUsuarioEnNeon,
+  eliminarUsuarioEnNeon,
 } = require('./configuracion-neon');
 
 const app = express();
@@ -633,13 +638,21 @@ app.get('/login', (req: Request, res: Response) => {
   });
 });
 
-app.post('/login', (req: Request, res: Response) => {
+app.post('/login', async (req: Request, res: Response) => {
   try {
     const usuarioValor = valorSimple(req.body.usuario);
     const clave = typeof req.body.clave === 'string' ? req.body.clave : '';
     const destino = rutaLocalSegura(req.body.next);
 
-    const cuenta = usuarioValor ? obtenerUsuarioPorUsuario(usuarioValor) : null;
+    await sincronizarConfiguracionNeon().catch(() => null);
+    let cuenta = usuarioValor ? obtenerUsuarioPorUsuario(usuarioValor) : null;
+
+    if ((!cuenta || !cuenta.activo || !verificarClave(clave, cuenta.clave_hash)) && usuarioValor) {
+      const resSync = await sincronizarConfiguracionNeon({ forzar: true }).catch(() => null);
+      if (resSync?.ok) {
+        cuenta = obtenerUsuarioPorUsuario(usuarioValor);
+      }
+    }
 
     if (!cuenta || !cuenta.activo || !verificarClave(clave, cuenta.clave_hash)) {
       return res.status(401).render('login', {
@@ -2737,16 +2750,18 @@ app.post('/admin/opciones/:id/eliminar', requerirAdmin, async (req: Request, res
 });
 
 // --- Usuarios ---
-app.get('/admin/usuarios', requerirAdmin, (req: Request, res: Response) => {
+app.get('/admin/usuarios', requerirAdmin, async (req: Request, res: Response) => {
+  const configNeon = await sincronizarConfiguracionNeon();
   return res.render('admin/usuarios', {
     usuarios: listarUsuarios(),
     ok: mensajeQuery(req, 'ok'),
     error: mensajeQuery(req, 'error'),
     usuarioSesion: res.locals.usuario,
+    configNeon,
   });
 });
 
-app.post('/admin/usuarios', requerirAdmin, (req: Request, res: Response) => {
+app.post('/admin/usuarios', requerirAdmin, async (req: Request, res: Response) => {
   try {
     const usuario = valorSimple(req.body.usuario).toLowerCase();
     const nombre = normalizarNombre(req.body.nombre);
@@ -2766,14 +2781,32 @@ app.post('/admin/usuarios', requerirAdmin, (req: Request, res: Response) => {
       return res.redirect('/admin/usuarios?error=' + encodeURIComponent('Ya existe un usuario con ese nombre.'));
     }
 
-    crearUsuario({ usuario, nombre, clave, rol });
-    return res.redirect('/admin/usuarios?ok=' + encodeURIComponent('Usuario creado correctamente.'));
+    const id = crearUsuario({ usuario, nombre, clave, rol });
+    const creado = obtenerUsuarioConHashPorId(id);
+    const neon = creado
+      ? await guardarUsuarioEnNeon({
+          usuario: creado.usuario,
+          nombre: creado.nombre,
+          clave_hash: creado.clave_hash,
+          rol: creado.rol,
+          activo: creado.activo,
+        })
+      : { ok: false, configurado: false, mensaje: 'No se pudo leer el usuario creado.' };
+
+    if (neon.ok && creado) {
+      marcarUsuarioSincronizado(creado.id);
+    }
+
+    const mensaje = neon.ok
+      ? 'Usuario creado y sincronizado con Neon.'
+      : `Usuario guardado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/usuarios?ok=' + encodeURIComponent(mensaje));
   } catch (error) {
     return res.redirect('/admin/usuarios?error=' + encodeURIComponent('No se pudo crear el usuario.'));
   }
 });
 
-app.post('/admin/usuarios/:id/editar', requerirAdmin, (req: Request, res: Response) => {
+app.post('/admin/usuarios/:id/editar', requerirAdmin, async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
@@ -2790,19 +2823,41 @@ app.post('/admin/usuarios/:id/editar', requerirAdmin, (req: Request, res: Respon
     const activo = ['on', '1', 'true'].includes(valorSimple(req.body.activo));
     const clave = typeof req.body.clave === 'string' ? req.body.clave.trim() : '';
 
+    if (clave && clave.length < 4) {
+      return res.redirect('/admin/usuarios?error=' + encodeURIComponent('La nueva contraseña debe tener al menos 4 caracteres.'));
+    }
+
     const quitaAdmin = actual.rol === 'admin' && (rol !== 'admin' || !activo);
     if (quitaAdmin && actual.activo && contarAdminsActivos() <= 1) {
       return res.redirect('/admin/usuarios?error=' + encodeURIComponent('Debe existir al menos un administrador activo.'));
     }
 
     actualizarUsuario({ id, nombre: nombre || undefined, rol, activo, clave: clave || null });
-    return res.redirect('/admin/usuarios?ok=' + encodeURIComponent('Usuario actualizado.'));
+    const actualizado = obtenerUsuarioConHashPorId(id);
+    const neon = actualizado
+      ? await guardarUsuarioEnNeon({
+          usuario: actualizado.usuario,
+          nombre: actualizado.nombre,
+          clave_hash: actualizado.clave_hash,
+          rol: actualizado.rol,
+          activo: actualizado.activo,
+        })
+      : { ok: false, configurado: false, mensaje: 'No se pudo leer el usuario actualizado.' };
+
+    if (neon.ok && actualizado) {
+      marcarUsuarioSincronizado(actualizado.id);
+    }
+
+    const mensaje = neon.ok
+      ? 'Usuario actualizado y sincronizado con Neon.'
+      : `Usuario actualizado localmente. ${neon.mensaje}`;
+    return res.redirect('/admin/usuarios?ok=' + encodeURIComponent(mensaje));
   } catch (error) {
     return res.redirect('/admin/usuarios?error=' + encodeURIComponent('No se pudo actualizar el usuario.'));
   }
 });
 
-app.post('/admin/usuarios/:id/eliminar', requerirAdmin, (req: Request, res: Response) => {
+app.post('/admin/usuarios/:id/eliminar', requerirAdmin, async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const actual = obtenerUsuarioPorId(id);
@@ -2818,8 +2873,16 @@ app.post('/admin/usuarios/:id/eliminar', requerirAdmin, (req: Request, res: Resp
       return res.redirect('/admin/usuarios?error=' + encodeURIComponent('Debe existir al menos un administrador activo.'));
     }
 
+    const neon = await eliminarUsuarioEnNeon(actual.usuario);
+    if (!neon.ok) {
+      encolarEliminacionUsuarioNeon(actual.usuario);
+    }
     eliminarUsuario(id);
-    return res.redirect('/admin/usuarios?ok=' + encodeURIComponent('Usuario eliminado.'));
+
+    const mensaje = neon.ok
+      ? 'Usuario eliminado de SQLite y Neon.'
+      : `Usuario eliminado localmente (pendiente en Neon). ${neon.mensaje}`;
+    return res.redirect('/admin/usuarios?ok=' + encodeURIComponent(mensaje));
   } catch (error) {
     return res.redirect('/admin/usuarios?error=' + encodeURIComponent('No se pudo eliminar el usuario.'));
   }

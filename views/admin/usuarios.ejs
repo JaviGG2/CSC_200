@@ -1,3 +1,6 @@
+<%
+  const config = typeof configNeon !== 'undefined' ? configNeon : null;
+%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -17,9 +20,16 @@
     <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
 
     <section class="panel">
-      <div class="panel-head">
-        <h2>Crear usuario</h2>
-        <p>Los gestores registran viviendas y consultan personas. Los administradores también configuran el sistema.</p>
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Crear usuario</h2>
+          <p>Los gestores registran viviendas y consultan personas. Los administradores también configuran el sistema.</p>
+        </div>
+        <% if (config) { %>
+          <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
+            <%= config.ok ? 'Sincronizado con Neon' : 'Sin conexión a Neon' %>
+          </span>
+        <% } %>
       </div>
 
       <form method="post" action="/admin/usuarios" class="formulario">

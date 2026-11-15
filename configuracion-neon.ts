@@ -4,12 +4,17 @@ import {
   crearConsejoComunal,
   listarConsejosComunales,
   listarConfigCampos,
+  listarUsuariosConHash,
+  marcarUsuarioSincronizado,
+  upsertUsuarioDesdeNeon,
+  listarEliminacionesUsuarioNeon,
+  eliminarEliminacionUsuarioNeon,
 } from './db';
-import { crearClienteNeon } from './neon';
+import { asegurarEsquema, crearClienteNeon } from './neon';
 
 // Neon es la fuente central de la parametrización (consejos, opciones de listas,
-// visibilidad/obligatoriedad de campos y territorios). SQLite mantiene un espejo
-// para que el censo siga funcionando sin conexión.
+// visibilidad/obligatoriedad de campos, territorios y usuarios). SQLite mantiene
+// un espejo para que el censo siga funcionando sin conexión.
 
 export type ResultadoConfiguracionNeon = {
   ok: boolean;
@@ -34,6 +39,7 @@ async function conCliente<T>(fn: (cliente: Client) => Promise<T>): Promise<T> {
 
   try {
     await cliente.connect();
+    await asegurarEsquema(cliente);
     return await fn(cliente);
   } finally {
     await cliente.end().catch(() => {});
@@ -120,6 +126,19 @@ async function sembrarNeonSiEstaVacio(cliente: Client): Promise<void> {
         [territorio.tipo, territorio.nombre, padreIdNeon, Boolean(territorio.activo), territorio.orden]
       );
       porIdLocal.set(territorio.id, territorio.nombre);
+    }
+  }
+
+  const usuarios = await cliente.query('SELECT COUNT(*)::int AS total FROM usuarios');
+  if (Number(usuarios.rows[0]?.total || 0) === 0) {
+    for (const u of listarUsuariosConHash()) {
+      await cliente.query(
+        `INSERT INTO usuarios (usuario, nombre, clave_hash, rol, activo)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (usuario) DO NOTHING`,
+        [u.usuario.trim().toLowerCase(), u.nombre, u.clave_hash, u.rol, Boolean(u.activo)]
+      );
+      marcarUsuarioSincronizado(u.id);
     }
   }
 }
@@ -280,6 +299,80 @@ async function aplicarTerritorios(cliente: Client): Promise<number> {
   return rows.length;
 }
 
+async function aplicarUsuarios(cliente: Client): Promise<number> {
+  const eliminaciones = listarEliminacionesUsuarioNeon();
+  for (const item of eliminaciones) {
+    await cliente.query('DELETE FROM usuarios WHERE lower(usuario) = lower($1)', [item.usuario]);
+    eliminarEliminacionUsuarioNeon(item.id);
+  }
+
+  const localesPendientes = listarUsuariosConHash().filter(
+    (u) => !u.sincronizado || u.pendiente_neon
+  );
+  for (const u of localesPendientes) {
+    const limpio = u.usuario.trim().toLowerCase();
+    const existente = await cliente.query(
+      'SELECT id FROM usuarios WHERE lower(usuario) = lower($1) LIMIT 1',
+      [limpio]
+    );
+
+    if (existente.rowCount) {
+      if (u.pendiente_neon) {
+        await cliente.query(
+          `UPDATE usuarios
+           SET usuario = $2, nombre = $3, clave_hash = $4, rol = $5, activo = $6
+           WHERE id = $1`,
+          [existente.rows[0].id, limpio, u.nombre, u.clave_hash, u.rol, Boolean(u.activo)]
+        );
+      }
+    } else {
+      await cliente.query(
+        `INSERT INTO usuarios (usuario, nombre, clave_hash, rol, activo)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [limpio, u.nombre, u.clave_hash, u.rol, Boolean(u.activo)]
+      );
+    }
+    marcarUsuarioSincronizado(u.id);
+  }
+
+  const { rows } = await cliente.query(
+    `SELECT usuario, nombre, clave_hash, rol, activo, creado_en::text AS creado_en
+     FROM usuarios
+     ORDER BY id`
+  );
+
+  const nombresNeon = new Set(rows.map((fila: any) => String(fila.usuario).trim().toLowerCase()));
+  const transaccion = db.transaction(() => {
+    for (const fila of rows) {
+      upsertUsuarioDesdeNeon({
+        usuario: fila.usuario,
+        nombre: fila.nombre,
+        clave_hash: fila.clave_hash,
+        rol: fila.rol === 'admin' ? 'admin' : 'gestor',
+        activo: Boolean(fila.activo),
+        creado_en: fila.creado_en ? String(fila.creado_en).slice(0, 19).replace('T', ' ') : null,
+      });
+    }
+
+    const localesSincronizados = db
+      .prepare('SELECT id, usuario, rol, activo FROM usuarios WHERE sincronizado = 1 AND pendiente_neon = 0')
+      .all() as Array<{ id: number; usuario: string; rol: string; activo: number }>;
+    for (const local of localesSincronizados) {
+      if (!nombresNeon.has(local.usuario.trim().toLowerCase())) {
+        if (local.rol === 'admin' && local.activo) {
+          const { total } = db
+            .prepare("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'admin' AND activo = 1")
+            .get() as { total: number };
+          if (total <= 1) continue;
+        }
+        db.prepare('DELETE FROM usuarios WHERE id = ?').run(local.id);
+      }
+    }
+  });
+  transaccion();
+  return rows.length;
+}
+
 async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
   try {
     const resultado = await conCliente(async (cliente) => {
@@ -288,13 +381,14 @@ async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
       const opciones = await aplicarOpciones(cliente);
       const campos = await aplicarConfigCampos(cliente);
       const territorios = await aplicarTerritorios(cliente);
-      return { consejos, opciones, campos, territorios };
+      const usuarios = await aplicarUsuarios(cliente);
+      return { consejos, opciones, campos, territorios, usuarios };
     });
 
     return {
       ok: true,
       configurado: true,
-      mensaje: `Configuración sincronizada desde Neon (${resultado.consejos} consejos, ${resultado.opciones} opciones, ${resultado.campos} campos).`,
+      mensaje: `Configuración sincronizada desde Neon (${resultado.consejos} consejos, ${resultado.opciones} opciones, ${resultado.campos} campos, ${resultado.usuarios} usuarios).`,
     };
   } catch (error) {
     return {
@@ -594,6 +688,75 @@ export async function guardarTerritorioEnNeon({
       ok: false,
       configurado: Boolean(process.env.DATABASE_URL),
       mensaje: `No se pudo guardar el territorio en Neon: ${detalleError(error)}`,
+    };
+  }
+}
+
+export async function guardarUsuarioEnNeon({
+  usuario,
+  nombre,
+  clave_hash,
+  rol,
+  activo = true,
+}: {
+  usuario: string;
+  nombre: string;
+  clave_hash: string;
+  rol: 'admin' | 'gestor';
+  activo?: boolean;
+}): Promise<ResultadoConfiguracionNeon> {
+  try {
+    const limpio = usuario.trim().toLowerCase();
+    const rolValido: 'admin' | 'gestor' = rol === 'admin' ? 'admin' : 'gestor';
+
+    await conCliente(async (cliente) => {
+      const existente = await cliente.query(
+        'SELECT id FROM usuarios WHERE lower(usuario) = lower($1) LIMIT 1',
+        [limpio]
+      );
+
+      if (existente.rowCount) {
+        await cliente.query(
+          `UPDATE usuarios
+           SET usuario = $2, nombre = $3, clave_hash = $4, rol = $5, activo = $6
+           WHERE id = $1`,
+          [existente.rows[0].id, limpio, nombre, clave_hash, rolValido, Boolean(activo)]
+        );
+      } else {
+        await cliente.query(
+          `INSERT INTO usuarios (usuario, nombre, clave_hash, rol, activo)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [limpio, nombre, clave_hash, rolValido, Boolean(activo)]
+        );
+      }
+    });
+
+    invalidarCacheConfiguracion();
+    return { ok: true, configurado: true, mensaje: 'Usuario guardado en Neon.' };
+  } catch (error) {
+    return {
+      ok: false,
+      configurado: Boolean(process.env.DATABASE_URL),
+      mensaje: `No se pudo guardar el usuario en Neon: ${detalleError(error)}`,
+    };
+  }
+}
+
+export async function eliminarUsuarioEnNeon(
+  usuario: string
+): Promise<ResultadoConfiguracionNeon> {
+  try {
+    const limpio = usuario.trim().toLowerCase();
+    await conCliente(async (cliente) => {
+      await cliente.query('DELETE FROM usuarios WHERE lower(usuario) = lower($1)', [limpio]);
+    });
+    invalidarCacheConfiguracion();
+    return { ok: true, configurado: true, mensaje: 'Usuario eliminado de Neon.' };
+  } catch (error) {
+    return {
+      ok: false,
+      configurado: Boolean(process.env.DATABASE_URL),
+      mensaje: `No se pudo eliminar el usuario de Neon: ${detalleError(error)}`,
     };
   }
 }

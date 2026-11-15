@@ -115,7 +115,15 @@ export type Usuario = {
   nombre: string;
   rol: 'admin' | 'gestor';
   activo: boolean;
+  sincronizado?: boolean;
+  pendiente_neon?: boolean;
   creado_en: string;
+};
+
+export type UsuarioConHash = Usuario & {
+  clave_hash: string;
+  sincronizado: boolean;
+  pendiente_neon: boolean;
 };
 
 export type TipoTerritorio =
@@ -493,6 +501,14 @@ db.exec(`
     clave_hash TEXT NOT NULL,
     rol TEXT NOT NULL DEFAULT 'gestor' CHECK (rol IN ('admin', 'gestor')),
     activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+    sincronizado INTEGER NOT NULL DEFAULT 0 CHECK (sincronizado IN (0, 1)),
+    pendiente_neon INTEGER NOT NULL DEFAULT 0 CHECK (pendiente_neon IN (0, 1)),
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS neon_usuarios_eliminaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario TEXT NOT NULL UNIQUE,
     creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
   );
 
@@ -516,6 +532,24 @@ db.exec(`
     orden INTEGER NOT NULL DEFAULT 0
   );
 `);
+
+function asegurarColumnasUsuarios() {
+  const cols = (db.prepare('PRAGMA table_info(usuarios)').all() as Array<{ name: string }>).map(
+    (c) => c.name
+  );
+  if (!cols.includes('sincronizado')) {
+    db.exec(
+      'ALTER TABLE usuarios ADD COLUMN sincronizado INTEGER NOT NULL DEFAULT 0 CHECK (sincronizado IN (0, 1))'
+    );
+  }
+  if (!cols.includes('pendiente_neon')) {
+    db.exec(
+      'ALTER TABLE usuarios ADD COLUMN pendiente_neon INTEGER NOT NULL DEFAULT 0 CHECK (pendiente_neon IN (0, 1))'
+    );
+  }
+}
+
+asegurarColumnasUsuarios();
 
 const CONFIG_CAMPOS_INICIALES: Array<{
   clave: string;
@@ -2031,6 +2065,8 @@ function formatearUsuario(fila: any): Usuario {
     nombre: fila.nombre,
     rol: fila.rol,
     activo: Boolean(fila.activo),
+    sincronizado: Boolean(fila.sincronizado),
+    pendiente_neon: Boolean(fila.pendiente_neon),
     creado_en: fila.creado_en,
   };
 }
@@ -2042,9 +2078,32 @@ export function listarUsuarios(): Usuario[] {
   return filas.map(formatearUsuario);
 }
 
+export function listarUsuariosConHash(): UsuarioConHash[] {
+  const filas = db
+    .prepare('SELECT * FROM usuarios ORDER BY id')
+    .all() as any[];
+  return filas.map((fila) => ({
+    ...formatearUsuario(fila),
+    clave_hash: fila.clave_hash,
+    sincronizado: Boolean(fila.sincronizado),
+    pendiente_neon: Boolean(fila.pendiente_neon),
+  }));
+}
+
 export function obtenerUsuarioPorId(id: number): Usuario | null {
   const fila = db.prepare('SELECT * FROM usuarios WHERE id = ?').get(id) as any;
   return fila ? formatearUsuario(fila) : null;
+}
+
+export function obtenerUsuarioConHashPorId(id: number): UsuarioConHash | null {
+  const fila = db.prepare('SELECT * FROM usuarios WHERE id = ?').get(id) as any;
+  if (!fila) return null;
+  return {
+    ...formatearUsuario(fila),
+    clave_hash: fila.clave_hash,
+    sincronizado: Boolean(fila.sincronizado),
+    pendiente_neon: Boolean(fila.pendiente_neon),
+  };
 }
 
 export function obtenerUsuarioPorUsuario(
@@ -2068,13 +2127,17 @@ export function crearUsuario({
   clave: string;
   rol: 'admin' | 'gestor';
 }): number {
-  const resultado = db
-    .prepare(`
-      INSERT INTO usuarios (usuario, nombre, clave_hash, rol)
-      VALUES (?, ?, ?, ?)
-    `)
-    .run(usuario, nombre, hashClave(clave), rol);
-  return resultado.lastInsertRowid as number;
+  const limpio = usuario.trim().toLowerCase();
+  return db.transaction(() => {
+    db.prepare('DELETE FROM neon_usuarios_eliminaciones WHERE lower(usuario) = lower(?)').run(limpio);
+    const resultado = db
+      .prepare(`
+        INSERT INTO usuarios (usuario, nombre, clave_hash, rol, sincronizado, pendiente_neon)
+        VALUES (?, ?, ?, ?, 0, 1)
+      `)
+      .run(limpio, nombre, hashClave(clave), rol);
+    return resultado.lastInsertRowid as number;
+  })();
 }
 
 export function actualizarUsuario({
@@ -2099,7 +2162,9 @@ export function actualizarUsuario({
       SET nombre = COALESCE(?, nombre),
           rol = COALESCE(?, rol),
           activo = COALESCE(?, activo),
-          clave_hash = COALESCE(?, clave_hash)
+          clave_hash = COALESCE(?, clave_hash),
+          sincronizado = 0,
+          pendiente_neon = 1
       WHERE id = ?
     `)
     .run(
@@ -2114,6 +2179,86 @@ export function actualizarUsuario({
 
 export function eliminarUsuario(id: number): boolean {
   return db.prepare('DELETE FROM usuarios WHERE id = ?').run(id).changes > 0;
+}
+
+export function marcarUsuarioSincronizado(idOrUsuario: number | string): boolean {
+  if (typeof idOrUsuario === 'number') {
+    return (
+      db
+        .prepare('UPDATE usuarios SET sincronizado = 1, pendiente_neon = 0 WHERE id = ?')
+        .run(idOrUsuario).changes > 0
+    );
+  }
+  return (
+    db
+      .prepare('UPDATE usuarios SET sincronizado = 1, pendiente_neon = 0 WHERE lower(usuario) = lower(?)')
+      .run(idOrUsuario).changes > 0
+  );
+}
+
+export function upsertUsuarioDesdeNeon({
+  usuario,
+  nombre,
+  clave_hash,
+  rol,
+  activo,
+  creado_en,
+}: {
+  usuario: string;
+  nombre: string;
+  clave_hash: string;
+  rol: 'admin' | 'gestor';
+  activo: boolean;
+  creado_en?: string | null;
+}): number {
+  const limpio = String(usuario || '').trim().toLowerCase();
+  const rolValido: 'admin' | 'gestor' = rol === 'admin' ? 'admin' : 'gestor';
+  const existente = db
+    .prepare('SELECT id FROM usuarios WHERE lower(usuario) = lower(?) LIMIT 1')
+    .get(limpio) as { id: number } | undefined;
+
+  if (existente) {
+    db.prepare(`
+      UPDATE usuarios
+      SET usuario = ?,
+          nombre = ?,
+          clave_hash = ?,
+          rol = ?,
+          activo = ?,
+          sincronizado = 1,
+          pendiente_neon = 0
+      WHERE id = ?
+    `).run(limpio, nombre, clave_hash, rolValido, activo ? 1 : 0, existente.id);
+    return existente.id;
+  }
+
+  const resultado = db
+    .prepare(`
+      INSERT INTO usuarios (usuario, nombre, clave_hash, rol, activo, sincronizado, pendiente_neon, creado_en)
+      VALUES (?, ?, ?, ?, ?, 1, 0, COALESCE(?, datetime('now', 'localtime')))
+    `)
+    .run(limpio, nombre, clave_hash, rolValido, activo ? 1 : 0, creado_en || null);
+  return Number(resultado.lastInsertRowid);
+}
+
+export function encolarEliminacionUsuarioNeon(usuario: string): void {
+  const limpio = String(usuario || '').trim().toLowerCase();
+  if (!limpio) return;
+  db.prepare(`
+    INSERT INTO neon_usuarios_eliminaciones (usuario)
+    VALUES (?)
+    ON CONFLICT (usuario) DO NOTHING
+  `).run(limpio);
+}
+
+export function listarEliminacionesUsuarioNeon(): Array<{ id: number; usuario: string }> {
+  return db
+    .prepare('SELECT id, usuario FROM neon_usuarios_eliminaciones ORDER BY id')
+    .all() as Array<{ id: number; usuario: string }>;
+}
+
+export function eliminarEliminacionUsuarioNeon(id: number): void {
+  db.prepare('DELETE FROM neon_usuarios_eliminaciones WHERE id = ?').run(id);
 }
 
 export function contarAdminsActivos(): number {
@@ -2671,11 +2816,18 @@ module.exports = {
   crearConsejoComunal,
   buscarViviendasPrincipales,
   listarUsuarios,
+  listarUsuariosConHash,
   obtenerUsuarioPorId,
+  obtenerUsuarioConHashPorId,
   obtenerUsuarioPorUsuario,
   crearUsuario,
   actualizarUsuario,
   eliminarUsuario,
+  marcarUsuarioSincronizado,
+  upsertUsuarioDesdeNeon,
+  encolarEliminacionUsuarioNeon,
+  listarEliminacionesUsuarioNeon,
+  eliminarEliminacionUsuarioNeon,
   contarAdminsActivos,
   listarTerritorios,
   obtenerTerritorioPorId,
