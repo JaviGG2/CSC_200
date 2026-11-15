@@ -228,6 +228,49 @@
     return valido;
   };
 
+  const validarPasoEstricto = (numero) => {
+    const pagina = document.querySelector(`.wizard-pagina[data-paso="${numero}"]`);
+    if (!pagina) return true;
+
+    const requeridos = pagina.querySelectorAll('input[required]:not(:disabled), select[required]:not(:disabled), textarea[required]:not(:disabled)');
+    const faltantes = [];
+
+    requeridos.forEach((campo) => {
+      if (!String(campo.value || '').trim()) {
+        campo.classList.add('error');
+        faltantes.push(campo);
+      } else {
+        campo.classList.remove('error');
+      }
+    });
+
+    if (faltantes.length > 0) {
+      const nombresFaltantes = faltantes
+        .map((c) => {
+          const label = c.previousElementSibling;
+          return label ? label.textContent.replace('*', '').trim() : c.name || c.id;
+        })
+        .join(', ');
+      notificar(`Complete los campos obligatorios: ${nombresFaltantes}.`, 'error');
+      faltantes[0].focus();
+      return false;
+    }
+
+    if (numero === 2) {
+      const tipo = document.getElementById('w-j-cedula-tipo');
+      const numeroCedula = document.getElementById('w-j-cedula-numero');
+      if (tipo && !tipo.disabled && numeroCedula && !numeroCedula.disabled && !validarFormatoCedula(tipo, numeroCedula)) {
+        numeroCedula.classList.add('error');
+        notificar('El formato de cédula es inválido. Use V-12345678 o E-12345678.', 'error');
+        numeroCedula.focus();
+        return false;
+      }
+      if (numeroCedula) numeroCedula.classList.remove('error');
+    }
+
+    return true;
+  };
+
   pasos.forEach((paso) => {
     paso.addEventListener('click', () => {
       const objetivo = Number(paso.dataset.paso);
@@ -288,6 +331,14 @@
   form.addEventListener('submit', async (evento) => {
     evento.preventDefault();
 
+    if (!validarPasoEstricto(1)) {
+      mostrarPaso(1);
+      return;
+    }
+    if (!validarPasoEstricto(2)) {
+      mostrarPaso(2);
+      return;
+    }
     if (!validarPaso(3)) {
       mostrarPaso(3);
       return;
@@ -364,7 +415,12 @@
         body: JSON.stringify({ vivienda, jefe, integrantes }),
       });
 
-      const datos = await respuesta.json();
+      let datos = {};
+      try {
+        datos = await respuesta.json();
+      } catch {
+        datos = {};
+      }
 
       if (respuesta.ok && datos.ok) {
         form.reset();

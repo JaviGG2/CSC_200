@@ -262,6 +262,27 @@ function normalizarCedulaPersona(
   return { cedula_tipo: valorTipo, cedula_numero: normalizarCedula(numero) || null };
 }
 
+function normalizarSexoJefe(valor: unknown): 'M' | 'F' {
+  const texto = valorSimple(valor).toLowerCase();
+  return texto === 'f' || texto.startsWith('fem') ? 'F' : 'M';
+}
+
+function normalizarSexoOpcional(valor: unknown): 'M' | 'F' | null {
+  const texto = valorSimple(valor).toLowerCase();
+  if (!texto) return null;
+  if (texto === 'm' || texto.startsWith('masc')) return 'M';
+  if (texto === 'f' || texto.startsWith('fem')) return 'F';
+  return null;
+}
+
+function parsearNumeroOpcional(valor: unknown): number | null {
+  if (valor === null || valor === undefined || valor === '') return null;
+  const texto = typeof valor === 'string' ? valor.trim() : String(valor);
+  if (!texto) return null;
+  const numero = Number(texto);
+  return Number.isFinite(numero) ? numero : null;
+}
+
 // Clave estable en Neon para quien no tiene cédula: una por vivienda.
 function cedulaNeonJefe(
   viviendaId: number,
@@ -1615,23 +1636,131 @@ app.post('/campos/:id/eliminar', requerirAdmin, (req: Request, res: Response, ne
 
 app.post('/api/viviendas', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { vivienda, jefe, integrantes } = req.body;
+    const { vivienda, jefe, integrantes } = req.body ?? {};
 
-    if (!vivienda || !jefe) {
+    if (!vivienda || typeof vivienda !== 'object' || !jefe || typeof jefe !== 'object') {
       return res.status(400).json({ error: 'Se requieren vivienda y jefe de familia.' });
     }
 
-    const cedulaTipo = normalizarTipoCedula(jefe.cedula_tipo);
-    const cedulaNumero = cedulaTipo === 'S' ? null : normalizarCedula(jefe.cedula_numero);
-    if (cedulaTipo !== 'S' && !validarFormatoCedula(`${cedulaTipo}-${cedulaNumero}`)) {
+    const configCampos = obtenerConfigCamposMap() as Record<
+      string,
+      { visible?: boolean; requerido?: boolean }
+    >;
+    const esVisible = (clave: string) => configCampos[clave]?.visible !== false;
+    const esRequerido = (clave: string, defecto = true) =>
+      esVisible(clave) && (configCampos[clave]?.requerido ?? defecto);
+
+    const estado = normalizarNombre(vivienda.estado) || 'FALCÓN';
+    const municipio = normalizarNombre(vivienda.municipio) || 'MIRANDA';
+    const parroquia = normalizarNombre(vivienda.parroquia) || 'SAN ANTONIO';
+    const comunidadInput = normalizarNombre(vivienda.comunidad);
+    const direccionInput = normalizarNombre(vivienda.direccion);
+
+    if (esRequerido('w-comunidad') && !comunidadInput) {
+      return res.status(400).json({ error: 'La comunidad de la vivienda es obligatoria.' });
+    }
+    if (esRequerido('w-direccion') && !direccionInput) {
+      return res.status(400).json({ error: 'La dirección de la vivienda es obligatoria.' });
+    }
+
+    const comunidad = comunidadInput || 'Sin especificar';
+    const direccion = direccionInput || 'Sin especificar';
+
+    const cedulaTipoRaw = esVisible('w-j-cedula-tipo') ? jefe.cedula_tipo : 'S';
+    const cedulaTipo =
+      !esVisible('w-j-cedula-numero') && !valorSimple(jefe.cedula_numero)
+        ? 'S'
+        : normalizarTipoCedula(cedulaTipoRaw);
+    const cedulaNumero = cedulaTipo === 'S' ? null : normalizarCedula(jefe.cedula_numero) || null;
+    if (cedulaTipo !== 'S' && !validarFormatoCedula(`${cedulaTipo}-${cedulaNumero || ''}`)) {
       return res.status(400).json({
         error: 'Formato de cédula inválido (V-12345678) o seleccione «Sin cédula».',
       });
     }
 
+    const nombresJefeInput = normalizarNombre(jefe.nombres);
+    const apellidosJefeInput = normalizarNombre(jefe.apellidos);
+    if (esRequerido('w-j-nombres') && !nombresJefeInput) {
+      return res.status(400).json({ error: 'Los nombres del jefe de familia son obligatorios.' });
+    }
+    if (esRequerido('w-j-apellidos') && !apellidosJefeInput) {
+      return res.status(400).json({ error: 'Los apellidos del jefe de familia son obligatorios.' });
+    }
+
     const fechaValida = normalizarFecha(jefe.fecha_nacimiento);
     if (fechaValida === false) {
-      return res.status(400).json({ error: 'Fecha de nacimiento inválida.' });
+      return res.status(400).json({ error: 'Fecha de nacimiento del jefe de familia inválida.' });
+    }
+    if (esRequerido('w-j-fecha-nacimiento') && !fechaValida) {
+      return res.status(400).json({
+        error: 'La fecha de nacimiento del jefe de familia es obligatoria.',
+      });
+    }
+    const fechaNacimientoJefe = fechaValida ? fechaValida.slice(0, 10) : '';
+
+    const nivelInstruccionInput = normalizarNombre(jefe.nivel_instruccion);
+    if (esRequerido('w-j-nivel-instruccion') && !nivelInstruccionInput) {
+      return res.status(400).json({
+        error: 'El nivel de instrucción del jefe de familia es obligatorio.',
+      });
+    }
+
+    const estadoCivilInput = normalizarNombre(jefe.estado_civil);
+    if (esRequerido('w-j-estado-civil') && !estadoCivilInput) {
+      return res.status(400).json({
+        error: 'El estado civil del jefe de familia es obligatorio.',
+      });
+    }
+
+    const clasificacionIngresosInput = normalizarNombre(jefe.clasificacion_ingresos);
+    if (esRequerido('w-j-clasificacion-ingresos') && !clasificacionIngresosInput) {
+      return res.status(400).json({
+        error: 'La clasificación de ingresos del jefe de familia es obligatoria.',
+      });
+    }
+
+    if (integrantes !== undefined && integrantes !== null && !Array.isArray(integrantes)) {
+      return res.status(400).json({ error: 'El formato del grupo familiar es inválido.' });
+    }
+
+    const listaIntegrantesRaw = Array.isArray(integrantes) ? integrantes : [];
+    const integrantesValidados: any[] = [];
+    for (let index = 0; index < listaIntegrantesRaw.length; index++) {
+      const integrante = listaIntegrantesRaw[index];
+      if (!integrante || typeof integrante !== 'object') {
+        return res.status(400).json({
+          error: `Los datos del integrante N.º ${index + 1} son inválidos.`,
+        });
+      }
+
+      const apellidosInt = normalizarNombre(integrante.apellidos);
+      const nombresInt = normalizarNombre(integrante.nombres);
+      const parentescoInt = normalizarNombre(integrante.parentesco);
+      if (!apellidosInt || !nombresInt || !parentescoInt) {
+        return res.status(400).json({
+          error: `El integrante N.º ${index + 1} debe tener apellidos, nombres y parentesco.`,
+        });
+      }
+
+      const fechaInt = normalizarFecha(integrante.fecha_nacimiento);
+      if (fechaInt === false) {
+        return res.status(400).json({
+          error: `La fecha de nacimiento del integrante N.º ${index + 1} es inválida.`,
+        });
+      }
+
+      integrantesValidados.push({
+        numero: index + 1,
+        apellidos: apellidosInt,
+        nombres: nombresInt,
+        ...normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero),
+        fecha_nacimiento: fechaInt ? fechaInt.slice(0, 10) : null,
+        sexo: normalizarSexoOpcional(integrante.sexo),
+        parentesco: parentescoInt,
+        nivel_instruccion: normalizarNombre(integrante.nivel_instruccion) || null,
+        profesion: normalizarNombre(integrante.profesion) || null,
+        ingreso_mensual: parsearNumeroOpcional(integrante.ingreso_mensual),
+      });
     }
 
     const consejoId = Number(vivienda.consejo_comunal_id);
@@ -1651,8 +1780,7 @@ app.post('/api/viviendas', async (req: Request, res: Response, next: NextFunctio
       vivienda.es_anexo === '1' ||
       vivienda.es_anexo === 'true';
 
-    const ingresoJefe = Number(jefe.ingreso_mensual_bs);
-    const ingresoJefeValor = Number.isFinite(ingresoJefe) ? ingresoJefe : null;
+    const ingresoJefeValor = parsearNumeroOpcional(jefe.ingreso_mensual_bs);
 
     // Acepta true/1/"Sí"/"si" para no violar el CHECK de la base local.
     const trabajaActual: 'Sí' | 'No' =
@@ -1666,54 +1794,40 @@ app.post('/api/viviendas', async (req: Request, res: Response, next: NextFunctio
     try {
       const resultado = crearViviendaCompleta({
         vivienda: {
-          estado: vivienda.estado || 'FALCÓN',
-          municipio: vivienda.municipio || 'MIRANDA',
-          parroquia: vivienda.parroquia || 'SAN ANTONIO',
-          comunidad: vivienda.comunidad,
-          etapa: vivienda.etapa ?? null,
-          manzana: vivienda.manzana ?? null,
-          direccion: vivienda.direccion,
-          numero_casa: vivienda.numero_casa ?? null,
+          estado,
+          municipio,
+          parroquia,
+          comunidad,
+          etapa: normalizarNombre(vivienda.etapa) || null,
+          manzana: normalizarNombre(vivienda.manzana) || null,
+          direccion,
+          numero_casa: normalizarNombre(vivienda.numero_casa) || null,
           consejo_comunal_id: consejoComunalId,
           es_anexo: esAnexo,
-          numero_anexo: esAnexo ? vivienda.numero_anexo ?? null : null,
+          numero_anexo: esAnexo ? normalizarNombre(vivienda.numero_anexo) || null : null,
           vivienda_principal_id: esAnexo ? viviendaPrincipalId : null,
-          sincronizar_neon: vivienda.sincronizar_neon ?? true,
+          sincronizar_neon: vivienda.sincronizar_neon !== false,
         },
         jefe: {
           cedula_tipo: cedulaTipo,
           cedula_numero: cedulaNumero,
-          nombres: jefe.nombres,
-          apellidos: jefe.apellidos,
-          fecha_nacimiento: jefe.fecha_nacimiento,
-          sexo: valorSimple(jefe.sexo) === 'F' ? 'F' : 'M',
-          telefono_movil: jefe.telefono_movil ?? null,
-          telefono_habitacion: jefe.telefono_habitacion ?? null,
-          telefono_trabajo: jefe.telefono_trabajo ?? null,
-          correo: jefe.correo ?? null,
-          nivel_instruccion: jefe.nivel_instruccion,
-          estado_civil: jefe.estado_civil,
-          profesion: jefe.profesion ?? null,
+          nombres: nombresJefeInput || 'Sin especificar',
+          apellidos: apellidosJefeInput || 'Sin especificar',
+          fecha_nacimiento: fechaNacimientoJefe,
+          sexo: normalizarSexoJefe(jefe.sexo),
+          telefono_movil: normalizarNombre(jefe.telefono_movil) || null,
+          telefono_habitacion: normalizarNombre(jefe.telefono_habitacion) || null,
+          telefono_trabajo: normalizarNombre(jefe.telefono_trabajo) || null,
+          correo: valorSimple(jefe.correo) || null,
+          nivel_instruccion: nivelInstruccionInput || 'Ninguno',
+          estado_civil: estadoCivilInput || 'Soltero/a',
+          profesion: normalizarNombre(jefe.profesion) || null,
           trabaja_actual: trabajaActual,
-          clasificacion_ingresos: jefe.clasificacion_ingresos,
-          frecuencia_ingresos: jefe.frecuencia_ingresos ?? null,
+          clasificacion_ingresos: clasificacionIngresosInput || 'Mensual',
+          frecuencia_ingresos: normalizarNombre(jefe.frecuencia_ingresos) || null,
           ingreso_mensual_bs: ingresoJefeValor,
         },
-        integrantes: (integrantes || []).map((integrante: any, index: number) => {
-          const ingreso = Number(integrante.ingreso_mensual);
-          return {
-            numero: index + 1,
-            apellidos: integrante.apellidos,
-            nombres: integrante.nombres,
-            ...normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero),
-            fecha_nacimiento: integrante.fecha_nacimiento ?? null,
-            sexo: integrante.sexo ?? null,
-            parentesco: integrante.parentesco,
-            nivel_instruccion: integrante.nivel_instruccion ?? null,
-            profesion: integrante.profesion ?? null,
-            ingreso_mensual: Number.isFinite(ingreso) ? ingreso : null,
-          };
-        }),
+        integrantes: integrantesValidados,
       });
 
       let neon: any = null;
@@ -1732,8 +1846,13 @@ app.post('/api/viviendas', async (req: Request, res: Response, next: NextFunctio
         mensaje: 'Vivienda registrada correctamente.',
       });
     } catch (error: any) {
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         return res.status(409).json({ error: 'La cédula del jefe de familia ya está registrada.' });
+      }
+      if (typeof error?.code === 'string' && error.code.startsWith('SQLITE_CONSTRAINT')) {
+        return res.status(400).json({
+          error: 'Verifique que los datos obligatorios de la vivienda y la familia sean válidos.',
+        });
       }
       throw error;
     }
@@ -2058,11 +2177,11 @@ app.put('/api/viviendas/:id', (req: Request, res: Response, next: NextFunction) 
             nombres: integrante.nombres,
             cedula_tipo: cedula.cedula_tipo,
             cedula_numero: cedula.cedula_numero,
-            fecha_nacimiento: integrante.fecha_nacimiento,
-            sexo: integrante.sexo,
+            fecha_nacimiento: integrante.fecha_nacimiento || null,
+            sexo: normalizarSexoOpcional(integrante.sexo),
             parentesco: integrante.parentesco,
-            nivel_instruccion: integrante.nivel_instruccion,
-            profesion: integrante.profesion,
+            nivel_instruccion: integrante.nivel_instruccion || null,
+            profesion: integrante.profesion || null,
           });
           idsEnviados.add(integrante.id);
         } else {
@@ -2073,11 +2192,11 @@ app.put('/api/viviendas/:id', (req: Request, res: Response, next: NextFunction) 
             nombres: integrante.nombres,
             cedula_tipo: cedula.cedula_tipo,
             cedula_numero: cedula.cedula_numero,
-            fecha_nacimiento: integrante.fecha_nacimiento,
-            sexo: integrante.sexo,
+            fecha_nacimiento: integrante.fecha_nacimiento || null,
+            sexo: normalizarSexoOpcional(integrante.sexo),
             parentesco: integrante.parentesco,
-            nivel_instruccion: integrante.nivel_instruccion,
-            profesion: integrante.profesion,
+            nivel_instruccion: integrante.nivel_instruccion || null,
+            profesion: integrante.profesion || null,
           });
           idsEnviados.add(nuevoId);
         }
@@ -2188,11 +2307,11 @@ app.post('/api/viviendas/:viviendaId/integrantes', (req: Request, res: Response,
       nombres,
       cedula_tipo: cedula.cedula_tipo,
       cedula_numero: cedula.cedula_numero,
-      fecha_nacimiento,
-      sexo,
+      fecha_nacimiento: fecha_nacimiento || null,
+      sexo: normalizarSexoOpcional(sexo),
       parentesco,
-      nivel_instruccion,
-      profesion,
+      nivel_instruccion: nivel_instruccion || null,
+      profesion: profesion || null,
     });
 
     return res.status(201).json({ ok: true, id, mensaje: 'Integrante agregado.' });

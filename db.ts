@@ -928,15 +928,17 @@ function construirEtiquetas(): Map<string, string> {
   );
 }
 
-function calcularEdad(fechaNacimiento: string): number {
+function calcularEdad(fechaNacimiento: string): number | null {
+  if (!fechaNacimiento || !String(fechaNacimiento).trim()) return null;
   const hoy = new Date();
   const nacimiento = new Date(fechaNacimiento);
+  if (Number.isNaN(nacimiento.getTime())) return null;
   let edad = hoy.getFullYear() - nacimiento.getFullYear();
   const mesDiff = hoy.getMonth() - nacimiento.getMonth();
   if (mesDiff < 0 || (mesDiff === 0 && hoy.getDate() < nacimiento.getDate())) {
     edad -= 1;
   }
-  return edad;
+  return Number.isFinite(edad) ? Math.max(0, edad) : null;
 }
 
 function formatearRegistro(fila: any, etiquetas: Map<string, string>): RegistroCenso {
@@ -1284,18 +1286,18 @@ export function insertarVivienda({
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
-      estado,
-      municipio,
-      parroquia,
-      comunidad,
-      etapa,
-      manzana,
-      direccion,
-      numero_casa,
-      consejo_comunal_id,
+      estado || 'FALCÓN',
+      municipio || 'MIRANDA',
+      parroquia || 'SAN ANTONIO',
+      comunidad ?? '',
+      etapa ?? null,
+      manzana ?? null,
+      direccion ?? '',
+      numero_casa ?? null,
+      consejo_comunal_id ?? null,
       es_anexo ? 1 : 0,
-      numero_anexo,
-      vivienda_principal_id,
+      numero_anexo ?? null,
+      vivienda_principal_id ?? null,
       sincronizar_neon ? 1 : 0
     );
   return resultado.lastInsertRowid as number;
@@ -1538,6 +1540,14 @@ export function insertarJefeFamilia({
 }): number {
   const edad = calcularEdad(fecha_nacimiento);
   const trabajaNormalizado = normalizarTrabajaActual(trabaja_actual);
+  const sexoNormalizado: 'M' | 'F' = /^f/i.test(String(sexo ?? '').trim()) ? 'F' : 'M';
+  const ingresoNormalizado =
+    ingreso_mensual_bs !== null &&
+    ingreso_mensual_bs !== undefined &&
+    Number.isFinite(Number(ingreso_mensual_bs))
+      ? Number(ingreso_mensual_bs)
+      : null;
+
   const resultado = db
     .prepare(`
       INSERT INTO jefes_familia
@@ -1547,9 +1557,25 @@ export function insertarJefeFamilia({
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
-      vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo,
-      telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil,
-      profesion, trabajaNormalizado, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs
+      vivienda_id,
+      cedula_tipo || 'V',
+      cedula_numero ?? null,
+      nombres ?? '',
+      apellidos ?? '',
+      fecha_nacimiento ?? '',
+      edad,
+      sexoNormalizado,
+      telefono_movil ?? null,
+      telefono_habitacion ?? null,
+      telefono_trabajo ?? null,
+      correo ?? null,
+      nivel_instruccion ?? '',
+      estado_civil ?? '',
+      profesion ?? null,
+      trabajaNormalizado,
+      clasificacion_ingresos ?? '',
+      frecuencia_ingresos ?? null,
+      ingresoNormalizado
     );
   return resultado.lastInsertRowid as number;
 }
@@ -1680,6 +1706,20 @@ export function insertarIntegrante({
   ingreso_mensual?: number | null;
 }): number {
   const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null;
+  const sexoTexto = String(sexo ?? '').trim().toLowerCase();
+  const sexoNormalizado: 'M' | 'F' | null =
+    sexoTexto === 'm' || sexoTexto.startsWith('masc')
+      ? 'M'
+      : sexoTexto === 'f' || sexoTexto.startsWith('fem')
+        ? 'F'
+        : null;
+  const ingresoNormalizado =
+    ingreso_mensual !== null &&
+    ingreso_mensual !== undefined &&
+    Number.isFinite(Number(ingreso_mensual))
+      ? Number(ingreso_mensual)
+      : null;
+
   const resultado = db
     .prepare(`
       INSERT INTO integrantes_grupo_familiar
@@ -1688,8 +1728,19 @@ export function insertarIntegrante({
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
-      vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero,
-      fecha_nacimiento, edad, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual
+      vivienda_id,
+      numero,
+      apellidos ?? '',
+      nombres ?? '',
+      cedula_tipo ?? null,
+      cedula_numero ?? null,
+      fecha_nacimiento ?? null,
+      edad,
+      sexoNormalizado,
+      parentesco ?? '',
+      nivel_instruccion ?? null,
+      profesion ?? null,
+      ingresoNormalizado
     );
   return resultado.lastInsertRowid as number;
 }
