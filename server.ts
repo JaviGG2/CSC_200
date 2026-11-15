@@ -1,4 +1,4 @@
-﻿import dotenv from 'dotenv';
+import dotenv from 'dotenv';
 import path from 'path';
 import os from 'os';
 import express, { Request, Response, NextFunction } from 'express';
@@ -1720,7 +1720,7 @@ app.post('/api/viviendas', async (req: Request, res: Response, next: NextFunctio
       if (vivienda.sincronizar_neon !== false) {
         const { guardarViviendaEnNeon } = require('./neon');
         neon = await guardarViviendaEnNeon(resultado.viviendaId);
-        if (!neon.ok) console.error('[neon]', neon.mensaje);
+        if (!neon.ok) console.warn('[neon]', neon.mensaje);
       }
 
       return res.status(201).json({
@@ -2968,32 +2968,110 @@ app.get('/api/export/viviendas.csv', (req: Request, res: Response) => {
       .join('\r\n');
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="padron-viviendas.csv"');
+  return res.send(contenido);
+});
+
+function normalizarCabeceraCsv(valor: string): string {
+  return String(valor || '')
+    .replace(/^\uFEFF/, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parsearFilaCsv(linea: string, separador: string): string[] {
+  const campos: string[] = [];
+  let actual = '';
+  let enComillas = false;
+
+  for (let i = 0; i < linea.length; i += 1) {
+    const ch = linea[i];
+    if (ch === '"') {
+      if (enComillas && linea[i + 1] === '"') {
+        actual += '"';
+        i += 1;
+      } else {
+        enComillas = !enComillas;
+      }
+    } else if (ch === separador && !enComillas) {
+      campos.push(actual.trim());
+      actual = '';
+    } else {
+      actual += ch;
+    }
+  }
+  campos.push(actual.trim());
+  return campos;
+}
+
+function normalizarFechaCsv(valor: string): string | false | null {
+  const limpio = valorSimple(valor);
+  if (!limpio) return null;
+
+  const iso = normalizarFecha(limpio);
+  if (iso !== false) return iso.slice(0, 10);
+
+  const latam = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+\d{2}:\d{2}(?::\d{2})?)?$/.exec(limpio);
+  if (latam) {
+    const [, dia, mes, anio] = latam;
+    const verificada = normalizarFecha(`${anio}-${mes}-${dia}`);
+    if (verificada !== false) return `${anio}-${mes}-${dia}`;
+  }
+
+  return false;
+}
+
 // Importar datos desde CSV
-app.post('/api/import/csv', (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/import/csv', (req: Request, res: Response) => {
   try {
-    if (!req.body.archivo || req.body.archivo.length === 0) {
+    const archivo = typeof req.body?.archivo === 'string' ? req.body.archivo : '';
+    if (!archivo.trim()) {
       return res.status(400).json({ error: 'No se proporcionó un archivo CSV.' });
     }
 
-    const csvContent = req.body.archivo;
-    const lineas = csvContent.split(/\r?\n/);
+    const csvContent = archivo.replace(/^\uFEFF/, '');
+    const lineas = csvContent.split(/\r?\n/).filter((l: string) => l.trim().length > 0);
+    if (lineas.length < 2) {
+      return res.status(400).json({ error: 'El archivo CSV no contiene filas de datos.' });
+    }
 
-    // Parsear encabezados de la primera línea
-    const encabezados = lineas[0].split(';').map((h: string) => h.trim());
+    const separador = lineas[0].includes(';') ? ';' : ',';
+    const encabezados = parsearFilaCsv(lineas[0], separador).map(normalizarCabeceraCsv);
+    const buscarCol = (candidatos: string[]) =>
+      encabezados.findIndex((h) => candidatos.includes(h));
 
-    // Índices de las columnas importantes (basado en el formato de exportación)
-    const idxEstado = encabezados.indexOf('Estado');
-    const idxMunicipio = encabezados.indexOf('Municipio');
-    const idxParroquia = encabezados.indexOf('Parroquia');
-    const idxComunidad = encabezados.indexOf('Comunidad');
-    const idxEtapa = encabezados.indexOf('Etapa');
-    const idxManzana = encabezados.indexOf('Manzana');
-    const idxDireccion = encabezados.indexOf('Dirección');
-    const idxNumeroCasa = encabezados.indexOf('Número Casa');
-    const idxJefeCedula = encabezados.indexOf('Jefe Cédula');
-    const idxJefeNombres = encabezados.indexOf('Jefe Nombres');
-    const idxJefeApellidos = encabezados.indexOf('Jefe Apellidos');
-    const idxFechaRegistro = encabezados.indexOf('Fecha Registro');
+    const idxEstado = buscarCol(['estado']);
+    const idxMunicipio = buscarCol(['municipio']);
+    const idxParroquia = buscarCol(['parroquia']);
+    const idxComunidad = buscarCol(['comunidad']);
+    const idxEtapa = buscarCol(['etapa']);
+    const idxManzana = buscarCol(['manzana']);
+    const idxDireccion = buscarCol(['direccion']);
+    const idxNumeroCasa = buscarCol(['numero casa', 'numero de casa']);
+    const idxJefe = buscarCol(['jefe']);
+    const idxJefeCedula = buscarCol(['jefe cedula', 'cedula del jefe', 'cedula']);
+    const idxJefeNombres = buscarCol(['jefe nombres', 'nombres']);
+    const idxJefeApellidos = buscarCol(['jefe apellidos', 'apellidos']);
+    const idxFechaNacimiento = buscarCol(['fecha de nacimiento', 'fecha nacimiento']);
+    const idxSexo = buscarCol(['sexo']);
+    const idxNivelInstruccion = buscarCol(['nivel de instruccion', 'nivel instruccion']);
+    const idxEstadoCivil = buscarCol(['estado civil']);
+    const idxProfesion = buscarCol(['profesion', 'profesion u oficio']);
+    const idxTrabaja = buscarCol([
+      'trabaja',
+      'trabaja actual',
+      'trabaja actualmente',
+      '¿trabaja actualmente?',
+    ]);
+    const idxClasificacionIngresos = buscarCol([
+      'clasificacion de ingresos',
+      'clasificacion ingresos',
+    ]);
+    const idxFrecuenciaIngresos = buscarCol(['frecuencia de ingresos', 'frecuencia ingresos']);
+    const idxIngresoMensual = buscarCol(['ingreso mensual', 'ingreso mensual bs']);
 
     if (idxComunidad === -1 || idxEstado === -1) {
       return res.status(400).json({ error: 'Formato CSV inválido: faltan columnas obligatorias.' });
@@ -3002,22 +3080,24 @@ app.post('/api/import/csv', (req: Request, res: Response, next: NextFunction) =>
     const inserted: number[] = [];
     const errors: string[] = [];
 
-    // Procesar cada fila a partir de la segunda línea
-    for (let i = 1; i < lineas.length; i++) {
-      if (!lineas[i].trim()) continue;
-
-      const valores = lineas[i].split(';').map((v: string) => v.trim());
+    for (let i = 1; i < lineas.length; i += 1) {
+      const valores = parsearFilaCsv(lineas[i], separador);
 
       try {
-        // Crear datos de vivienda
+        const comunidad = idxComunidad >= 0 ? valores[idxComunidad] || '' : '';
+        const direccion = idxDireccion >= 0 ? valores[idxDireccion] || '' : '';
+        if (!comunidad) {
+          throw new Error('La comunidad es obligatoria.');
+        }
+
         const datosVivienda = {
-          estado: idxEstado >= 0 ? valores[idxEstado] || 'FALCÓN' : 'FALCÓN',
-          municipio: idxMunicipio >= 0 ? valores[idxMunicipio] || 'MIRANDA' : 'MIRANDA',
-          parroquia: idxParroquia >= 0 ? valores[idxParroquia] || 'SAN ANTONIO' : 'SAN ANTONIO',
-          comunidad: idxComunidad >= 0 ? valores[idxComunidad] || '' : '',
+          estado: (idxEstado >= 0 ? valores[idxEstado] : '') || 'FALCÓN',
+          municipio: (idxMunicipio >= 0 ? valores[idxMunicipio] : '') || 'MIRANDA',
+          parroquia: (idxParroquia >= 0 ? valores[idxParroquia] : '') || 'SAN ANTONIO',
+          comunidad,
           etapa: idxEtapa >= 0 ? valores[idxEtapa] || null : null,
           manzana: idxManzana >= 0 ? valores[idxManzana] || null : null,
-          direccion: idxDireccion >= 0 ? valores[idxDireccion] || '' : '',
+          direccion: direccion || 'Sin dirección',
           numero_casa: idxNumeroCasa >= 0 ? valores[idxNumeroCasa] || null : null,
           consejo_comunal_id: null,
           es_anexo: false,
@@ -3026,50 +3106,96 @@ app.post('/api/import/csv', (req: Request, res: Response, next: NextFunction) =>
           sincronizar_neon: true,
         };
 
-        const viviendaId = insertarVivienda(datosVivienda);
+        let nombres = idxJefeNombres >= 0 ? valores[idxJefeNombres] || '' : '';
+        let apellidos = idxJefeApellidos >= 0 ? valores[idxJefeApellidos] || '' : '';
 
-        // Crear datos de jefe de familia si hay cédula
-        if (idxJefeCedula >= 0 && idxJefeNombres >= 0 && idxJefeApellidos >= 0) {
-          const cedulaRaw = idxJefeCedula >= 0 ? valores[idxJefeCedula] || '' : '';
-          const [cedulaTipoRaw, cedulaNumeroRaw] = cedulaRaw.split('-').filter(Boolean) as [string, string?];
-          const cedulaTipo = cedulaTipoRaw ? (cedulaTipoRaw === 'V' || cedulaTipoRaw === 'E' || cedulaTipoRaw === 'S' ? cedulaTipoRaw : 'V') : 'V';
-          const cedulaNumero = cedulaNumeroRaw || null;
-
-          const fechaValida = normalizarFecha(idxFechaRegistro >= 0 ? valores[idxFechaRegistro] || '' : '');
-          if (fechaValida === false) {
-            throw new Error('Fecha de nacimiento inválida en fila ' + (i + 1));
+        if (!nombres && !apellidos && idxJefe >= 0 && valores[idxJefe]) {
+          const textoJefe = valores[idxJefe].trim();
+          if (textoJefe.includes(',')) {
+            const coma = textoJefe.indexOf(',');
+            apellidos = textoJefe.slice(0, coma).trim();
+            nombres = textoJefe.slice(coma + 1).trim();
+          } else {
+            const partes = textoJefe.split(/\s+/).filter(Boolean);
+            if (partes.length >= 2) {
+              nombres = partes.slice(0, -1).join(' ');
+              apellidos = partes[partes.length - 1];
+            } else if (partes.length === 1) {
+              nombres = partes[0];
+              apellidos = '-';
+            }
           }
-
-          const trabajaActual: 'Sí' | 'No' =
-            valores[idxJefeNombres] && /^s[ií]$/i.test(String(valores[idxJefeNombres]))
-              ? 'Sí'
-              : 'No';
-
-          const jefeData = {
-            cedula_tipo: cedulaTipo,
-            cedula_numero: cedulaNumero,
-            nombres: idxJefeNombres >= 0 ? valores[idxJefeNombres] || '' : '',
-            apellidos: idxJefeApellidos >= 0 ? valores[idxJefeApellidos] || '' : '',
-            fecha_nacimiento: idxFechaRegistro >= 0 ? valores[idxFechaRegistro] || '' : '',
-            sexo: 'F',
-            telefono_movil: null,
-            telefono_habitacion: null,
-            telefono_trabajo: null,
-            correo: null,
-            nivel_instruccion: null,
-            estado_civil: null,
-            profesion: null,
-            trabaja_actual: trabajaActual,
-            clasificacion_ingresos: null,
-            frecuencia_ingresos: null,
-            ingreso_mensual_bs: null,
-          };
-
-          const jefeId = insertarJefeFamilia({
-            vivienda_id: viviendaId,
-            ...jefeData,
-          });
         }
+
+        const cedulaRaw = idxJefeCedula >= 0 ? (valores[idxJefeCedula] || '').trim() : '';
+        let cedulaTipo: TipoCedula = 'S';
+        let cedulaNumero: string | null = null;
+
+        if (cedulaRaw && !/^sin\s*c[eé]dula$/i.test(cedulaRaw)) {
+          const coincidencia = /^([VE])\s*-\s*(\d+)$/i.exec(cedulaRaw);
+          if (coincidencia) {
+            cedulaTipo = coincidencia[1].toUpperCase() as TipoCedula;
+            cedulaNumero = coincidencia[2];
+          } else if (/^\d{5,12}$/.test(cedulaRaw)) {
+            cedulaTipo = 'V';
+            cedulaNumero = cedulaRaw;
+          }
+        }
+
+        const tieneJefe = Boolean(nombres || apellidos || cedulaNumero);
+        let fechaNacimiento = '1980-01-01';
+        if (idxFechaNacimiento >= 0 && valores[idxFechaNacimiento]) {
+          const fechaParseada = normalizarFechaCsv(valores[idxFechaNacimiento]);
+          if (fechaParseada === false) {
+            throw new Error(`Fecha de nacimiento inválida en fila ${i + 1}`);
+          }
+          if (fechaParseada) fechaNacimiento = fechaParseada;
+        }
+
+        const sexoRaw = idxSexo >= 0 ? (valores[idxSexo] || '').trim().toUpperCase() : '';
+        const sexo: 'M' | 'F' = sexoRaw === 'M' || sexoRaw === 'MASCULINO' ? 'M' : 'F';
+
+        const trabajaRaw = idxTrabaja >= 0 ? valores[idxTrabaja] || '' : '';
+        const trabajaActual: 'Sí' | 'No' = /^(1|true|s[ií])$/i.test(trabajaRaw.trim())
+          ? 'Sí'
+          : 'No';
+
+        const ingresoNum =
+          idxIngresoMensual >= 0 && valores[idxIngresoMensual]
+            ? Number(valores[idxIngresoMensual].replace(',', '.'))
+            : NaN;
+
+        const viviendaId = db.transaction(() => {
+          const id = insertarVivienda(datosVivienda);
+          if (tieneJefe) {
+            insertarJefeFamilia({
+              vivienda_id: id,
+              cedula_tipo: cedulaTipo,
+              cedula_numero: cedulaNumero,
+              nombres: nombres || '-',
+              apellidos: apellidos || '-',
+              fecha_nacimiento: fechaNacimiento,
+              sexo,
+              telefono_movil: null,
+              telefono_habitacion: null,
+              telefono_trabajo: null,
+              correo: null,
+              nivel_instruccion:
+                (idxNivelInstruccion >= 0 ? valores[idxNivelInstruccion] : '') || 'Ninguno',
+              estado_civil:
+                (idxEstadoCivil >= 0 ? valores[idxEstadoCivil] : '') || 'Soltero/a',
+              profesion: idxProfesion >= 0 ? valores[idxProfesion] || null : null,
+              trabaja_actual: trabajaActual,
+              clasificacion_ingresos:
+                (idxClasificacionIngresos >= 0 ? valores[idxClasificacionIngresos] : '') ||
+                'Mensual',
+              frecuencia_ingresos:
+                idxFrecuenciaIngresos >= 0 ? valores[idxFrecuenciaIngresos] || null : null,
+              ingreso_mensual_bs: Number.isFinite(ingresoNum) ? ingresoNum : null,
+            });
+          }
+          return id;
+        })();
 
         inserted.push(viviendaId);
       } catch (error: any) {
@@ -3077,9 +3203,10 @@ app.post('/api/import/csv', (req: Request, res: Response, next: NextFunction) =>
       }
     }
 
-    const mensaje = inserted.length > 0
-      ? `Se importaron ${inserted.length} vivienda${inserted.length === 1 ? '' : 's'}.${errors.length > 0 ? ' Errores: ' + errors.join('; ') : ''}`
-      : 'No se importaron viviendas.';
+    const mensaje =
+      inserted.length > 0
+        ? `Se importaron ${inserted.length} vivienda${inserted.length === 1 ? '' : 's'}.${errors.length > 0 ? ' Errores: ' + errors.join('; ') : ''}`
+        : 'No se importaron viviendas.';
 
     return res.json({
       ok: inserted.length > 0,
@@ -3094,13 +3221,6 @@ app.post('/api/import/csv', (req: Request, res: Response, next: NextFunction) =>
       error: error?.message || 'Error al importar el CSV.',
     });
   }
-});
-
-// ============================================================================
-// PANEL DE ADMINISTRACIÓN
-// ============================================================================
-  res.setHeader('Content-Disposition', 'attachment; filename="padron-viviendas.csv"');
-  return res.send(contenido);
 });
 
 app.get('/reportes/imprimir', (req: Request, res: Response) => {
@@ -3215,39 +3335,40 @@ function direccionesDeRed(): string[] {
 }
 
 if (require.main === module) {
-  // Crea en Neon todas las tablas necesarias antes de aceptar peticiones.
-  // Si Neon no responde, el servidor arranca igual y se reintenta al guardar.
-  (async () => {
-    try {
-      const { inicializarEsquemaNeon } = require('./neon');
-      const esquema = await inicializarEsquemaNeon();
-      console.log(`  Neon:        ${esquema.mensaje}`);
+  app.listen(PUERTO, HOST, () => {
+    console.log('');
+    console.log('  Comuna Socialista Carabobo 200 - Censo local');
+    console.log(`  Servidor:    http://localhost:${PUERTO}`);
+    console.log(`  Base local:  ${rutaBaseDatos}`);
 
-      if (esquema.ok) {
-        const config = await sincronizarConfiguracionNeon({ forzar: true });
-        console.log(`  Config:      ${config.mensaje}`);
+    if (HOST === '0.0.0.0') {
+      for (const direccion of direccionesDeRed()) {
+        console.log(`  Red local:   http://${direccion}:${PUERTO}`);
       }
-    } catch (error: any) {
-      console.error(`  Neon:        ${error?.message || error}`);
     }
 
-    app.listen(PUERTO, HOST, () => {
-      console.log('');
-      console.log('  Comuna Socialista Carabobo 200 - Censo local');
-      console.log(`  Servidor:    http://localhost:${PUERTO}`);
-      console.log(`  Base local:  ${rutaBaseDatos}`);
+    console.log('');
+    console.log('  Presione Ctrl+C para detener el servidor.');
+    console.log('');
 
-      if (HOST === '0.0.0.0') {
-        for (const direccion of direccionesDeRed()) {
-          console.log(`  Red local:   http://${direccion}:${PUERTO}`);
+    // Verifica Neon en segundo plano; si no está disponible, el modo local sigue operativo.
+    (async () => {
+      try {
+        const { inicializarEsquemaNeon } = require('./neon');
+        const esquema = await inicializarEsquemaNeon();
+
+        if (esquema.ok) {
+          console.log(`  Neon:        ${esquema.mensaje}`);
+          const config = await sincronizarConfiguracionNeon({ forzar: true });
+          console.log(`  Config:      ${config.mensaje}`);
+        } else {
+          console.log('  Neon:        Modo local SQLite activo (sin conexión remota).');
         }
+      } catch {
+        console.log('  Neon:        Modo local SQLite activo (sin conexión remota).');
       }
-
-      console.log('');
-      console.log('  Presione Ctrl+C para detener el servidor.');
-      console.log('');
-    });
-  })();
+    })();
+  });
 }
 
 module.exports = app;

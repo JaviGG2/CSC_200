@@ -98,9 +98,25 @@ function numeroONulo(valor: number | string | null | undefined): number | null {
   return Number.isFinite(numero) ? numero : null;
 }
 
+function esCadenaNeonValida(cadena: string): boolean {
+  const limpia = cadena.trim();
+  if (!limpia) return false;
+  try {
+    const parsed = new URL(limpia);
+    const user = decodeURIComponent(parsed.username || '').toLowerCase();
+    const host = (parsed.hostname || '').toLowerCase();
+    if (!host || user === 'usuario' || user === 'user' || host === 'host' || host === 'example.com') {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function crearClienteNeon(): Client | null {
   const cadenaConexion = process.env.DATABASE_URL;
-  if (!cadenaConexion) return null;
+  if (!cadenaConexion || !esCadenaNeonValida(cadenaConexion)) return null;
 
   return new Client({
     connectionString: cadenaConexion,

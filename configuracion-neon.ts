@@ -321,7 +321,6 @@ export async function sincronizarConfiguracionNeon({
     .then((resultado) => {
       ultimoResultado = resultado;
       ultimaSincronizacion = Date.now();
-      if (!resultado.ok) console.error('[config-neon]', resultado.mensaje);
       return resultado;
     })
     .finally(() => {

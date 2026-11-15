@@ -1234,9 +1234,9 @@ const eliminarRegistroTransaccion = db.transaction((id: number) => {
 });
 
 const vaciarRegistrosTransaccion = db.transaction(() => {
-  const { changes } = borrarTodosLosRegistros.run();
-  reiniciarSecuenciaRegistros();
-  return changes;
+  const { changes: registros } = borrarTodosLosRegistros.run();
+  const { viviendas } = vaciarBaseDatos();
+  return viviendas + registros;
 });
 
 export function eliminarRegistro(id: number): boolean {
@@ -1287,10 +1287,10 @@ export function insertarVivienda({
       estado,
       municipio,
       parroquia,
-      comunidad = '',
+      comunidad,
       etapa,
       manzana,
-      direccion = '',
+      direccion,
       numero_casa,
       consejo_comunal_id,
       es_anexo ? 1 : 0,
@@ -1416,10 +1416,10 @@ export function actualizarVivienda({
   estado,
   municipio,
   parroquia,
-  comunidad = '',
+  comunidad,
   etapa,
   manzana,
-  direccion = '',
+  direccion,
   numero_casa,
   consejo_comunal_id,
   es_anexo,
@@ -1463,18 +1463,18 @@ export function actualizarVivienda({
       WHERE id = ?
     `)
     .run(
-      estado,
-      municipio,
-      parroquia,
-      comunidad = '',
-      etapa,
-      manzana,
-      direccion = '',
-      numero_casa,
-      consejo_comunal_id,
+      estado ?? null,
+      municipio ?? null,
+      parroquia ?? null,
+      comunidad ?? null,
+      etapa ?? null,
+      manzana ?? null,
+      direccion ?? null,
+      numero_casa ?? null,
+      consejo_comunal_id ?? null,
       es_anexo === undefined ? null : es_anexo ? 1 : 0,
-      numero_anexo,
-      vivienda_principal_id,
+      numero_anexo ?? null,
+      vivienda_principal_id ?? null,
       sincronizar_neon === undefined ? null : sincronizar_neon ? 1 : 0,
       id
     );
@@ -1489,6 +1489,12 @@ const eliminarViviendaTransaccion = db.transaction((id: number) => {
 
 export function eliminarVivienda(id: number): boolean {
   return eliminarViviendaTransaccion(id);
+}
+
+export function normalizarTrabajaActual(valor: unknown): 'Sí' | 'No' {
+  if (valor === true || valor === 1 || valor === '1') return 'Sí';
+  const texto = String(valor ?? '').trim();
+  return /^s[ií]$/i.test(texto) ? 'Sí' : 'No';
 }
 
 export function insertarJefeFamilia({
@@ -1525,12 +1531,13 @@ export function insertarJefeFamilia({
   nivel_instruccion: string;
   estado_civil: string;
   profesion?: string | null;
-  trabaja_actual: 'Sí' | 'No';
+  trabaja_actual: 'Sí' | 'No' | boolean | string;
   clasificacion_ingresos: string;
   frecuencia_ingresos?: string | null;
   ingreso_mensual_bs?: number | null;
 }): number {
   const edad = calcularEdad(fecha_nacimiento);
+  const trabajaNormalizado = normalizarTrabajaActual(trabaja_actual);
   const resultado = db
     .prepare(`
       INSERT INTO jefes_familia
@@ -1542,7 +1549,7 @@ export function insertarJefeFamilia({
     .run(
       vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, edad, sexo,
       telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil,
-      profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs
+      profesion, trabajaNormalizado, clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs
     );
   return resultado.lastInsertRowid as number;
 }
@@ -1588,14 +1595,14 @@ export function actualizarJefeFamilia({
   nivel_instruccion?: string;
   estado_civil?: string;
   profesion?: string | null;
-  trabaja_actual?: 'Sí' | 'No';
+  trabaja_actual?: 'Sí' | 'No' | boolean | string;
   clasificacion_ingresos?: string;
   frecuencia_ingresos?: string | null;
   ingreso_mensual_bs?: number | null;
 }): boolean {
-  const jefe = obtenerJefePorVivienda(0);
-  const fecha = fecha_nacimiento ?? (jefe ? '' : '');
-  const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : undefined;
+  const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null;
+  const trabajaNormalizado =
+    trabaja_actual === undefined ? null : normalizarTrabajaActual(trabaja_actual);
 
   const resultado = db
     .prepare(`
@@ -1621,10 +1628,26 @@ export function actualizarJefeFamilia({
       WHERE id = ?
     `)
     .run(
-      cedula_tipo, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento,
-      edad, sexo, telefono_movil, telefono_habitacion, telefono_trabajo,
-      correo, nivel_instruccion, estado_civil, profesion, trabaja_actual,
-      clasificacion_ingresos, frecuencia_ingresos, ingreso_mensual_bs, id
+      cedula_tipo ?? null,
+      cedula_tipo ?? null,
+      cedula_numero ?? null,
+      nombres ?? null,
+      apellidos ?? null,
+      fecha_nacimiento ?? null,
+      edad,
+      sexo ?? null,
+      telefono_movil ?? null,
+      telefono_habitacion ?? null,
+      telefono_trabajo ?? null,
+      correo ?? null,
+      nivel_instruccion ?? null,
+      estado_civil ?? null,
+      profesion ?? null,
+      trabajaNormalizado,
+      clasificacion_ingresos ?? null,
+      frecuencia_ingresos ?? null,
+      ingreso_mensual_bs ?? null,
+      id
     );
   return resultado.changes > 0;
 }
@@ -1712,7 +1735,7 @@ export function actualizarIntegrante({
   profesion?: string | null;
   ingreso_mensual?: number | null;
 }): boolean {
-  const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : undefined;
+  const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null;
 
   const resultado = db
     .prepare(`
@@ -1732,8 +1755,20 @@ export function actualizarIntegrante({
       WHERE id = ?
     `)
     .run(
-      numero, apellidos, nombres, cedula_tipo, cedula_tipo, cedula_numero, fecha_nacimiento,
-      edad, sexo, parentesco, nivel_instruccion, profesion, ingreso_mensual, id
+      numero ?? null,
+      apellidos ?? null,
+      nombres ?? null,
+      cedula_tipo ?? null,
+      cedula_tipo ?? null,
+      cedula_numero ?? null,
+      fecha_nacimiento ?? null,
+      edad,
+      sexo ?? null,
+      parentesco ?? null,
+      nivel_instruccion ?? null,
+      profesion ?? null,
+      ingreso_mensual ?? null,
+      id
     );
   return resultado.changes > 0;
 }
@@ -2535,6 +2570,7 @@ module.exports = {
   eliminarEliminacionNeon,
   marcarViviendaPendienteSincronizacion,
   marcarViviendaSincronizada,
+  normalizarTrabajaActual,
   insertarJefeFamilia,
   obtenerJefePorVivienda,
   actualizarJefeFamilia,

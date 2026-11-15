@@ -10,7 +10,7 @@ import {
   eliminarEliminacionNeon,
   marcarViviendaSincronizada,
 } from './db';
-import { aplicarEsquemaNeon, guardarViviendaConCliente } from './neon';
+import { aplicarEsquemaNeon, crearClienteNeon, guardarViviendaConCliente } from './neon';
 
 dotenv.config({ quiet: true });
 
@@ -59,16 +59,6 @@ type ViviendaPendiente = ViviendaBase & {
 
 function detalleError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function crearClienteNeon(): Client | null {
-  const cadenaConexion = process.env.DATABASE_URL;
-  if (!cadenaConexion) return null;
-
-  return new Client({
-    connectionString: cadenaConexion,
-    connectionTimeoutMillis: 8000,
-  });
 }
 
 // Clave en Neon del jefe de familia. Quien no tiene cédula recibe una clave
@@ -440,14 +430,14 @@ export async function actualizarViviendaEnNeon(viviendaId: number): Promise<Resu
 }
 
 export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
-  const cadenaConexion = process.env.DATABASE_URL;
   const clasificacion = clasificarViviendasSinSubir();
   const omitidas = {
     soloLocal: clasificacion.soloLocal,
     sinJefe: clasificacion.sinJefe,
   };
 
-  if (!cadenaConexion) {
+  const cliente = crearClienteNeon();
+  if (!cliente) {
     return {
       ok: false,
       pendientes: clasificacion.subibles.length,
@@ -456,7 +446,7 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
       fallidas: [],
       omitidas,
       mensaje:
-        'Defina DATABASE_URL en el archivo .env con la cadena de conexión de Neon (sslmode=require).',
+        'Defina DATABASE_URL en el archivo .env con una cadena de conexión válida de Neon (sslmode=require).',
     };
   }
 
@@ -491,10 +481,6 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
     };
   }
 
-  const cliente = new Client({
-    connectionString: cadenaConexion,
-    connectionTimeoutMillis: 8000,
-  });
   let procesados = 0;
   let eliminacionesProcesadas = 0;
   const fallidas: ViviendaFallida[] = [];
