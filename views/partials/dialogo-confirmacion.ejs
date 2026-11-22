@@ -1,0 +1,15 @@
+<dialog class="dialogo" id="dialogo-confirmacion" aria-labelledby="confirmacion-titulo">
+  <form method="post" action="" id="form-confirmacion" class="dialogo-form">
+    <div class="dialogo-head">
+      <h2 id="confirmacion-titulo" data-confirm-titulo>Confirmar acción</h2>
+      <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+    </div>
+
+    <p class="dialogo-texto" data-confirm-mensaje>¿Está seguro de continuar con esta acción?</p>
+
+    <div class="dialogo-acciones">
+      <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+      <button type="submit" class="boton boton--peligro" data-confirm-submit>Confirmar</button>
+    </div>
+  </form>
+</dialog>

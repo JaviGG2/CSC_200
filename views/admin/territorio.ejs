@@ -86,7 +86,13 @@
                 <td class="col-acciones">
                   <div class="acciones-fila">
                     <button form="terr-<%= t.id %>" type="submit" class="boton boton--mini boton--primario">Guardar</button>
-                    <form method="post" action="/admin/territorio/<%= t.id %>/eliminar" onsubmit="return confirm('¿Eliminar <%= t.tipo %> <%= t.nombre %>?');" style="display:inline;">
+                    <form
+                      method="post"
+                      action="/admin/territorio/<%= t.id %>/eliminar"
+                      data-confirmar="¿Eliminar <%= t.tipo %> «<%= t.nombre %>»?"
+                      data-confirmar-titulo="Eliminar territorio"
+                      data-confirmar-boton="Eliminar"
+                    >
                       <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
                     </form>
                   </div>
@@ -106,5 +112,8 @@
   <footer class="pie">
     <div class="contenedor">Comuna Socialista Carabobo 200 · Territorio</div>
   </footer>
+
+  <%- include('../partials/dialogo-confirmacion') %>
+  <script src="/popups.js" defer></script>
 </body>
 </html>

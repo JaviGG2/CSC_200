@@ -110,7 +110,13 @@
                   <div class="acciones-fila">
                     <button form="edit-<%= u.id %>" type="submit" class="boton boton--mini boton--primario">Guardar</button>
                     <% if (!usuarioSesion || usuarioSesion.id !== u.id) { %>
-                      <form method="post" action="/admin/usuarios/<%= u.id %>/eliminar" onsubmit="return confirm('¿Eliminar el usuario <%= u.usuario %>?');" style="display:inline;">
+                      <form
+                        method="post"
+                        action="/admin/usuarios/<%= u.id %>/eliminar"
+                        data-confirmar="¿Eliminar el usuario «<%= u.usuario %>»?"
+                        data-confirmar-titulo="Eliminar usuario"
+                        data-confirmar-boton="Eliminar usuario"
+                      >
                         <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
                       </form>
                     <% } %>
@@ -131,5 +137,8 @@
   <footer class="pie">
     <div class="contenedor">Comuna Socialista Carabobo 200 · Usuarios</div>
   </footer>
+
+  <%- include('../partials/dialogo-confirmacion') %>
+  <script src="/popups.js" defer></script>
 </body>
 </html>

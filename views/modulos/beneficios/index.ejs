@@ -38,7 +38,13 @@
         </p>
       </div>
       <div class="censo-hero-acciones">
-        <a href="#nueva-entrega" class="boton boton--primario">+ Registrar entrega</a>
+        <button
+          type="button"
+          class="boton boton--primario"
+          data-abrir-popup="dialogo-beneficio"
+          data-reset-form
+          data-popup-foco="#beneficiario_nombre"
+        >+ Registrar entrega</button>
         <form method="post" action="/beneficios/sincronizar">
           <button type="submit" class="boton boton--secundario">Sincronizar con Neon</button>
         </form>
@@ -122,117 +128,6 @@
       </div>
     </form>
 
-    <section class="panel" id="nueva-entrega">
-      <div class="panel-head">
-        <h2>Registrar entrega de beneficio</h2>
-        <p>Seleccione un beneficiario de la base compartida o escriba sus datos directamente.</p>
-      </div>
-
-      <form method="post" action="/beneficios" class="formulario">
-        <div class="campos">
-          <div class="campo campo-ancho">
-            <label for="beneficio-persona-ref">Beneficiario registrado (base compartida)</label>
-            <select id="beneficio-persona-ref" name="persona_ref">
-              <option value="">— Seleccionar del padrón o ingresar manualmente —</option>
-              <% listaBeneficiarios.forEach(function (b) { %>
-                <option
-                  value="<%= b.tipo %>:<%= b.persona_id %>"
-                  data-nombre="<%= b.apellidos %>, <%= b.nombres %>"
-                  data-cedula="<%= b.cedula || '' %>"
-                  data-consejo="<%= b.consejo_comunal || '' %>"
-                  data-comunidad="<%= b.comunidad || '' %>"
-                >
-                  <%= b.apellidos %>, <%= b.nombres %><%= b.cedula ? ' · ' + b.cedula : '' %><%= b.consejo_comunal ? ' · ' + b.consejo_comunal : '' %>
-                </option>
-              <% }); %>
-            </select>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="beneficiario_nombre">Nombre del beneficiario *</label>
-              <input type="text" id="beneficiario_nombre" name="beneficiario_nombre" required>
-            </div>
-            <div class="campo">
-              <label for="cedula">Cédula</label>
-              <input type="text" id="cedula" name="cedula" placeholder="Ej. V-12345678">
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="programa">Programa o beneficio *</label>
-              <select id="programa" name="programa" required>
-                <% listaProgramas.forEach(function (prog) { %>
-                  <option value="<%= prog %>"><%= prog %></option>
-                <% }); %>
-              </select>
-            </div>
-            <div class="campo" id="grupo-programa-otro" hidden>
-              <label for="programa_otro">Especifique el beneficio</label>
-              <input type="text" id="programa_otro" name="programa_otro" placeholder="Ej. Ayuda técnica / Silla de ruedas">
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="consejo_comunal">Consejo comunal</label>
-              <input type="text" id="consejo_comunal" name="consejo_comunal" list="lista-consejos-beneficios" placeholder="Nombre del consejo comunal">
-              <datalist id="lista-consejos-beneficios">
-                <% listaConsejos.forEach(function (c) { %>
-                  <option value="<%= c.nombre %>"></option>
-                <% }); %>
-              </datalist>
-            </div>
-            <div class="campo">
-              <label for="comunidad">Comunidad / Sector</label>
-              <input type="text" id="comunidad" name="comunidad">
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="tipo_entrega">Periodicidad</label>
-              <select id="tipo_entrega" name="tipo_entrega">
-                <option value="Única">Única</option>
-                <option value="Mensual">Mensual</option>
-                <option value="Quincenal">Quincenal</option>
-                <option value="Periódica">Periódica</option>
-              </select>
-            </div>
-            <div class="campo">
-              <label for="cantidad">Cantidad / Detalle</label>
-              <input type="text" id="cantidad" name="cantidad" placeholder="Ej. 1 bolsa, 1 bombona 10kg">
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="estado">Estado</label>
-              <select id="estado" name="estado">
-                <option value="Entregado">Entregado</option>
-                <option value="Programado">Programado</option>
-                <option value="Pendiente">Pendiente</option>
-              </select>
-            </div>
-            <div class="campo">
-              <label for="fecha_entrega">Fecha de entrega</label>
-              <input type="date" id="fecha_entrega" name="fecha_entrega" value="<%= hoyIso %>">
-            </div>
-          </div>
-
-          <div class="campo campo-ancho">
-            <label for="observaciones">Observaciones</label>
-            <textarea id="observaciones" name="observaciones" rows="2"></textarea>
-          </div>
-        </div>
-
-        <div class="acciones-form--fila">
-          <button type="submit" class="boton boton--primario">Registrar entrega</button>
-        </div>
-      </form>
-    </section>
-
     <section class="panel">
       <div class="panel-head panel-head--fila">
         <div>
@@ -245,7 +140,14 @@
       <% if (!listaEntregas.length) { %>
         <div class="estado-vacio">
           <strong>No hay entregas registradas</strong>
-          <p>Registre una entrega de beneficio arriba o ajuste los filtros de búsqueda.</p>
+          <p>Registre una entrega de beneficio o ajuste los filtros de búsqueda.</p>
+          <button
+            type="button"
+            class="boton boton--primario"
+            data-abrir-popup="dialogo-beneficio"
+            data-reset-form
+            data-popup-foco="#beneficiario_nombre"
+          >+ Registrar entrega</button>
         </div>
       <% } else { %>
         <div class="tabla-scroll">
@@ -287,6 +189,22 @@
                   </td>
                   <td>
                     <div class="acciones-fila">
+                      <button
+                        type="button"
+                        class="boton boton--mini boton--secundario"
+                        data-ver-beneficio
+                        data-nombre="<%= item.beneficiario_nombre %>"
+                        data-cedula="<%= item.cedula || 'Sin cédula' %>"
+                        data-programa="<%= item.programa %>"
+                        data-tipo="<%= item.tipo_entrega %>"
+                        data-consejo="<%= item.consejo_comunal || '—' %>"
+                        data-comunidad="<%= item.comunidad || '—' %>"
+                        data-cantidad="<%= item.cantidad || '—' %>"
+                        data-fecha="<%= fechaCorta(item.fecha_entrega) %>"
+                        data-estado="<%= item.estado %>"
+                        data-observaciones="<%= item.observaciones || 'Sin observaciones adicionales.' %>"
+                      >Detalle</button>
+
                       <form method="post" action="/beneficios/<%= item.id %>/estado" class="beneficio-estado-form">
                         <select name="estado" aria-label="Cambiar estado de entrega #<%= item.id %>">
                           <option value="Entregado" <%= item.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
@@ -295,7 +213,14 @@
                         </select>
                         <button type="submit" class="boton boton--mini boton--secundario">Actualizar</button>
                       </form>
-                      <form method="post" action="/beneficios/<%= item.id %>/eliminar">
+
+                      <form
+                        method="post"
+                        action="/beneficios/<%= item.id %>/eliminar"
+                        data-confirmar="¿Eliminar la entrega de «<%= item.programa %>» para «<%= item.beneficiario_nombre %>»?"
+                        data-confirmar-titulo="Eliminar entrega"
+                        data-confirmar-boton="Eliminar entrega"
+                      >
                         <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
                       </form>
                     </div>
@@ -313,6 +238,160 @@
     <div class="contenedor">Comuna Socialista Carabobo 200 · Módulo de Beneficios</div>
   </footer>
 
+  <!-- Popup Registrar Entrega de Beneficio -->
+  <dialog
+    class="dialogo dialogo--ancho"
+    id="dialogo-beneficio"
+    data-popup-foco="#beneficiario_nombre"
+    aria-labelledby="titulo-dialogo-beneficio"
+  >
+    <form method="post" action="/beneficios" class="dialogo-form">
+      <div class="dialogo-head">
+        <h2 id="titulo-dialogo-beneficio">Registrar entrega de beneficio</h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="dialogo-subtitulo">
+        Seleccione un beneficiario de la base compartida o escriba sus datos directamente.
+      </p>
+
+      <div class="campos">
+        <div class="campo campo-ancho">
+          <label for="beneficio-persona-ref">Beneficiario registrado (base compartida)</label>
+          <select id="beneficio-persona-ref" name="persona_ref">
+            <option value="">— Seleccionar del padrón o ingresar manualmente —</option>
+            <% listaBeneficiarios.forEach(function (b) { %>
+              <option
+                value="<%= b.tipo %>:<%= b.persona_id %>"
+                data-nombre="<%= b.apellidos %>, <%= b.nombres %>"
+                data-cedula="<%= b.cedula || '' %>"
+                data-consejo="<%= b.consejo_comunal || '' %>"
+                data-comunidad="<%= b.comunidad || '' %>"
+              >
+                <%= b.apellidos %>, <%= b.nombres %><%= b.cedula ? ' · ' + b.cedula : '' %><%= b.consejo_comunal ? ' · ' + b.consejo_comunal : '' %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="beneficiario_nombre">Nombre del beneficiario *</label>
+            <input type="text" id="beneficiario_nombre" name="beneficiario_nombre" required>
+          </div>
+          <div class="campo">
+            <label for="cedula">Cédula</label>
+            <input type="text" id="cedula" name="cedula" placeholder="Ej. V-12345678">
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="programa">Programa o beneficio *</label>
+            <select id="programa" name="programa" required>
+              <% listaProgramas.forEach(function (prog) { %>
+                <option value="<%= prog %>"><%= prog %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="campo" id="grupo-programa-otro" hidden>
+            <label for="programa_otro">Especifique el beneficio</label>
+            <input type="text" id="programa_otro" name="programa_otro" placeholder="Ej. Ayuda técnica / Silla de ruedas">
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="consejo_comunal">Consejo comunal</label>
+            <input type="text" id="consejo_comunal" name="consejo_comunal" list="lista-consejos-beneficios" placeholder="Nombre del consejo comunal">
+            <datalist id="lista-consejos-beneficios">
+              <% listaConsejos.forEach(function (c) { %>
+                <option value="<%= c.nombre %>"></option>
+              <% }); %>
+            </datalist>
+          </div>
+          <div class="campo">
+            <label for="comunidad">Comunidad / Sector</label>
+            <input type="text" id="comunidad" name="comunidad">
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="tipo_entrega">Periodicidad</label>
+            <select id="tipo_entrega" name="tipo_entrega">
+              <option value="Única">Única</option>
+              <option value="Mensual">Mensual</option>
+              <option value="Quincenal">Quincenal</option>
+              <option value="Periódica">Periódica</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="cantidad">Cantidad / Detalle</label>
+            <input type="text" id="cantidad" name="cantidad" placeholder="Ej. 1 bolsa, 1 bombona 10kg">
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="estado">Estado</label>
+            <select id="estado" name="estado">
+              <option value="Entregado">Entregado</option>
+              <option value="Programado">Programado</option>
+              <option value="Pendiente">Pendiente</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="fecha_entrega">Fecha de entrega</label>
+            <input type="date" id="fecha_entrega" name="fecha_entrega" value="<%= hoyIso %>">
+          </div>
+        </div>
+
+        <div class="campo campo-ancho">
+          <label for="observaciones">Observaciones</label>
+          <textarea id="observaciones" name="observaciones" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--primario">Registrar entrega</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Popup Detalle de Entrega -->
+  <dialog class="dialogo dialogo--ancho" id="dialogo-beneficio-detalle" aria-labelledby="detalle-ben-nombre">
+    <div class="dialogo-form">
+      <div class="dialogo-head">
+        <div>
+          <span class="eyebrow">Detalle de entrega</span>
+          <h2 id="detalle-ben-nombre">Beneficiario</h2>
+        </div>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <dl class="dialogo-detalle-grid">
+        <div class="dialogo-detalle-item"><dt>Cédula</dt><dd data-ben-campo="cedula">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Estado</dt><dd data-ben-campo="estado">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Programa</dt><dd data-ben-campo="programa">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Periodicidad</dt><dd data-ben-campo="tipo">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Consejo comunal</dt><dd data-ben-campo="consejo">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Comunidad</dt><dd data-ben-campo="comunidad">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Cantidad</dt><dd data-ben-campo="cantidad">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Fecha de entrega</dt><dd data-ben-campo="fecha">—</dd></div>
+        <div class="dialogo-detalle-item dialogo-detalle-item--ancho"><dt>Observaciones</dt><dd data-ben-campo="observaciones">—</dd></div>
+      </dl>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--primario" data-cerrar-dialogo>Cerrar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <%- include('../../partials/dialogo-confirmacion') %>
+
+  <script src="/popups.js" defer></script>
   <script>
     (function () {
       var selectorPersona = document.getElementById('beneficio-persona-ref');
@@ -324,18 +403,10 @@
           var cedulaInput = document.getElementById('cedula');
           var consejoInput = document.getElementById('consejo_comunal');
           var comunidadInput = document.getElementById('comunidad');
-          if (nombreInput && option.getAttribute('data-nombre')) {
-            nombreInput.value = option.getAttribute('data-nombre');
-          }
-          if (cedulaInput && option.getAttribute('data-cedula')) {
-            cedulaInput.value = option.getAttribute('data-cedula');
-          }
-          if (consejoInput && option.getAttribute('data-consejo')) {
-            consejoInput.value = option.getAttribute('data-consejo');
-          }
-          if (comunidadInput && option.getAttribute('data-comunidad')) {
-            comunidadInput.value = option.getAttribute('data-comunidad');
-          }
+          if (nombreInput && option.getAttribute('data-nombre')) nombreInput.value = option.getAttribute('data-nombre');
+          if (cedulaInput && option.getAttribute('data-cedula')) cedulaInput.value = option.getAttribute('data-cedula');
+          if (consejoInput && option.getAttribute('data-consejo')) consejoInput.value = option.getAttribute('data-consejo');
+          if (comunidadInput && option.getAttribute('data-comunidad')) comunidadInput.value = option.getAttribute('data-comunidad');
         });
       }
 
@@ -348,6 +419,19 @@
         selectorPrograma.addEventListener('change', syncOtro);
         syncOtro();
       }
+
+      document.addEventListener('click', function (evento) {
+        var btnVer = evento.target.closest('[data-ver-beneficio]');
+        if (!btnVer) return;
+        var dialogoDet = document.getElementById('dialogo-beneficio-detalle');
+        if (!dialogoDet) return;
+        document.getElementById('detalle-ben-nombre').textContent = btnVer.getAttribute('data-nombre') || 'Beneficiario';
+        ['cedula', 'estado', 'programa', 'tipo', 'consejo', 'comunidad', 'cantidad', 'fecha', 'observaciones'].forEach(function (campo) {
+          var el = dialogoDet.querySelector('[data-ben-campo="' + campo + '"]');
+          if (el) el.textContent = btnVer.getAttribute('data-' + campo) || '—';
+        });
+        if (window.ComunaPopups) window.ComunaPopups.abrir(dialogoDet);
+      });
     })();
   </script>
 </body>

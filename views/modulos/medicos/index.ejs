@@ -39,7 +39,16 @@
         </p>
       </div>
       <div class="censo-hero-acciones">
-        <a href="#nuevo-expediente" class="boton boton--primario">+ Nuevo expediente</a>
+        <button
+          type="button"
+          class="boton boton--primario"
+          data-abrir-popup="dialogo-expediente"
+          data-reset-form
+          data-popup-titulo="Registrar expediente médico"
+          data-popup-subtitulo="Vincule el expediente a un habitante censado o ingrese los datos manualmente."
+          data-popup-submit="Guardar expediente médico"
+          data-popup-foco="#paciente_nombre"
+        >+ Nuevo expediente</button>
         <form method="post" action="/expedientes-medicos/sincronizar">
           <button type="submit" class="boton boton--secundario">Sincronizar con Neon</button>
         </form>
@@ -112,166 +121,6 @@
       </div>
     </form>
 
-    <section class="panel" id="nuevo-expediente">
-      <div class="panel-head panel-head--fila">
-        <div>
-          <h2><%= edicion ? 'Editar expediente médico #' + edicion.id : 'Registrar expediente médico' %></h2>
-          <p>Vincule el expediente a un habitante censado o ingrese los datos del paciente manualmente.</p>
-        </div>
-        <% if (edicion) { %>
-          <a href="/expedientes-medicos" class="boton boton--mini boton--secundario">Cancelar edición</a>
-        <% } %>
-      </div>
-
-      <form method="post" action="/expedientes-medicos" class="formulario">
-        <% if (edicion) { %>
-          <input type="hidden" name="id" value="<%= edicion.id %>">
-        <% } %>
-
-        <div class="campos">
-          <div class="campo campo-ancho">
-            <label for="medico-persona-ref">Vincular con habitante registrado (base compartida)</label>
-            <select id="medico-persona-ref" name="persona_ref">
-              <option value="">— Seleccionar del padrón o ingresar manualmente —</option>
-              <% listaPersonas.forEach(function (p) { %>
-                <% const ref = `${p.tipo}:${p.persona_id}`; %>
-                <option
-                  value="<%= ref %>"
-                  data-nombre="<%= p.apellidos %>, <%= p.nombres %>"
-                  data-cedula="<%= p.cedula || '' %>"
-                  data-comunidad="<%= p.comunidad || '' %>"
-                  <%= valorPersonaRef === ref ? 'selected' : '' %>
-                >
-                  <%= p.apellidos %>, <%= p.nombres %><%= p.cedula ? ' · ' + p.cedula : '' %><%= p.comunidad ? ' · ' + p.comunidad : '' %>
-                </option>
-              <% }); %>
-            </select>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="paciente_nombre">Nombre del paciente *</label>
-              <input
-                type="text"
-                id="paciente_nombre"
-                name="paciente_nombre"
-                value="<%= edicion ? edicion.paciente_nombre : '' %>"
-                required
-              >
-            </div>
-            <div class="campo">
-              <label for="cedula">Cédula</label>
-              <input
-                type="text"
-                id="cedula"
-                name="cedula"
-                value="<%= edicion && edicion.cedula ? edicion.cedula : '' %>"
-                placeholder="Ej. V-12345678"
-              >
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="comunidad">Comunidad / Sector</label>
-              <input
-                type="text"
-                id="comunidad"
-                name="comunidad"
-                value="<%= edicion && edicion.comunidad ? edicion.comunidad : '' %>"
-              >
-            </div>
-            <div class="campo">
-              <label for="grupo_sanguineo">Grupo sanguíneo</label>
-              <select id="grupo_sanguineo" name="grupo_sanguineo">
-                <option value="">No especificado</option>
-                <% ['O+','O-','A+','A-','B+','B-','AB+','AB-'].forEach(function (gs) { %>
-                  <option value="<%= gs %>" <%= edicion && edicion.grupo_sanguineo === gs ? 'selected' : '' %>><%= gs %></option>
-                <% }); %>
-              </select>
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="nivel_riesgo">Nivel de riesgo</label>
-              <select id="nivel_riesgo" name="nivel_riesgo">
-                <option value="Bajo" <%= !edicion || edicion.nivel_riesgo === 'Bajo' ? 'selected' : '' %>>Bajo</option>
-                <option value="Moderado" <%= edicion && edicion.nivel_riesgo === 'Moderado' ? 'selected' : '' %>>Moderado</option>
-                <option value="Alto" <%= edicion && edicion.nivel_riesgo === 'Alto' ? 'selected' : '' %>>Alto</option>
-              </select>
-            </div>
-            <div class="campo">
-              <label for="ultima_consulta">Última consulta médica</label>
-              <input
-                type="date"
-                id="ultima_consulta"
-                name="ultima_consulta"
-                value="<%= edicion && edicion.ultima_consulta ? String(edicion.ultima_consulta).slice(0, 10) : '' %>"
-              >
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="condiciones_cronicas">Condiciones crónicas</label>
-              <input
-                type="text"
-                id="condiciones_cronicas"
-                name="condiciones_cronicas"
-                value="<%= edicion && edicion.condiciones_cronicas ? edicion.condiciones_cronicas : '' %>"
-                placeholder="Ej. Hipertensión, Diabetes tipo 2"
-              >
-            </div>
-            <div class="campo">
-              <label for="discapacidad">Discapacidad (si aplica)</label>
-              <input
-                type="text"
-                id="discapacidad"
-                name="discapacidad"
-                value="<%= edicion && edicion.discapacidad ? edicion.discapacidad : '' %>"
-                placeholder="Ej. Motora, Visual, Auditiva"
-              >
-            </div>
-          </div>
-
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="alergias">Alergias conocidas</label>
-              <input
-                type="text"
-                id="alergias"
-                name="alergias"
-                value="<%= edicion && edicion.alergias ? edicion.alergias : '' %>"
-                placeholder="Ej. Penicilina, AINES"
-              >
-            </div>
-            <div class="campo">
-              <label for="medicamentos_actuales">Medicamentos actuales</label>
-              <input
-                type="text"
-                id="medicamentos_actuales"
-                name="medicamentos_actuales"
-                value="<%= edicion && edicion.medicamentos_actuales ? edicion.medicamentos_actuales : '' %>"
-                placeholder="Ej. Losartán 50mg"
-              >
-            </div>
-          </div>
-
-          <div class="campo campo-ancho">
-            <label for="observaciones">Observaciones clínicas</label>
-            <textarea id="observaciones" name="observaciones" rows="2"><%= edicion && edicion.observaciones ? edicion.observaciones : '' %></textarea>
-          </div>
-        </div>
-
-        <div class="acciones-form--fila">
-          <button type="submit" class="boton boton--primario">
-            <%= edicion ? 'Guardar cambios' : 'Guardar expediente médico' %>
-          </button>
-        </div>
-      </form>
-    </section>
-
     <section class="panel">
       <div class="panel-head panel-head--fila">
         <div>
@@ -284,7 +133,17 @@
       <% if (!listaExpedientes.length) { %>
         <div class="estado-vacio">
           <strong>No hay expedientes médicos para mostrar</strong>
-          <p>Registre el primer expediente arriba o ajuste los filtros de búsqueda.</p>
+          <p>Registre el primer expediente o ajuste los filtros de búsqueda.</p>
+          <button
+            type="button"
+            class="boton boton--primario"
+            data-abrir-popup="dialogo-expediente"
+            data-reset-form
+            data-popup-titulo="Registrar expediente médico"
+            data-popup-subtitulo="Vincule el expediente a un habitante censado o ingrese los datos manualmente."
+            data-popup-submit="Guardar expediente médico"
+            data-popup-foco="#paciente_nombre"
+          >+ Nuevo expediente</button>
         </div>
       <% } else { %>
         <div class="tabla-scroll">
@@ -303,6 +162,7 @@
             </thead>
             <tbody>
               <% listaExpedientes.forEach(function (item) { %>
+                <% const refItem = item.persona_tipo && item.persona_id ? `${item.persona_tipo}:${item.persona_id}` : ''; %>
                 <tr>
                   <td>
                     <strong><%= item.paciente_nombre %></strong>
@@ -328,8 +188,49 @@
                   <td><%= fechaCorta(item.ultima_consulta) %></td>
                   <td>
                     <div class="acciones-fila">
-                      <a href="/expedientes-medicos?editar=<%= item.id %>#nuevo-expediente" class="boton boton--mini boton--secundario">Editar</a>
-                      <form method="post" action="/expedientes-medicos/<%= item.id %>/eliminar">
+                      <button
+                        type="button"
+                        class="boton boton--mini boton--secundario"
+                        data-ver-expediente
+                        data-nombre="<%= item.paciente_nombre %>"
+                        data-cedula="<%= item.cedula || 'Sin cédula' %>"
+                        data-comunidad="<%= item.comunidad || '—' %>"
+                        data-sangre="<%= item.grupo_sanguineo || '—' %>"
+                        data-riesgo="<%= item.nivel_riesgo %>"
+                        data-consulta="<%= fechaCorta(item.ultima_consulta) %>"
+                        data-cronicas="<%= item.condiciones_cronicas || 'Ninguna registrada' %>"
+                        data-discapacidad="<%= item.discapacidad || 'No reportada' %>"
+                        data-alergias="<%= item.alergias || 'Ninguna registrada' %>"
+                        data-medicamentos="<%= item.medicamentos_actuales || 'Sin tratamiento activo' %>"
+                        data-observaciones="<%= item.observaciones || 'Sin observaciones adicionales.' %>"
+                      >Ficha</button>
+
+                      <button
+                        type="button"
+                        class="boton boton--mini boton--secundario"
+                        data-editar-expediente
+                        data-id="<%= item.id %>"
+                        data-persona-ref="<%= refItem %>"
+                        data-nombre="<%= item.paciente_nombre %>"
+                        data-cedula="<%= item.cedula || '' %>"
+                        data-comunidad="<%= item.comunidad || '' %>"
+                        data-sangre="<%= item.grupo_sanguineo || '' %>"
+                        data-riesgo="<%= item.nivel_riesgo %>"
+                        data-consulta="<%= item.ultima_consulta ? String(item.ultima_consulta).slice(0, 10) : '' %>"
+                        data-cronicas="<%= item.condiciones_cronicas || '' %>"
+                        data-discapacidad="<%= item.discapacidad || '' %>"
+                        data-alergias="<%= item.alergias || '' %>"
+                        data-medicamentos="<%= item.medicamentos_actuales || '' %>"
+                        data-observaciones="<%= item.observaciones || '' %>"
+                      >Editar</button>
+
+                      <form
+                        method="post"
+                        action="/expedientes-medicos/<%= item.id %>/eliminar"
+                        data-confirmar="¿Eliminar el expediente médico de «<%= item.paciente_nombre %>»? Esta acción lo eliminará también de Neon."
+                        data-confirmar-titulo="Eliminar expediente médico"
+                        data-confirmar-boton="Eliminar expediente"
+                      >
                         <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
                       </form>
                     </div>
@@ -347,25 +248,259 @@
     <div class="contenedor">Comuna Socialista Carabobo 200 · Módulo de Expedientes Médicos</div>
   </footer>
 
+  <!-- Popup Registrar / Editar Expediente Médico -->
+  <dialog
+    class="dialogo dialogo--ancho"
+    id="dialogo-expediente"
+    data-abrir="<%= edicion ? 'true' : 'false' %>"
+    data-popup-foco="#paciente_nombre"
+    aria-labelledby="titulo-dialogo-expediente"
+  >
+    <form method="post" action="/expedientes-medicos" class="dialogo-form" id="form-expediente">
+      <div class="dialogo-head">
+        <h2 id="titulo-dialogo-expediente" data-popup-titulo>
+          <%= edicion ? 'Editar expediente médico #' + edicion.id : 'Registrar expediente médico' %>
+        </h2>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="dialogo-subtitulo" data-popup-subtitulo>
+        Vincule el expediente a un habitante censado o ingrese los datos del paciente manualmente.
+      </p>
+
+      <input type="hidden" name="id" id="expediente-id" value="<%= edicion ? edicion.id : '' %>">
+
+      <div class="campos">
+        <div class="campo campo-ancho">
+          <label for="medico-persona-ref">Vincular con habitante registrado (base compartida)</label>
+          <select id="medico-persona-ref" name="persona_ref">
+            <option value="">— Seleccionar del padrón o ingresar manualmente —</option>
+            <% listaPersonas.forEach(function (p) { %>
+              <% const ref = `${p.tipo}:${p.persona_id}`; %>
+              <option
+                value="<%= ref %>"
+                data-nombre="<%= p.apellidos %>, <%= p.nombres %>"
+                data-cedula="<%= p.cedula || '' %>"
+                data-comunidad="<%= p.comunidad || '' %>"
+                <%= valorPersonaRef === ref ? 'selected' : '' %>
+              >
+                <%= p.apellidos %>, <%= p.nombres %><%= p.cedula ? ' · ' + p.cedula : '' %><%= p.comunidad ? ' · ' + p.comunidad : '' %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="paciente_nombre">Nombre del paciente *</label>
+            <input
+              type="text"
+              id="paciente_nombre"
+              name="paciente_nombre"
+              value="<%= edicion ? edicion.paciente_nombre : '' %>"
+              required
+            >
+          </div>
+          <div class="campo">
+            <label for="cedula">Cédula</label>
+            <input
+              type="text"
+              id="cedula"
+              name="cedula"
+              value="<%= edicion && edicion.cedula ? edicion.cedula : '' %>"
+              placeholder="Ej. V-12345678"
+            >
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="comunidad">Comunidad / Sector</label>
+            <input
+              type="text"
+              id="comunidad"
+              name="comunidad"
+              value="<%= edicion && edicion.comunidad ? edicion.comunidad : '' %>"
+            >
+          </div>
+          <div class="campo">
+            <label for="grupo_sanguineo">Grupo sanguíneo</label>
+            <select id="grupo_sanguineo" name="grupo_sanguineo">
+              <option value="">No especificado</option>
+              <% ['O+','O-','A+','A-','B+','B-','AB+','AB-'].forEach(function (gs) { %>
+                <option value="<%= gs %>" <%= edicion && edicion.grupo_sanguineo === gs ? 'selected' : '' %>><%= gs %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="nivel_riesgo">Nivel de riesgo</label>
+            <select id="nivel_riesgo" name="nivel_riesgo">
+              <option value="Bajo" <%= !edicion || edicion.nivel_riesgo === 'Bajo' ? 'selected' : '' %>>Bajo</option>
+              <option value="Moderado" <%= edicion && edicion.nivel_riesgo === 'Moderado' ? 'selected' : '' %>>Moderado</option>
+              <option value="Alto" <%= edicion && edicion.nivel_riesgo === 'Alto' ? 'selected' : '' %>>Alto</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="ultima_consulta">Última consulta médica</label>
+            <input
+              type="date"
+              id="ultima_consulta"
+              name="ultima_consulta"
+              value="<%= edicion && edicion.ultima_consulta ? String(edicion.ultima_consulta).slice(0, 10) : '' %>"
+            >
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="condiciones_cronicas">Condiciones crónicas</label>
+            <input
+              type="text"
+              id="condiciones_cronicas"
+              name="condiciones_cronicas"
+              value="<%= edicion && edicion.condiciones_cronicas ? edicion.condiciones_cronicas : '' %>"
+              placeholder="Ej. Hipertensión, Diabetes tipo 2"
+            >
+          </div>
+          <div class="campo">
+            <label for="discapacidad">Discapacidad (si aplica)</label>
+            <input
+              type="text"
+              id="discapacidad"
+              name="discapacidad"
+              value="<%= edicion && edicion.discapacidad ? edicion.discapacidad : '' %>"
+              placeholder="Ej. Motora, Visual, Auditiva"
+            >
+          </div>
+        </div>
+
+        <div class="campos-dobles">
+          <div class="campo">
+            <label for="alergias">Alergias conocidas</label>
+            <input
+              type="text"
+              id="alergias"
+              name="alergias"
+              value="<%= edicion && edicion.alergias ? edicion.alergias : '' %>"
+              placeholder="Ej. Penicilina, AINES"
+            >
+          </div>
+          <div class="campo">
+            <label for="medicamentos_actuales">Medicamentos actuales</label>
+            <input
+              type="text"
+              id="medicamentos_actuales"
+              name="medicamentos_actuales"
+              value="<%= edicion && edicion.medicamentos_actuales ? edicion.medicamentos_actuales : '' %>"
+              placeholder="Ej. Losartán 50mg"
+            >
+          </div>
+        </div>
+
+        <div class="campo campo-ancho">
+          <label for="observaciones">Observaciones clínicas</label>
+          <textarea id="observaciones" name="observaciones" rows="2"><%= edicion && edicion.observaciones ? edicion.observaciones : '' %></textarea>
+        </div>
+      </div>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+        <button type="submit" class="boton boton--primario" data-popup-submit>
+          <%= edicion ? 'Guardar cambios' : 'Guardar expediente médico' %>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Popup Ficha Clínica Rápida -->
+  <dialog class="dialogo dialogo--ancho" id="dialogo-expediente-detalle" aria-labelledby="detalle-med-nombre">
+    <div class="dialogo-form">
+      <div class="dialogo-head">
+        <div>
+          <span class="eyebrow">Ficha clínica</span>
+          <h2 id="detalle-med-nombre">Paciente</h2>
+        </div>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <dl class="dialogo-detalle-grid">
+        <div class="dialogo-detalle-item"><dt>Cédula</dt><dd data-med-campo="cedula">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Comunidad</dt><dd data-med-campo="comunidad">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Nivel de riesgo</dt><dd data-med-campo="riesgo">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Grupo sanguíneo</dt><dd data-med-campo="sangre">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Última consulta</dt><dd data-med-campo="consulta">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Discapacidad</dt><dd data-med-campo="discapacidad">—</dd></div>
+        <div class="dialogo-detalle-item dialogo-detalle-item--ancho"><dt>Condiciones crónicas</dt><dd data-med-campo="cronicas">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Alergias</dt><dd data-med-campo="alergias">—</dd></div>
+        <div class="dialogo-detalle-item"><dt>Medicamentos actuales</dt><dd data-med-campo="medicamentos">—</dd></div>
+        <div class="dialogo-detalle-item dialogo-detalle-item--ancho"><dt>Observaciones clínicas</dt><dd data-med-campo="observaciones">—</dd></div>
+      </dl>
+
+      <div class="dialogo-acciones">
+        <button type="button" class="boton boton--primario" data-cerrar-dialogo>Cerrar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <%- include('../../partials/dialogo-confirmacion') %>
+
+  <script src="/popups.js" defer></script>
   <script>
     (function () {
       var selector = document.getElementById('medico-persona-ref');
-      if (!selector) return;
+      if (selector) {
+        selector.addEventListener('change', function () {
+          var option = selector.options[selector.selectedIndex];
+          if (!option || !option.value) return;
+          var nombreInput = document.getElementById('paciente_nombre');
+          var cedulaInput = document.getElementById('cedula');
+          var comunidadInput = document.getElementById('comunidad');
+          if (nombreInput && option.getAttribute('data-nombre')) nombreInput.value = option.getAttribute('data-nombre');
+          if (cedulaInput && option.getAttribute('data-cedula')) cedulaInput.value = option.getAttribute('data-cedula');
+          if (comunidadInput && option.getAttribute('data-comunidad')) comunidadInput.value = option.getAttribute('data-comunidad');
+        });
+      }
 
-      selector.addEventListener('change', function () {
-        var option = selector.options[selector.selectedIndex];
-        if (!option || !option.value) return;
-        var nombreInput = document.getElementById('paciente_nombre');
-        var cedulaInput = document.getElementById('cedula');
-        var comunidadInput = document.getElementById('comunidad');
-        if (nombreInput && option.getAttribute('data-nombre')) {
-          nombreInput.value = option.getAttribute('data-nombre');
+      document.addEventListener('click', function (evento) {
+        var btnEditar = evento.target.closest('[data-editar-expediente]');
+        if (btnEditar) {
+          var dialogo = document.getElementById('dialogo-expediente');
+          if (!dialogo) return;
+          document.getElementById('expediente-id').value = btnEditar.getAttribute('data-id') || '';
+          document.getElementById('medico-persona-ref').value = btnEditar.getAttribute('data-persona-ref') || '';
+          document.getElementById('paciente_nombre').value = btnEditar.getAttribute('data-nombre') || '';
+          document.getElementById('cedula').value = btnEditar.getAttribute('data-cedula') || '';
+          document.getElementById('comunidad').value = btnEditar.getAttribute('data-comunidad') || '';
+          document.getElementById('grupo_sanguineo').value = btnEditar.getAttribute('data-sangre') || '';
+          document.getElementById('nivel_riesgo').value = btnEditar.getAttribute('data-riesgo') || 'Bajo';
+          document.getElementById('ultima_consulta').value = btnEditar.getAttribute('data-consulta') || '';
+          document.getElementById('condiciones_cronicas').value = btnEditar.getAttribute('data-cronicas') || '';
+          document.getElementById('discapacidad').value = btnEditar.getAttribute('data-discapacidad') || '';
+          document.getElementById('alergias').value = btnEditar.getAttribute('data-alergias') || '';
+          document.getElementById('medicamentos_actuales').value = btnEditar.getAttribute('data-medicamentos') || '';
+          document.getElementById('observaciones').value = btnEditar.getAttribute('data-observaciones') || '';
+
+          var titulo = dialogo.querySelector('[data-popup-titulo]');
+          var submit = dialogo.querySelector('[data-popup-submit]');
+          if (titulo) titulo.textContent = 'Editar expediente médico #' + (btnEditar.getAttribute('data-id') || '');
+          if (submit) submit.textContent = 'Guardar cambios';
+          if (window.ComunaPopups) window.ComunaPopups.abrir(dialogo, '#paciente_nombre');
+          return;
         }
-        if (cedulaInput && option.getAttribute('data-cedula')) {
-          cedulaInput.value = option.getAttribute('data-cedula');
-        }
-        if (comunidadInput && option.getAttribute('data-comunidad')) {
-          comunidadInput.value = option.getAttribute('data-comunidad');
+
+        var btnVer = evento.target.closest('[data-ver-expediente]');
+        if (btnVer) {
+          var dialogoDet = document.getElementById('dialogo-expediente-detalle');
+          if (!dialogoDet) return;
+          document.getElementById('detalle-med-nombre').textContent = btnVer.getAttribute('data-nombre') || 'Paciente';
+          ['cedula', 'comunidad', 'riesgo', 'sangre', 'consulta', 'discapacidad', 'cronicas', 'alergias', 'medicamentos', 'observaciones'].forEach(function (campo) {
+            var el = dialogoDet.querySelector('[data-med-campo="' + campo + '"]');
+            if (el) el.textContent = btnVer.getAttribute('data-' + campo) || '—';
+          });
+          if (window.ComunaPopups) window.ComunaPopups.abrir(dialogoDet);
         }
       });
     })();

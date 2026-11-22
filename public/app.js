@@ -180,8 +180,26 @@
     });
   });
 
+  const dialogoConfirm = document.getElementById('dialogo-confirmacion');
+  const formConfirm = document.getElementById('form-confirmacion');
+  const tituloConfirm = document.querySelector('[data-confirm-titulo]');
+  const mensajeConfirm = document.querySelector('[data-confirm-mensaje]');
+  const submitConfirm = document.querySelector('[data-confirm-submit]');
+
   document.querySelectorAll('form[data-confirmar]').forEach((formulario) => {
     formulario.addEventListener('submit', (evento) => {
+      if (dialogoConfirm && formConfirm) {
+        evento.preventDefault();
+        evento.stopImmediatePropagation();
+        formConfirm.action = formulario.getAttribute('action') || '';
+        formConfirm.method = (formulario.getAttribute('method') || 'post').toLowerCase();
+        if (tituloConfirm) tituloConfirm.textContent = formulario.dataset.confirmarTitulo || 'Confirmar acción';
+        if (mensajeConfirm) mensajeConfirm.textContent = formulario.dataset.confirmar || '¿Continuar?';
+        if (submitConfirm) submitConfirm.textContent = formulario.dataset.confirmarBoton || 'Eliminar';
+        abrirDialogo(dialogoConfirm, '[data-confirm-submit]');
+        return;
+      }
+
       if (window.confirm(formulario.dataset.confirmar)) return;
 
       evento.preventDefault();

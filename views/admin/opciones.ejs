@@ -163,8 +163,9 @@
                         <form
                           method="post"
                           action="/admin/opciones/<%= opcion.id %>/eliminar"
-                          style="display:inline;"
-                          onsubmit="return confirm('¿Eliminar la opción «<%= opcion.valor %>» de <%= grupo.etiqueta %>?');"
+                          data-confirmar="¿Eliminar la opción «<%= opcion.valor %>» de <%= grupo.etiqueta %>?"
+                          data-confirmar-titulo="Eliminar opción"
+                          data-confirmar-boton="Eliminar opción"
                         >
                           <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
                         </form>
@@ -187,5 +188,8 @@
   <footer class="pie">
     <div class="contenedor">Comuna Socialista Carabobo 200 · Opciones de campos</div>
   </footer>
+
+  <%- include('../partials/dialogo-confirmacion') %>
+  <script src="/popups.js" defer></script>
 </body>
 </html>

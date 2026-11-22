@@ -92,7 +92,16 @@
       <div class="contenedor app-contextbar-inner">
         <nav class="nav-censo" aria-label="Secciones de Expedientes Médicos">
           <a href="/expedientes-medicos" class="nav-censo-link nav-censo-link--activo" aria-current="page">Expedientes</a>
-          <a href="#nuevo-expediente" class="nav-censo-link">Nuevo / Editar expediente</a>
+          <a
+            href="#dialogo-expediente"
+            class="nav-censo-link"
+            data-abrir-popup="dialogo-expediente"
+            data-reset-form
+            data-popup-titulo="Registrar expediente médico"
+            data-popup-subtitulo="Vincule el expediente a un habitante censado o ingrese los datos manualmente."
+            data-popup-submit="Guardar expediente médico"
+            data-popup-foco="#paciente_nombre"
+          >Nuevo expediente</a>
         </nav>
       </div>
     </div>
@@ -101,7 +110,13 @@
       <div class="contenedor app-contextbar-inner">
         <nav class="nav-censo" aria-label="Secciones de Beneficios">
           <a href="/beneficios" class="nav-censo-link nav-censo-link--activo" aria-current="page">Entregas</a>
-          <a href="#nueva-entrega" class="nav-censo-link">Registrar entrega</a>
+          <a
+            href="#dialogo-beneficio"
+            class="nav-censo-link"
+            data-abrir-popup="dialogo-beneficio"
+            data-reset-form
+            data-popup-foco="#beneficiario_nombre"
+          >Registrar entrega</a>
         </nav>
       </div>
     </div>

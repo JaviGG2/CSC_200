@@ -3,6 +3,7 @@
   const moduloActivo = typeof moduloSeleccionado !== 'undefined' ? moduloSeleccionado : null;
   const infoModuloActivo = listaModulos.find((m) => m.clave === moduloActivo) || null;
   const destinoInicial = (typeof next !== 'undefined' && next) ? next : (infoModuloActivo ? infoModuloActivo.ruta : '/inicio');
+  const abrirPopupLogin = Boolean(error || infoModuloActivo || (typeof next !== 'undefined' && next));
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -31,104 +32,127 @@
       </div>
     </section>
 
-    <div class="login-portal-grid">
-      <section class="portal-modulos-panel" aria-labelledby="titulo-modulos-login">
-        <div class="portal-modulos-head">
-          <h2 id="titulo-modulos-login">Seleccione un módulo para ingresar</h2>
-          <p>Para acceder a cualquiera de los módulos debe iniciar sesión con su cuenta autorizada.</p>
-        </div>
+    <section class="portal-modulos-panel" aria-labelledby="titulo-modulos-login">
+      <div class="portal-modulos-head">
+        <h2 id="titulo-modulos-login">Seleccione un módulo para ingresar</h2>
+        <p>Cada módulo solicita iniciar sesión antes de permitir el acceso.</p>
+      </div>
 
-        <div class="portal-modulos-lista" role="group" aria-label="Módulos del sistema">
-          <% listaModulos.forEach(function (mod) { %>
-            <% const activo = moduloActivo === mod.clave; %>
-            <button
-              type="button"
-              class="portal-modulo-card portal-modulo-card--<%= mod.clave %> <%= activo ? 'portal-modulo-card--activo' : '' %>"
-              data-modulo-card
-              data-modulo="<%= mod.clave %>"
-              data-ruta="<%= mod.ruta %>"
-              data-titulo="<%= mod.titulo %>"
-              aria-pressed="<%= activo ? 'true' : 'false' %>"
-            >
-              <div class="portal-modulo-top">
-                <span class="portal-modulo-icono" aria-hidden="true">
-                  <% if (mod.clave === 'socioeconomico') { %>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                  <% } else if (mod.clave === 'medicos') { %>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                  <% } else { %>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
-                  <% } %>
-                </span>
-                <span class="portal-modulo-etiqueta"><%= mod.etiqueta %></span>
-              </div>
-              <h3><%= mod.titulo %></h3>
-              <p><%= mod.descripcion %></p>
-              <span class="portal-modulo-cta">
-                <%= activo ? 'Módulo seleccionado' : 'Ingresar con sesión →' %>
+      <div class="portal-modulos-lista portal-modulos-lista--tres" role="group" aria-label="Módulos del sistema">
+        <% listaModulos.forEach(function (mod) { %>
+          <% const activo = moduloActivo === mod.clave; %>
+          <button
+            type="button"
+            class="portal-modulo-card portal-modulo-card--<%= mod.clave %> <%= activo ? 'portal-modulo-card--activo' : '' %>"
+            data-modulo-card
+            data-modulo="<%= mod.clave %>"
+            data-ruta="<%= mod.ruta %>"
+            data-titulo="<%= mod.titulo %>"
+            aria-pressed="<%= activo ? 'true' : 'false' %>"
+          >
+            <div class="portal-modulo-top">
+              <span class="portal-modulo-icono" aria-hidden="true">
+                <% if (mod.clave === 'socioeconomico') { %>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <% } else if (mod.clave === 'medicos') { %>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <% } else { %>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
+                <% } %>
               </span>
-            </button>
-          <% }); %>
-        </div>
-      </section>
-
-      <section class="login-card" aria-labelledby="login-heading">
-        <div class="login-card-badge" id="login-modulo-badge">
-          <%= infoModuloActivo ? 'Acceso a: ' + infoModuloActivo.titulo : 'Acceso general a la plataforma' %>
-        </div>
-
-        <h2 class="login-titulo" id="login-heading">
-          <%= infoModuloActivo ? 'Iniciar sesión · ' + infoModuloActivo.titulo : 'Iniciar sesión' %>
-        </h2>
-        <p class="login-subtitulo" id="login-subtitulo">
-          <%= infoModuloActivo
-            ? 'Autentíquese para abrir el módulo ' + infoModuloActivo.titulo + '.'
-            : 'Inicie sesión para elegir o ingresar directamente a un módulo.' %>
-        </p>
-
-        <% if (error) { %>
-          <div class="alerta alerta--error" role="alert"><%= error %></div>
-        <% } %>
-
-        <form method="post" action="/login" class="login-form">
-          <input type="hidden" name="next" id="login-next" value="<%= destinoInicial %>">
-          <input type="hidden" name="modulo" id="login-modulo" value="<%= moduloActivo || '' %>">
-
-          <div class="campo">
-            <label for="usuario">Usuario</label>
-            <input
-              type="text"
-              id="usuario"
-              name="usuario"
-              value="<%= usuarioValor || '' %>"
-              autocomplete="username"
-              autofocus
-              required
-            >
-          </div>
-
-          <div class="campo">
-            <label for="clave">Contraseña</label>
-            <input
-              type="password"
-              id="clave"
-              name="clave"
-              autocomplete="current-password"
-              required
-            >
-          </div>
-
-          <button type="submit" class="boton boton--primario boton--bloque" id="btn-login-submit">
-            <%= infoModuloActivo ? 'Entrar a ' + infoModuloActivo.titulo : 'Iniciar sesión' %>
+              <span class="portal-modulo-etiqueta"><%= mod.etiqueta %></span>
+            </div>
+            <h3><%= mod.titulo %></h3>
+            <p><%= mod.descripcion %></p>
+            <span class="portal-modulo-cta">Ingresar con sesión →</span>
           </button>
-        </form>
-      </section>
-    </div>
+        <% }); %>
+      </div>
+
+      <div class="portal-modulos-pie">
+        <span class="censo-subtitulo">¿Desea elegir módulo después de entrar?</span>
+        <button
+          type="button"
+          class="boton boton--secundario"
+          id="btn-abrir-login-general"
+        >Iniciar sesión en el portal</button>
+      </div>
+    </section>
   </main>
 
+  <dialog
+    class="dialogo dialogo--login"
+    id="dialogo-login"
+    data-abrir="<%= abrirPopupLogin ? 'true' : 'false' %>"
+    data-popup-foco="#usuario"
+    aria-labelledby="login-heading"
+  >
+    <form method="post" action="/login" class="dialogo-form">
+      <div class="dialogo-head">
+        <div>
+          <div class="login-card-badge" id="login-modulo-badge">
+            <%= infoModuloActivo ? 'Acceso a: ' + infoModuloActivo.titulo : 'Acceso al Portal Comunal' %>
+          </div>
+          <h2 id="login-heading">
+            <%= infoModuloActivo ? 'Iniciar sesión · ' + infoModuloActivo.titulo : 'Iniciar sesión' %>
+          </h2>
+        </div>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="dialogo-subtitulo" id="login-subtitulo">
+        <%= infoModuloActivo
+          ? 'Autentíquese para abrir el módulo ' + infoModuloActivo.titulo + '.'
+          : 'Ingrese sus credenciales para acceder al selector de módulos.' %>
+      </p>
+
+      <% if (error) { %>
+        <div class="alerta alerta--error" role="alert"><%= error %></div>
+      <% } %>
+
+      <input type="hidden" name="next" id="login-next" value="<%= destinoInicial %>">
+      <input type="hidden" name="modulo" id="login-modulo" value="<%= moduloActivo || '' %>">
+
+      <div class="login-form">
+        <div class="campo">
+          <label for="usuario">Usuario</label>
+          <input
+            type="text"
+            id="usuario"
+            name="usuario"
+            value="<%= usuarioValor || '' %>"
+            autocomplete="username"
+            required
+          >
+        </div>
+
+        <div class="campo">
+          <label for="clave">Contraseña</label>
+          <input
+            type="password"
+            id="clave"
+            name="clave"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+
+        <div class="dialogo-acciones">
+          <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
+          <button type="submit" class="boton boton--primario" id="btn-login-submit">
+            <%= infoModuloActivo ? 'Entrar a ' + infoModuloActivo.titulo : 'Iniciar sesión' %>
+          </button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/popups.js" defer></script>
   <script>
     (function () {
+      var dialogo = document.getElementById('dialogo-login');
       var tarjetas = Array.prototype.slice.call(document.querySelectorAll('[data-modulo-card]'));
+      var btnGeneral = document.getElementById('btn-abrir-login-general');
       var inputNext = document.getElementById('login-next');
       var inputModulo = document.getElementById('login-modulo');
       var badge = document.getElementById('login-modulo-badge');
@@ -137,31 +161,51 @@
       var btnSubmit = document.getElementById('btn-login-submit');
       var inputUsuario = document.getElementById('usuario');
 
-      tarjetas.forEach(function (card) {
-        card.addEventListener('click', function () {
-          var modulo = card.getAttribute('data-modulo') || '';
-          var ruta = card.getAttribute('data-ruta') || '/inicio';
-          var titulo = card.getAttribute('data-titulo') || '';
+      function abrirLogin(modulo, ruta, titulo) {
+        tarjetas.forEach(function (otra) {
+          var activa = Boolean(modulo) && otra.getAttribute('data-modulo') === modulo;
+          otra.classList.toggle('portal-modulo-card--activo', activa);
+          otra.setAttribute('aria-pressed', activa ? 'true' : 'false');
+        });
 
-          tarjetas.forEach(function (otra) {
-            var activa = otra === card;
-            otra.classList.toggle('portal-modulo-card--activo', activa);
-            otra.setAttribute('aria-pressed', activa ? 'true' : 'false');
-            var cta = otra.querySelector('.portal-modulo-cta');
-            if (cta) {
-              cta.textContent = activa ? 'Módulo seleccionado' : 'Ingresar con sesión →';
-            }
-          });
+        if (inputNext) inputNext.value = ruta || '/inicio';
+        if (inputModulo) inputModulo.value = modulo || '';
 
-          if (inputNext) inputNext.value = ruta;
-          if (inputModulo) inputModulo.value = modulo;
+        if (titulo) {
           if (badge) badge.textContent = 'Acceso a: ' + titulo;
           if (heading) heading.textContent = 'Iniciar sesión · ' + titulo;
           if (subtitulo) subtitulo.textContent = 'Autentíquese para abrir el módulo ' + titulo + '.';
           if (btnSubmit) btnSubmit.textContent = 'Entrar a ' + titulo;
+        } else {
+          if (badge) badge.textContent = 'Acceso al Portal Comunal';
+          if (heading) heading.textContent = 'Iniciar sesión';
+          if (subtitulo) subtitulo.textContent = 'Ingrese sus credenciales para acceder al selector de módulos.';
+          if (btnSubmit) btnSubmit.textContent = 'Iniciar sesión';
+        }
+
+        if (window.ComunaPopups && dialogo) {
+          window.ComunaPopups.abrir(dialogo, '#usuario');
+        } else if (dialogo && typeof dialogo.showModal === 'function') {
+          dialogo.showModal();
           if (inputUsuario) inputUsuario.focus();
+        }
+      }
+
+      tarjetas.forEach(function (card) {
+        card.addEventListener('click', function () {
+          abrirLogin(
+            card.getAttribute('data-modulo') || '',
+            card.getAttribute('data-ruta') || '/inicio',
+            card.getAttribute('data-titulo') || ''
+          );
         });
       });
+
+      if (btnGeneral) {
+        btnGeneral.addEventListener('click', function () {
+          abrirLogin('', '/inicio', '');
+        });
+      }
     })();
   </script>
 </body>
