@@ -21,7 +21,7 @@
           <p>Padrón único de habitantes: jefes de familia e integrantes.</p>
         </div>
         <div class="panel-head-acciones">
-          <span class="contador"><%= total %> personas</span>
+          <span class="contador" id="personas-conteo-vivo"><%= total %> personas</span>
           <a href="/api/export/personas.csv" class="boton boton--mini boton--secundario">Exportar CSV</a>
           <a href="/reportes/imprimir" target="_blank" rel="noopener" class="boton boton--mini boton--secundario">Imprimir / PDF</a>
         </div>
@@ -30,8 +30,21 @@
       <form method="get" action="/personas" class="filtros-personas">
         <div class="filtros-grid">
           <div class="campo">
-            <label for="f-q">Buscar</label>
-            <input type="search" id="f-q" name="q" value="<%= filtros.q %>" placeholder="Nombre, apellido, cédula, edad, manzana...">
+            <label for="f-q">
+              Buscar
+              <span class="busqueda-ayuda-tecla">Atajo <kbd>/</kbd></span>
+            </label>
+            <input
+              type="search"
+              id="f-q"
+              name="q"
+              value="<%= filtros.q %>"
+              placeholder="Nombre, apellido, cédula, edad, manzana..."
+              data-atajo-buscar
+              data-filtro-vivo="#tabla-padron-personas"
+              data-filtro-contador="#personas-conteo-vivo"
+              data-filtro-etiqueta="personas"
+            >
           </div>
 
           <div class="campo">
@@ -129,7 +142,7 @@
       </form>
 
       <div class="tabla-scroll">
-        <table class="tabla-personas">
+        <table class="tabla-personas" id="tabla-padron-personas">
           <thead>
             <tr>
               <th scope="col">Tipo</th>
@@ -230,6 +243,7 @@
     </form>
   </dialog>
 
+  <script src="/popups.js" defer></script>
   <script src="/app.js" defer></script>
   <script>
     document.querySelectorAll('.fila-clicable').forEach(function (fila) {

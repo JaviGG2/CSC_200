@@ -128,18 +128,26 @@
 
         <div class="campo">
           <label for="clave">Contraseña</label>
-          <input
-            type="password"
-            id="clave"
-            name="clave"
-            autocomplete="current-password"
-            required
-          >
+          <div class="campo-clave-wrap">
+            <input
+              type="password"
+              id="clave"
+              name="clave"
+              autocomplete="current-password"
+              required
+            >
+            <button
+              type="button"
+              class="campo-clave-toggle"
+              data-toggle-clave="clave"
+              aria-pressed="false"
+            >Mostrar</button>
+          </div>
         </div>
 
         <div class="dialogo-acciones">
           <button type="button" class="boton boton--secundario" data-cerrar-dialogo>Cancelar</button>
-          <button type="submit" class="boton boton--primario" id="btn-login-submit">
+          <button type="submit" class="boton boton--primario" id="btn-login-submit" data-cargando-texto="Verificando...">
             <%= infoModuloActivo ? 'Entrar a ' + infoModuloActivo.titulo : 'Iniciar sesión' %>
           </button>
         </div>

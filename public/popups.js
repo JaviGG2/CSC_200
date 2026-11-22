@@ -1,4 +1,12 @@
 (() => {
+  function normalizarTexto(valor) {
+    return String(valor || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
   function abrirDialogo(dialogo, selectorFoco) {
     if (!dialogo) return;
     if (!dialogo.open) {
@@ -23,7 +31,7 @@
     }
   }
 
-  // Cerrar cualquier diálogo al hacer clic en su backdrop o botón [data-cerrar-dialogo]
+  // 1. Diálogos modales: apertura, cierre por backdrop o botón [data-cerrar-dialogo]
   document.addEventListener('click', (evento) => {
     const btnCerrar = evento.target.closest('[data-cerrar-dialogo]');
     if (btnCerrar) {
@@ -33,6 +41,20 @@
 
     if (evento.target instanceof HTMLDialogElement) {
       cerrarDialogo(evento.target);
+      return;
+    }
+
+    const toggleClave = evento.target.closest('[data-toggle-clave]');
+    if (toggleClave) {
+      const targetId = toggleClave.getAttribute('data-toggle-clave');
+      const input = targetId ? document.getElementById(targetId) : null;
+      if (input) {
+        const mostrar = input.type === 'password';
+        input.type = mostrar ? 'text' : 'password';
+        toggleClave.textContent = mostrar ? 'Ocultar' : 'Mostrar';
+        toggleClave.setAttribute('aria-pressed', mostrar ? 'true' : 'false');
+        input.focus();
+      }
       return;
     }
 
@@ -60,6 +82,10 @@
           if (btnGuardar && disparador.getAttribute('data-popup-submit')) {
             btnGuardar.textContent = disparador.getAttribute('data-popup-submit');
           }
+          dialogo.querySelectorAll('input[data-filtrar-select]').forEach((filtro) => {
+            filtro.value = '';
+            filtro.dispatchEvent(new Event('input'));
+          });
         }
         abrirDialogo(dialogo, foco);
       }
@@ -71,7 +97,7 @@
     abrirDialogo(dialogo, dialogo.getAttribute('data-popup-foco') || 'input:not([type="hidden"]), select');
   });
 
-  // Interceptar formularios [data-confirmar] con popup institucional (#dialogo-confirmacion)
+  // 2. Interceptar formularios [data-confirmar] con popup institucional (#dialogo-confirmacion)
   const dialogoConfirm = document.getElementById('dialogo-confirmacion');
   const formConfirm = document.getElementById('form-confirmacion');
   const tituloConfirm = document.querySelector('[data-confirm-titulo]');
@@ -105,6 +131,167 @@
 
       abrirDialogo(dialogoConfirm, '[data-confirm-submit]');
     }, true);
+  }
+
+  // 3. Limpiar ?ok= y ?error= de la barra de direcciones y permitir cerrar alertas
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('ok') || url.searchParams.has('error')) {
+      url.searchParams.delete('ok');
+      url.searchParams.delete('error');
+      const nuevaRuta = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+      window.history.replaceState({}, '', nuevaRuta);
+    }
+  } catch {
+    // Sin soporte URL
+  }
+
+  document.querySelectorAll('main .alerta').forEach((alerta) => {
+    if (alerta.querySelector('.alerta-cerrar')) return;
+    alerta.classList.add('alerta--cerrable');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'alerta-cerrar';
+    btn.setAttribute('aria-label', 'Cerrar aviso');
+    btn.textContent = '×';
+    btn.addEventListener('click', () => alerta.remove());
+    alerta.appendChild(btn);
+
+    if (alerta.classList.contains('alerta--exito')) {
+      let temporizador = setTimeout(() => alerta.remove(), 6000);
+      alerta.addEventListener('mouseenter', () => clearTimeout(temporizador));
+      alerta.addEventListener('mouseleave', () => {
+        temporizador = setTimeout(() => alerta.remove(), 3500);
+      });
+    }
+  });
+
+  // 4. Protección contra doble envío + feedback visual en botones
+  document.addEventListener('submit', (evento) => {
+    const form = evento.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (evento.defaultPrevented) return;
+    if ((form.method || 'get').toLowerCase() !== 'post') return;
+
+    const btn = form.querySelector('button[type="submit"]:not([form])') || document.activeElement;
+    if (btn && btn instanceof HTMLButtonElement && btn.type === 'submit' && !btn.disabled) {
+      const textoCargando = btn.getAttribute('data-cargando-texto') || form.getAttribute('data-cargando-texto') || 'Procesando...';
+      btn.dataset.textoOriginal = btn.textContent || '';
+      btn.disabled = true;
+      btn.textContent = textoCargando;
+    }
+  });
+
+  // 5. Autoenvío en filtros select y cambios rápidos
+  document.querySelectorAll('select[data-auto-filtrar]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const form = select.closest('form');
+      if (form) form.submit();
+    });
+  });
+
+  // 6. Buscador instantáneo dentro de selects extensos (padrón compartido)
+  document.querySelectorAll('input[data-filtrar-select]').forEach((input) => {
+    const selectId = input.getAttribute('data-filtrar-select');
+    const select = selectId ? document.getElementById(selectId) : null;
+    if (!select) return;
+
+    const opcionesOriginales = Array.from(select.options).map((opt) => ({
+      option: opt,
+      texto: normalizarTexto(opt.textContent),
+      esPlaceholder: !opt.value,
+    }));
+
+    input.addEventListener('input', () => {
+      const termino = normalizarTexto(input.value);
+      let coincidencias = 0;
+
+      opcionesOriginales.forEach((item) => {
+        if (item.esPlaceholder) {
+          item.option.hidden = false;
+          return;
+        }
+        const visible = !termino || item.texto.includes(termino);
+        item.option.hidden = !visible;
+        if (visible) coincidencias += 1;
+      });
+
+      const info = input.parentElement?.querySelector('[data-select-conteo]');
+      if (info) {
+        info.textContent = termino ? `${coincidencias} coincidencia(s)` : '';
+      }
+    });
+  });
+
+  // 7. Filtro instantáneo en vivo sobre filas de tabla o tarjetas
+  document.querySelectorAll('input[data-filtro-vivo]').forEach((input) => {
+    const selectorContenedor = input.getAttribute('data-filtro-vivo');
+    const contenedor = selectorContenedor ? document.querySelector(selectorContenedor) : null;
+    if (!contenedor) return;
+
+    const itemSelector = input.getAttribute('data-filtro-item') || 'tbody tr';
+    const items = Array.from(contenedor.querySelectorAll(itemSelector));
+    const contadorSelector = input.getAttribute('data-filtro-contador');
+    const contadorEl = contadorSelector ? document.querySelector(contadorSelector) : null;
+    const etiquetaContador = input.getAttribute('data-filtro-etiqueta') || 'registros';
+
+    if (!items.length) return;
+
+    const filtrar = () => {
+      const termino = normalizarTexto(input.value);
+      let visibles = 0;
+
+      items.forEach((item) => {
+        const texto = normalizarTexto(item.getAttribute('data-texto-busqueda') || item.textContent);
+        const coincide = !termino || texto.includes(termino);
+        item.hidden = !coincide;
+        if (coincide) visibles += 1;
+      });
+
+      if (contadorEl) {
+        contadorEl.textContent = `${visibles} ${etiquetaContador}`;
+      }
+    };
+
+    input.addEventListener('input', filtrar);
+  });
+
+  // 8. Atajo de teclado "/" para ir rápido al buscador de la vista actual
+  document.addEventListener('keydown', (evento) => {
+    if (evento.key !== '/' || evento.ctrlKey || evento.metaKey || evento.altKey) return;
+    const activo = document.activeElement;
+    if (
+      activo &&
+      (activo.tagName === 'INPUT' ||
+        activo.tagName === 'TEXTAREA' ||
+        activo.tagName === 'SELECT' ||
+        activo.closest('dialog[open]'))
+    ) {
+      return;
+    }
+
+    const buscador = document.querySelector('[data-atajo-buscar]') || document.querySelector('input[type="search"]');
+    if (buscador instanceof HTMLInputElement) {
+      evento.preventDefault();
+      buscador.focus();
+      buscador.select();
+    }
+  });
+
+  // 9. Expandir / contraer todos los bloques <details> del censo
+  const btnToggleDetalles = document.querySelector('[data-toggle-detalles]');
+  if (btnToggleDetalles) {
+    btnToggleDetalles.addEventListener('click', () => {
+      const selector = btnToggleDetalles.getAttribute('data-toggle-detalles') || 'details.censo-detalle';
+      const detalles = Array.from(document.querySelectorAll(selector));
+      if (!detalles.length) return;
+      const algunoCerrado = detalles.some((d) => !d.open);
+      detalles.forEach((d) => {
+        d.open = algunoCerrado;
+      });
+      btnToggleDetalles.textContent = algunoCerrado ? 'Contraer familias' : 'Expandir familias';
+    });
   }
 
   window.ComunaPopups = {

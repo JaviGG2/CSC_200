@@ -46,7 +46,7 @@
           data-popup-foco="#beneficiario_nombre"
         >+ Registrar entrega</button>
         <form method="post" action="/beneficios/sincronizar">
-          <button type="submit" class="boton boton--secundario">Sincronizar con Neon</button>
+          <button type="submit" class="boton boton--secundario" data-cargando-texto="Sincronizando...">Sincronizar con Neon</button>
         </form>
       </div>
     </section>
@@ -80,19 +80,26 @@
 
     <form class="panel filtros-censo" method="get" action="/beneficios" role="search">
       <div class="filtros-censo-campo filtros-censo-campo--busqueda">
-        <label for="filtro-q">Buscar beneficiario o programa</label>
+        <label for="filtro-q">
+          Buscar beneficiario o programa
+          <span class="busqueda-ayuda-tecla">Atajo <kbd>/</kbd></span>
+        </label>
         <input
           type="search"
           id="filtro-q"
           name="q"
           value="<%= filtrosVista.q %>"
           placeholder="Nombre, cédula, programa, consejo comunal"
+          data-atajo-buscar
+          data-filtro-vivo="#tabla-beneficios"
+          data-filtro-contador="#beneficios-conteo-vivo"
+          data-filtro-etiqueta="entregas"
         >
       </div>
 
       <div class="filtros-censo-campo">
         <label for="filtro-programa">Programa</label>
-        <select id="filtro-programa" name="programa">
+        <select id="filtro-programa" name="programa" data-auto-filtrar>
           <option value="">Todos</option>
           <% listaProgramas.filter((p) => p !== 'Otro beneficio').forEach(function (prog) { %>
             <option value="<%= prog %>" <%= filtrosVista.programa === prog ? 'selected' : '' %>><%= prog %></option>
@@ -102,7 +109,7 @@
 
       <div class="filtros-censo-campo">
         <label for="filtro-consejo">Consejo comunal</label>
-        <select id="filtro-consejo" name="consejo">
+        <select id="filtro-consejo" name="consejo" data-auto-filtrar>
           <option value="">Todos</option>
           <% listaConsejos.forEach(function (c) { %>
             <option value="<%= c.nombre %>" <%= filtrosVista.consejo === c.nombre ? 'selected' : '' %>><%= c.nombre %></option>
@@ -112,7 +119,7 @@
 
       <div class="filtros-censo-campo">
         <label for="filtro-estado">Estado</label>
-        <select id="filtro-estado" name="estado">
+        <select id="filtro-estado" name="estado" data-auto-filtrar>
           <option value="">Todos</option>
           <option value="Entregado" <%= filtrosVista.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
           <option value="Programado" <%= filtrosVista.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
@@ -134,7 +141,7 @@
           <h2>Historial de entregas</h2>
           <p>Seguimiento de beneficios asignados por consejo comunal y familia.</p>
         </div>
-        <span class="contador"><%= listaEntregas.length %> entregas</span>
+        <span class="contador" id="beneficios-conteo-vivo"><%= listaEntregas.length %> entregas</span>
       </div>
 
       <% if (!listaEntregas.length) { %>
@@ -151,7 +158,7 @@
         </div>
       <% } else { %>
         <div class="tabla-scroll">
-          <table>
+          <table id="tabla-beneficios">
             <thead>
               <tr>
                 <th>Beneficiario</th>
@@ -167,7 +174,21 @@
               <% listaEntregas.forEach(function (item) { %>
                 <tr>
                   <td>
-                    <strong><%= item.beneficiario_nombre %></strong>
+                    <button
+                      type="button"
+                      class="tabla-enlace-ficha"
+                      data-ver-beneficio
+                      data-nombre="<%= item.beneficiario_nombre %>"
+                      data-cedula="<%= item.cedula || 'Sin cédula' %>"
+                      data-programa="<%= item.programa %>"
+                      data-tipo="<%= item.tipo_entrega %>"
+                      data-consejo="<%= item.consejo_comunal || '—' %>"
+                      data-comunidad="<%= item.comunidad || '—' %>"
+                      data-cantidad="<%= item.cantidad || '—' %>"
+                      data-fecha="<%= fechaCorta(item.fecha_entrega) %>"
+                      data-estado="<%= item.estado %>"
+                      data-observaciones="<%= item.observaciones || 'Sin observaciones adicionales.' %>"
+                    ><strong><%= item.beneficiario_nombre %></strong></button>
                     <div class="censo-subtitulo"><%= item.cedula || 'Sin cédula' %></div>
                   </td>
                   <td>
@@ -206,12 +227,11 @@
                       >Detalle</button>
 
                       <form method="post" action="/beneficios/<%= item.id %>/estado" class="beneficio-estado-form">
-                        <select name="estado" aria-label="Cambiar estado de entrega #<%= item.id %>">
+                        <select name="estado" data-auto-filtrar aria-label="Cambiar estado de entrega #<%= item.id %>">
                           <option value="Entregado" <%= item.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
                           <option value="Programado" <%= item.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
                           <option value="Pendiente" <%= item.estado === 'Pendiente' ? 'selected' : '' %>>Pendiente</option>
                         </select>
-                        <button type="submit" class="boton boton--mini boton--secundario">Actualizar</button>
                       </form>
 
                       <form
@@ -258,6 +278,15 @@
       <div class="campos">
         <div class="campo campo-ancho">
           <label for="beneficio-persona-ref">Beneficiario registrado (base compartida)</label>
+          <div class="select-filtro-caja">
+            <input
+              type="search"
+              placeholder="Filtrar padrón por nombre, cédula o consejo..."
+              data-filtrar-select="beneficio-persona-ref"
+              aria-label="Filtrar lista de beneficiarios"
+            >
+            <span class="select-filtro-conteo" data-select-conteo></span>
+          </div>
           <select id="beneficio-persona-ref" name="persona_ref">
             <option value="">— Seleccionar del padrón o ingresar manualmente —</option>
             <% listaBeneficiarios.forEach(function (b) { %>

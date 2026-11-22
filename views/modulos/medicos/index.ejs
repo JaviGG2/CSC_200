@@ -50,7 +50,7 @@
           data-popup-foco="#paciente_nombre"
         >+ Nuevo expediente</button>
         <form method="post" action="/expedientes-medicos/sincronizar">
-          <button type="submit" class="boton boton--secundario">Sincronizar con Neon</button>
+          <button type="submit" class="boton boton--secundario" data-cargando-texto="Sincronizando...">Sincronizar con Neon</button>
         </form>
       </div>
     </section>
@@ -84,19 +84,26 @@
 
     <form class="panel filtros-censo" method="get" action="/expedientes-medicos" role="search">
       <div class="filtros-censo-campo filtros-censo-campo--busqueda">
-        <label for="filtro-q">Buscar paciente o condición</label>
+        <label for="filtro-q">
+          Buscar paciente o condición
+          <span class="busqueda-ayuda-tecla">Atajo <kbd>/</kbd></span>
+        </label>
         <input
           type="search"
           id="filtro-q"
           name="q"
           value="<%= filtrosVista.q %>"
           placeholder="Nombre, cédula, diagnóstico, medicamento o comunidad"
+          data-atajo-buscar
+          data-filtro-vivo="#tabla-expedientes"
+          data-filtro-contador="#medicos-conteo-vivo"
+          data-filtro-etiqueta="expedientes"
         >
       </div>
 
       <div class="filtros-censo-campo">
         <label for="filtro-riesgo">Nivel de riesgo</label>
-        <select id="filtro-riesgo" name="riesgo">
+        <select id="filtro-riesgo" name="riesgo" data-auto-filtrar>
           <option value="">Todos</option>
           <option value="Alto" <%= filtrosVista.riesgo === 'Alto' ? 'selected' : '' %>>Alto</option>
           <option value="Moderado" <%= filtrosVista.riesgo === 'Moderado' ? 'selected' : '' %>>Moderado</option>
@@ -106,7 +113,7 @@
 
       <div class="filtros-censo-campo">
         <label for="filtro-discapacidad">Discapacidad</label>
-        <select id="filtro-discapacidad" name="discapacidad">
+        <select id="filtro-discapacidad" name="discapacidad" data-auto-filtrar>
           <option value="">Todas</option>
           <option value="con" <%= filtrosVista.discapacidad === 'con' ? 'selected' : '' %>>Con discapacidad</option>
           <option value="sin" <%= filtrosVista.discapacidad === 'sin' ? 'selected' : '' %>>Sin discapacidad</option>
@@ -127,7 +134,7 @@
           <h2>Listado de expedientes</h2>
           <p>Historias médicas registradas en el módulo de salud comunitaria.</p>
         </div>
-        <span class="contador"><%= listaExpedientes.length %> expedientes</span>
+        <span class="contador" id="medicos-conteo-vivo"><%= listaExpedientes.length %> expedientes</span>
       </div>
 
       <% if (!listaExpedientes.length) { %>
@@ -147,7 +154,7 @@
         </div>
       <% } else { %>
         <div class="tabla-scroll">
-          <table>
+          <table id="tabla-expedientes">
             <thead>
               <tr>
                 <th>Paciente</th>
@@ -165,7 +172,22 @@
                 <% const refItem = item.persona_tipo && item.persona_id ? `${item.persona_tipo}:${item.persona_id}` : ''; %>
                 <tr>
                   <td>
-                    <strong><%= item.paciente_nombre %></strong>
+                    <button
+                      type="button"
+                      class="tabla-enlace-ficha"
+                      data-ver-expediente
+                      data-nombre="<%= item.paciente_nombre %>"
+                      data-cedula="<%= item.cedula || 'Sin cédula' %>"
+                      data-comunidad="<%= item.comunidad || '—' %>"
+                      data-sangre="<%= item.grupo_sanguineo || '—' %>"
+                      data-riesgo="<%= item.nivel_riesgo %>"
+                      data-consulta="<%= fechaCorta(item.ultima_consulta) %>"
+                      data-cronicas="<%= item.condiciones_cronicas || 'Ninguna registrada' %>"
+                      data-discapacidad="<%= item.discapacidad || 'No reportada' %>"
+                      data-alergias="<%= item.alergias || 'Ninguna registrada' %>"
+                      data-medicamentos="<%= item.medicamentos_actuales || 'Sin tratamiento activo' %>"
+                      data-observaciones="<%= item.observaciones || 'Sin observaciones adicionales.' %>"
+                    ><strong><%= item.paciente_nombre %></strong></button>
                     <div class="censo-subtitulo"><%= item.cedula || 'Sin cédula' %></div>
                   </td>
                   <td><%= item.comunidad || '—' %></td>
@@ -273,6 +295,15 @@
       <div class="campos">
         <div class="campo campo-ancho">
           <label for="medico-persona-ref">Vincular con habitante registrado (base compartida)</label>
+          <div class="select-filtro-caja">
+            <input
+              type="search"
+              placeholder="Filtrar padrón por nombre, cédula o comunidad..."
+              data-filtrar-select="medico-persona-ref"
+              aria-label="Filtrar lista de habitantes"
+            >
+            <span class="select-filtro-conteo" data-select-conteo></span>
+          </div>
           <select id="medico-persona-ref" name="persona_ref">
             <option value="">— Seleccionar del padrón o ingresar manualmente —</option>
             <% listaPersonas.forEach(function (p) { %>

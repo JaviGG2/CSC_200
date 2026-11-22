@@ -71,7 +71,7 @@
     <form class="panel filtros-censo" method="get" action="/censo" role="search">
       <div class="filtros-censo-campo">
         <label for="filtro-consejo">Consejo comunal</label>
-        <select id="filtro-consejo" name="consejo">
+        <select id="filtro-consejo" name="consejo" data-auto-filtrar>
           <option value="">Todos los consejos</option>
           <% listaConsejos.forEach(function (consejo) { %>
             <option value="<%= consejo.nombre %>" <%= filtrosVista.consejo === consejo.nombre ? 'selected' : '' %>>
@@ -82,7 +82,10 @@
       </div>
 
       <div class="filtros-censo-campo filtros-censo-campo--busqueda">
-        <label for="filtro-q">Búsqueda rápida</label>
+        <label for="filtro-q">
+          Búsqueda rápida
+          <span class="busqueda-ayuda-tecla">Atajo <kbd>/</kbd></span>
+        </label>
         <input
           type="search"
           id="filtro-q"
@@ -90,6 +93,11 @@
           value="<%= filtrosVista.q %>"
           placeholder="Cédula, nombre, dirección o número de anexo"
           autocomplete="off"
+          data-atajo-buscar
+          data-filtro-vivo=".censo-lista"
+          data-filtro-item=".censo-vivienda"
+          data-filtro-contador="#censo-conteo-vivo"
+          data-filtro-etiqueta="viviendas visibles"
         >
       </div>
 
@@ -147,7 +155,10 @@
           </p>
         </div>
         <div class="panel-head-acciones">
-          <span class="contador"><%= statsVista.personas || 0 %> personas</span>
+          <span class="contador" id="censo-conteo-vivo"><%= gruposCenso.length %> viviendas visibles</span>
+          <% if (gruposCenso.length) { %>
+            <button type="button" class="boton boton--mini boton--secundario" data-toggle-detalles="details.censo-detalle">Contraer / Expandir</button>
+          <% } %>
           <span class="insignia insignia--sincronizado"><%= sincronizacion.sincronizados || 0 %> en Neon</span>
           <span class="insignia insignia--pendiente"><%= sincronizacion.pendientes || 0 %> pendientes</span>
         </div>
@@ -437,6 +448,7 @@
     </form>
   </dialog>
 
+  <script src="/popups.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
