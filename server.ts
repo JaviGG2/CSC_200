@@ -160,7 +160,7 @@ if (require.main === module) {
     }
 
     console.log('');
-    console.log('  Módulos activos: Socioeconómico · Expedientes Médicos · Beneficios');
+    console.log('  Módulos activos: Socio-Demográfico · Expedientes Médicos · Beneficios');
     console.log('  Presione Ctrl+C para detener el servidor.');
     console.log('');
 

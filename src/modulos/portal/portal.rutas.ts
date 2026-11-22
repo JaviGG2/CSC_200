@@ -26,8 +26,8 @@ export const MODULOS_PORTAL: ModuloPortal[] = [
   {
     clave: 'socioeconomico',
     etiqueta: 'Módulo 1 · Censo General',
-    titulo: 'Socioeconómico',
-    descripcion: 'Registro de viviendas, grupos familiares, ingresos, territorio y padrón comunal.',
+    titulo: 'Socio-Demográfico',
+    descripcion: 'Registro socio-demográfico de viviendas, grupos familiares, ingresos, territorio y padrón comunal.',
     ruta: '/censo',
   },
   {

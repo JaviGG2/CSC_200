@@ -6,7 +6,7 @@
 
   const titulosModulo = {
     portal: { nombre: 'Portal de Módulos', ruta: '/inicio' },
-    censo: { nombre: 'Socioeconómico', ruta: '/censo' },
+    censo: { nombre: 'Socio-Demográfico', ruta: '/censo' },
     expedientes: { nombre: 'Expedientes Médicos', ruta: '/expedientes-medicos' },
     beneficios: { nombre: 'Beneficios', ruta: '/beneficios' },
   };
@@ -56,7 +56,7 @@
   <% if (moduloActual === 'censo') { %>
     <div class="app-contextbar">
       <div class="contenedor app-contextbar-inner">
-        <nav class="nav-censo" aria-label="Secciones del módulo Socioeconómico">
+        <nav class="nav-censo" aria-label="Secciones del módulo Socio-Demográfico">
           <a
             href="/censo"
             class="nav-censo-link <%= subseccionActual === 'inicio' || subseccionActual === 'censo' ? 'nav-censo-link--activo' : '' %>"
