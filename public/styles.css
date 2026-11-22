@@ -152,6 +152,26 @@ code {
   letter-spacing: 0.02em;
 }
 
+.brand-logo {
+  display: block;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.brand-logo--login {
+  width: 64px;
+  height: 64px;
+}
+
+.brand-logo--reporte {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 10px;
+}
+
 .brand-text {
   display: flex;
   align-items: center;
@@ -2906,6 +2926,378 @@ tbody tr.selected {
 
   .wizard-nav .boton {
     flex: 1;
+  }
+}
+
+/* ============================================================================
+   PORTAL MODULAR (LOGIN / INICIO) Y MÓDULOS INDEPENDIENTES
+   ============================================================================ */
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.modulo-actual-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  color: var(--ink-secondary);
+}
+
+.modulo-actual-pill--censo {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.modulo-actual-pill--expedientes {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.modulo-actual-pill--beneficios {
+  background: var(--ok-bg);
+  border-color: var(--ok-border);
+  color: var(--ok);
+}
+
+.brand-logo--portal {
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+}
+
+.login-portal {
+  width: min(1040px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-portal-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.login-portal-titulos h1 {
+  font-size: clamp(20px, 2.5vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+
+.login-portal-titulos p {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.login-portal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.95fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.portal-modulos-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 22px;
+}
+
+.portal-modulos-head {
+  margin-bottom: 16px;
+}
+
+.portal-modulos-head h2 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.portal-modulos-head p {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.portal-modulos-lista {
+  display: grid;
+  gap: 12px;
+}
+
+.portal-modulo-card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 15px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+
+.portal-modulo-card:hover {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.portal-modulo-card--activo {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.portal-modulo-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.portal-modulo-icono {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.portal-modulo-card--medicos .portal-modulo-icono,
+.portal-hub-card--medicos .portal-modulo-icono {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.portal-modulo-card--beneficios .portal-modulo-icono,
+.portal-hub-card--beneficios .portal-modulo-icono {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.portal-modulo-etiqueta {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.portal-modulo-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.portal-modulo-card p {
+  font-size: 13px;
+  color: var(--ink-secondary);
+  line-height: 1.45;
+}
+
+.portal-modulo-cta {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.login-card-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* Portal autenticado (/inicio) */
+.portal-inicio-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 22px;
+}
+
+.portal-inicio-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: 640px;
+}
+
+.portal-inicio-brand h1 {
+  font-size: clamp(22px, 2.8vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+
+.portal-inicio-brand p {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin-top: 4px;
+}
+
+.portal-db-resumen {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(84px, 1fr));
+  gap: 10px;
+}
+
+.portal-db-dato {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  text-align: center;
+}
+
+.portal-db-dato strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-db-dato span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.portal-grid-modulos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.portal-hub-card {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.portal-hub-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.portal-hub-card h2 {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.portal-hub-desc {
+  font-size: 13.5px;
+  color: var(--ink-secondary);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.portal-hub-meta {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.portal-hub-meta strong {
+  color: var(--ink);
+}
+
+/* Badges y utilidades para módulos Médicos y Beneficios */
+.estado--riesgo-alto {
+  background: var(--error-bg);
+  color: var(--error);
+  border-color: var(--error-border);
+}
+
+.estado--riesgo-moderado {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-color: var(--warn-border);
+}
+
+.beneficio-estado-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.beneficio-estado-form select {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .login-portal-grid,
+  .portal-grid-modulos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .portal-db-resumen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .login-portal-cabecera,
+  .portal-inicio-brand {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modulo-actual-pill {
+    display: none;
   }
 }
 

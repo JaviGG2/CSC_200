@@ -2,87 +2,63 @@
   const moduloActual = typeof modulo !== 'undefined' ? modulo : 'censo';
   const subseccionActual = typeof subseccion !== 'undefined' ? subseccion : (typeof activo !== 'undefined' ? activo : 'inicio');
   const usuarioActual = typeof usuario !== 'undefined' ? usuario : null;
-  const esAdmin = Boolean(usuarioActual && usuarioActual.rol === 'admin');
+  const esAdminActual = typeof esAdmin !== 'undefined' ? esAdmin : Boolean(usuarioActual && usuarioActual.rol === 'admin');
+
+  const titulosModulo = {
+    portal: { nombre: 'Portal de Módulos', ruta: '/inicio' },
+    censo: { nombre: 'Socioeconómico', ruta: '/censo' },
+    expedientes: { nombre: 'Expedientes Médicos', ruta: '/expedientes-medicos' },
+    beneficios: { nombre: 'Beneficios', ruta: '/beneficios' },
+  };
+  const infoModulo = titulosModulo[moduloActual] || titulosModulo.censo;
 %>
 <header class="app-header">
   <div class="app-header-main">
     <div class="contenedor app-header-inner">
-      <a class="brand" href="/" aria-label="Ir al Censo General">
-        <span class="brand-mark" aria-hidden="true">C200</span>
+      <a class="brand" href="<%= infoModulo.ruta %>" aria-label="Inicio de <%= infoModulo.nombre %>">
+        <img
+          src="/assets/aistudio/WhatsApp_Image_2026-10-24_at_4.01.50_PM-Photoroom_c9a67c8e.png"
+          alt="Logo Comuna Socialista Carabobo 200"
+          class="brand-logo"
+          width="42"
+          height="42"
+        >
         <span class="brand-text">
           <strong>Comuna Carabobo 200</strong>
         </span>
       </a>
 
-      <button
-        type="button"
-        class="nav-toggle"
-        data-nav-toggle
-        aria-expanded="false"
-        aria-controls="nav-global"
-      >
-        <span class="nav-toggle-barras" aria-hidden="true"><i></i><i></i><i></i></span>
-        Menú
-      </button>
+      <span class="modulo-actual-pill modulo-actual-pill--<%= moduloActual %>">
+        <%= infoModulo.nombre %>
+      </span>
 
-      <nav class="nav-global" id="nav-global" aria-label="Módulos de la plataforma">
-        <a
-          href="/"
-          class="nav-modulo <%= moduloActual === 'censo' ? 'nav-modulo--activo' : '' %>"
-          <%= moduloActual === 'censo' ? 'aria-current="page"' : '' %>
-        >
-          <span class="nav-modulo-icono" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </span>
-          <span class="nav-modulo-texto">Censo General</span>
-        </a>
+      <div class="app-header-right">
+        <% if (moduloActual !== 'portal') { %>
+          <a href="/inicio" class="boton boton--mini boton--secundario">Módulos</a>
+        <% } %>
 
-        <a
-          href="/beneficios"
-          class="nav-modulo nav-modulo--proximamente <%= moduloActual === 'beneficios' ? 'nav-modulo--activo' : '' %>"
-          <%= moduloActual === 'beneficios' ? 'aria-current="page"' : '' %>
-        >
-          <span class="nav-modulo-icono" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
-          </span>
-          <span class="nav-modulo-texto">Beneficios</span>
-          <span class="nav-modulo-estado">Próx.</span>
-        </a>
-
-        <a
-          href="/expedientes-medicos"
-          class="nav-modulo nav-modulo--proximamente <%= moduloActual === 'expedientes' ? 'nav-modulo--activo' : '' %>"
-          <%= moduloActual === 'expedientes' ? 'aria-current="page"' : '' %>
-        >
-          <span class="nav-modulo-icono" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          </span>
-          <span class="nav-modulo-texto">Expedientes Médicos</span>
-          <span class="nav-modulo-estado">Próx.</span>
-        </a>
-      </nav>
-
-      <% if (usuarioActual) { %>
-        <div class="app-user">
-          <span class="app-user-avatar" aria-hidden="true"><%= (usuarioActual.nombre || usuarioActual.usuario || '?').slice(0, 1).toUpperCase() %></span>
-          <span class="app-user-datos">
-            <strong><%= usuarioActual.nombre %></strong>
-            <small><%= usuarioActual.rol === 'admin' ? 'Administrador' : 'Encuestador' %></small>
-          </span>
-          <form method="post" action="/logout" class="logout-form">
-            <button type="submit" class="boton boton--mini boton--secundario">Salir</button>
-          </form>
-        </div>
-      <% } %>
+        <% if (usuarioActual) { %>
+          <div class="app-user">
+            <span class="app-user-avatar" aria-hidden="true"><%= (usuarioActual.nombre || usuarioActual.usuario || '?').slice(0, 1).toUpperCase() %></span>
+            <span class="app-user-datos">
+              <strong><%= usuarioActual.nombre %></strong>
+              <small><%= usuarioActual.rol === 'admin' ? 'Administrador' : 'Gestor' %></small>
+            </span>
+            <form method="post" action="/logout" class="logout-form">
+              <button type="submit" class="boton boton--mini boton--secundario">Salir</button>
+            </form>
+          </div>
+        <% } %>
+      </div>
     </div>
   </div>
 
   <% if (moduloActual === 'censo') { %>
     <div class="app-contextbar">
       <div class="contenedor app-contextbar-inner">
-        <nav class="nav-censo" aria-label="Secciones del Censo General">
+        <nav class="nav-censo" aria-label="Secciones del módulo Socioeconómico">
           <a
-            href="/"
+            href="/censo"
             class="nav-censo-link <%= subseccionActual === 'inicio' || subseccionActual === 'censo' ? 'nav-censo-link--activo' : '' %>"
             <%= subseccionActual === 'inicio' || subseccionActual === 'censo' ? 'aria-current="page"' : '' %>
           >Inicio</a>
@@ -96,7 +72,12 @@
             class="nav-censo-link <%= subseccionActual === 'personas' ? 'nav-censo-link--activo' : '' %>"
             <%= subseccionActual === 'personas' ? 'aria-current="page"' : '' %>
           >Padrón de personas</a>
-          <% if (esAdmin) { %>
+          <a
+            href="/ubicacion"
+            class="nav-censo-link <%= subseccionActual === 'ubicacion' ? 'nav-censo-link--activo' : '' %>"
+            <%= subseccionActual === 'ubicacion' ? 'aria-current="page"' : '' %>
+          >Por ubicación</a>
+          <% if (esAdminActual) { %>
             <a
               href="/admin"
               class="nav-censo-link <%= subseccionActual === 'admin' ? 'nav-censo-link--activo' : '' %>"
@@ -106,41 +87,23 @@
         </nav>
       </div>
     </div>
-  <% } else { %>
-    <div class="app-contextbar app-contextbar--modulo">
+  <% } else if (moduloActual === 'expedientes') { %>
+    <div class="app-contextbar">
       <div class="contenedor app-contextbar-inner">
-        <span class="contextbar-modulo">
-          Módulo en preparación
-          <strong>Próximamente</strong>
-        </span>
-        <a href="/" class="contextbar-volver">Volver al Censo General</a>
+        <nav class="nav-censo" aria-label="Secciones de Expedientes Médicos">
+          <a href="/expedientes-medicos" class="nav-censo-link nav-censo-link--activo" aria-current="page">Expedientes</a>
+          <a href="#nuevo-expediente" class="nav-censo-link">Nuevo / Editar expediente</a>
+        </nav>
+      </div>
+    </div>
+  <% } else if (moduloActual === 'beneficios') { %>
+    <div class="app-contextbar">
+      <div class="contenedor app-contextbar-inner">
+        <nav class="nav-censo" aria-label="Secciones de Beneficios">
+          <a href="/beneficios" class="nav-censo-link nav-censo-link--activo" aria-current="page">Entregas</a>
+          <a href="#nueva-entrega" class="nav-censo-link">Registrar entrega</a>
+        </nav>
       </div>
     </div>
   <% } %>
 </header>
-
-<script>
-  (function () {
-    var boton = document.querySelector('[data-nav-toggle]');
-    var panel = document.getElementById('nav-global');
-    if (!boton || !panel) return;
-
-    function cerrar() {
-      document.body.classList.remove('nav-abierto');
-      boton.setAttribute('aria-expanded', 'false');
-    }
-
-    boton.addEventListener('click', function () {
-      var abierto = document.body.classList.toggle('nav-abierto');
-      boton.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-    });
-
-    panel.addEventListener('click', function (evento) {
-      if (evento.target.closest('a')) cerrar();
-    });
-
-    window.addEventListener('resize', function () {
-      if (window.innerWidth > 900) cerrar();
-    });
-  })();
-</script>

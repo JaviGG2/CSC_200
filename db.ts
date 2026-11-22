@@ -713,6 +713,64 @@ function sembrarAdminInicial() {
 sembrarAdminInicial();
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS expedientes_medicos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vivienda_id INTEGER REFERENCES viviendas(id) ON DELETE SET NULL,
+    persona_tipo TEXT CHECK (persona_tipo IN ('jefe', 'integrante')),
+    persona_id INTEGER,
+    cedula TEXT,
+    paciente_nombre TEXT NOT NULL,
+    comunidad TEXT,
+    grupo_sanguineo TEXT,
+    condiciones_cronicas TEXT,
+    discapacidad TEXT,
+    alergias TEXT,
+    medicamentos_actuales TEXT,
+    nivel_riesgo TEXT NOT NULL DEFAULT 'Bajo' CHECK (nivel_riesgo IN ('Bajo', 'Moderado', 'Alto')),
+    ultima_consulta TEXT,
+    observaciones TEXT,
+    registrado_por TEXT,
+    sincronizado INTEGER NOT NULL DEFAULT 0 CHECK (sincronizado IN (0, 1)),
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    actualizado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_expedientes_riesgo ON expedientes_medicos(nivel_riesgo, creado_en DESC);
+  CREATE INDEX IF NOT EXISTS idx_expedientes_vivienda ON expedientes_medicos(vivienda_id);
+
+  CREATE TABLE IF NOT EXISTS beneficios_entregas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vivienda_id INTEGER REFERENCES viviendas(id) ON DELETE SET NULL,
+    persona_tipo TEXT CHECK (persona_tipo IN ('jefe', 'integrante')),
+    persona_id INTEGER,
+    cedula TEXT,
+    beneficiario_nombre TEXT NOT NULL,
+    consejo_comunal TEXT,
+    comunidad TEXT,
+    programa TEXT NOT NULL,
+    tipo_entrega TEXT NOT NULL DEFAULT 'Única' CHECK (tipo_entrega IN ('Única', 'Mensual', 'Quincenal', 'Periódica')),
+    cantidad TEXT,
+    estado TEXT NOT NULL DEFAULT 'Entregado' CHECK (estado IN ('Entregado', 'Pendiente', 'Programado')),
+    fecha_entrega TEXT NOT NULL DEFAULT (date('now', 'localtime')),
+    observaciones TEXT,
+    registrado_por TEXT,
+    sincronizado INTEGER NOT NULL DEFAULT 0 CHECK (sincronizado IN (0, 1)),
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_beneficios_estado ON beneficios_entregas(estado, fecha_entrega DESC);
+  CREATE INDEX IF NOT EXISTS idx_beneficios_vivienda ON beneficios_entregas(vivienda_id);
+
+  CREATE TABLE IF NOT EXISTS neon_modulos_eliminaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tabla TEXT NOT NULL CHECK (tabla IN ('expedientes_medicos', 'beneficios_entregas')),
+    origen_id INTEGER NOT NULL,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (tabla, origen_id)
+  );
+`);
+
+db.exec(`
   DROP VIEW IF EXISTS vista_personas_individuales;
 
   CREATE VIEW vista_personas_individuales AS
@@ -1056,7 +1114,7 @@ export function obtenerEstadisticas() {
   };
 }
 
-function insertarRegistro({ cedula, nombres, apellidos, fechaRegistro, extras }: {
+export function insertarRegistro({ cedula, nombres, apellidos, fechaRegistro, extras }: {
   cedula: string;
   nombres: string;
   apellidos: string;
@@ -1075,7 +1133,7 @@ function insertarRegistro({ cedula, nombres, apellidos, fechaRegistro, extras }:
   return resultado.lastInsertRowid as number;
 }
 
-function actualizarRegistro({
+export function actualizarRegistro({
   id,
   cedula,
   nombres,

@@ -301,3 +301,64 @@ CREATE TABLE IF NOT EXISTS neon_eliminaciones (
   cedula TEXT NOT NULL UNIQUE,
   creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------------------------------------------------------------------------
+-- Módulo: Expedientes Médicos (comparte BD con viviendas y personas)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS expedientes_medicos (
+  id BIGSERIAL PRIMARY KEY,
+  origen VARCHAR(40) NOT NULL DEFAULT 'local',
+  origen_id BIGINT,
+  vivienda_id BIGINT REFERENCES viviendas(id) ON DELETE SET NULL,
+  persona_tipo VARCHAR(20),
+  persona_id BIGINT,
+  cedula VARCHAR(30),
+  paciente_nombre VARCHAR(200) NOT NULL,
+  comunidad VARCHAR(160),
+  grupo_sanguineo VARCHAR(20),
+  condiciones_cronicas TEXT,
+  discapacidad VARCHAR(120),
+  alergias TEXT,
+  medicamentos_actuales TEXT,
+  nivel_riesgo VARCHAR(20) NOT NULL DEFAULT 'Bajo'
+    CHECK (nivel_riesgo IN ('Bajo', 'Moderado', 'Alto')),
+  ultima_consulta DATE,
+  observaciones TEXT,
+  registrado_por VARCHAR(80),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (origen, origen_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_expedientes_medicos_riesgo
+  ON expedientes_medicos (nivel_riesgo, created_at DESC);
+
+-- ---------------------------------------------------------------------------
+-- Módulo: Beneficios Sociales (comparte BD con viviendas y consejos)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS beneficios_entregas (
+  id BIGSERIAL PRIMARY KEY,
+  origen VARCHAR(40) NOT NULL DEFAULT 'local',
+  origen_id BIGINT,
+  vivienda_id BIGINT REFERENCES viviendas(id) ON DELETE SET NULL,
+  persona_tipo VARCHAR(20),
+  persona_id BIGINT,
+  cedula VARCHAR(30),
+  beneficiario_nombre VARCHAR(200) NOT NULL,
+  consejo_comunal VARCHAR(160),
+  comunidad VARCHAR(160),
+  programa VARCHAR(160) NOT NULL,
+  tipo_entrega VARCHAR(30) NOT NULL DEFAULT 'Única',
+  cantidad VARCHAR(120),
+  estado VARCHAR(30) NOT NULL DEFAULT 'Entregado'
+    CHECK (estado IN ('Entregado', 'Pendiente', 'Programado')),
+  fecha_entrega DATE NOT NULL DEFAULT CURRENT_DATE,
+  observaciones TEXT,
+  registrado_por VARCHAR(80),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (origen, origen_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_beneficios_entregas_estado
+  ON beneficios_entregas (estado, fecha_entrega DESC);

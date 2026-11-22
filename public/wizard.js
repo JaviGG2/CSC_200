@@ -454,7 +454,7 @@
 
         if (subidaANeon) {
           setTimeout(() => {
-            window.location.href = `/?ok=${encodeURIComponent(mensaje)}#registros`;
+            window.location.href = `/censo?ok=${encodeURIComponent(mensaje)}#registros`;
           }, 1200);
         }
       } else {

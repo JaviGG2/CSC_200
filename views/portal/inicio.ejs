@@ -1,0 +1,100 @@
+<%
+  const listaModulos = typeof modulos !== 'undefined' ? modulos : [];
+  const stats = typeof resumen !== 'undefined' ? resumen : { viviendas: 0, personas: 0, expedientes: 0, beneficios: 0 };
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Inicio · Módulos | Comuna Carabobo 200</title>
+  <link rel="icon" type="image/png" href="/assets/aistudio/WhatsApp_Image_2026-10-24_at_4.01.50_PM-Photoroom_c9a67c8e.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../partials/topbar') %>
+
+  <main class="contenedor pagina">
+    <section class="portal-inicio-hero">
+      <div class="portal-inicio-brand">
+        <img
+          src="/assets/aistudio/WhatsApp_Image_2026-10-24_at_4.01.50_PM-Photoroom_c9a67c8e.png"
+          alt="Logo Comuna Socialista Carabobo 200"
+          class="brand-logo brand-logo--portal"
+          width="88"
+          height="88"
+        >
+        <div>
+          <span class="eyebrow">Base de Datos Compartida · SQLite + Neon</span>
+          <h1>Comuna Socialista Carabobo 200</h1>
+          <p>
+            Cada módulo trabaja de forma independiente con sus propios procesos y vistas, compartiendo únicamente la base de datos comunal.
+          </p>
+        </div>
+      </div>
+
+      <div class="portal-db-resumen" aria-label="Totales en base de datos compartida">
+        <div class="portal-db-dato">
+          <strong><%= stats.viviendas %></strong>
+          <span>Viviendas</span>
+        </div>
+        <div class="portal-db-dato">
+          <strong><%= stats.personas %></strong>
+          <span>Personas</span>
+        </div>
+        <div class="portal-db-dato">
+          <strong><%= stats.expedientes %></strong>
+          <span>Exp. Médicos</span>
+        </div>
+        <div class="portal-db-dato">
+          <strong><%= stats.beneficios %></strong>
+          <span>Beneficios</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="portal-grid-modulos" aria-label="Módulos disponibles">
+      <% listaModulos.forEach(function (mod) { %>
+        <article class="panel portal-hub-card portal-hub-card--<%= mod.clave %>">
+          <div class="portal-hub-card-head">
+            <span class="portal-modulo-icono" aria-hidden="true">
+              <% if (mod.clave === 'socioeconomico') { %>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <% } else if (mod.clave === 'medicos') { %>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <% } else { %>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
+              <% } %>
+            </span>
+            <span class="portal-modulo-etiqueta"><%= mod.etiqueta %></span>
+          </div>
+
+          <h2><%= mod.titulo %></h2>
+          <p class="portal-hub-desc"><%= mod.descripcion %></p>
+
+          <div class="portal-hub-meta">
+            <% if (mod.clave === 'socioeconomico') { %>
+              <span><strong><%= stats.viviendas %></strong> viviendas · <strong><%= stats.personas %></strong> personas</span>
+            <% } else if (mod.clave === 'medicos') { %>
+              <span><strong><%= stats.expedientes %></strong> expedientes clínicos</span>
+            <% } else { %>
+              <span><strong><%= stats.beneficios %></strong> entregas registradas</span>
+            <% } %>
+          </div>
+
+          <a href="<%= mod.ruta %>" class="boton boton--primario boton--bloque">
+            Abrir <%= mod.titulo %>
+          </a>
+        </article>
+      <% }); %>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      Comuna Socialista Carabobo 200 · Portal Modular de Módulos
+    </div>
+  </footer>
+</body>
+</html>

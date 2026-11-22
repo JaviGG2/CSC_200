@@ -423,7 +423,7 @@
         const datos = await respuesta.json();
 
         if (respuesta.ok && datos.ok) {
-          window.location.href = `/?ok=${encodeURIComponent(
+          window.location.href = `/censo?ok=${encodeURIComponent(
             datos.mensaje || 'Viviendas solo local subidas a Neon.'
           )}#viviendas-dashboard`;
           return;

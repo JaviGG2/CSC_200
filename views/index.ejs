@@ -21,6 +21,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#ffffff">
   <title>Censo General · Inicio | Comuna Carabobo 200</title>
+  <link rel="icon" type="image/png" href="/assets/aistudio/WhatsApp_Image_2026-10-24_at_4.01.50_PM-Photoroom_c9a67c8e.png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -67,7 +68,7 @@
       </div>
     </section>
 
-    <form class="panel filtros-censo" method="get" action="/" role="search">
+    <form class="panel filtros-censo" method="get" action="/censo" role="search">
       <div class="filtros-censo-campo">
         <label for="filtro-consejo">Consejo comunal</label>
         <select id="filtro-consejo" name="consejo">
@@ -95,7 +96,7 @@
       <div class="filtros-censo-acciones">
         <button type="submit" class="boton boton--primario">Filtrar</button>
         <% if (filtrosVista.consejo || filtrosVista.q) { %>
-          <a href="/" class="boton boton--texto">Limpiar</a>
+          <a href="/censo" class="boton boton--texto">Limpiar</a>
         <% } %>
       </div>
 

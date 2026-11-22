@@ -1,0 +1,354 @@
+<%
+  const listaEntregas = typeof entregas !== 'undefined' ? entregas : [];
+  const listaBeneficiarios = typeof beneficiarios !== 'undefined' ? beneficiarios : [];
+  const listaConsejos = typeof consejos !== 'undefined' ? consejos : [];
+  const listaProgramas = typeof programasSugeridos !== 'undefined' ? programasSugeridos : [];
+  const statsVista = typeof stats !== 'undefined' ? stats : { total: 0, entregados: 0, pendientes: 0, familias: 0 };
+  const filtrosVista = typeof filtros !== 'undefined' ? filtros : { q: '', programa: '', consejo: '', estado: '' };
+  const fechaCorta = (valor) => (valor ? String(valor).slice(0, 10).split('-').reverse().join('/') : '—');
+  const hoyIso = new Date().toISOString().slice(0, 10);
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Beneficios y Ayudas Sociales | Comuna Carabobo 200</title>
+  <link rel="icon" type="image/png" href="/assets/aistudio/WhatsApp_Image_2026-10-24_at_4.01.50_PM-Photoroom_c9a67c8e.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../../partials/topbar') %>
+
+  <main class="contenedor pagina pagina--dashboard">
+    <% if (typeof ok !== 'undefined' && ok) { %>
+      <div class="alerta alerta--exito" role="status"><%= ok %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alerta alerta--error" role="alert"><%= error %></div>
+    <% } %>
+
+    <section class="censo-hero">
+      <div class="censo-hero-texto">
+        <span class="eyebrow">Programas Sociales · Base Compartida</span>
+        <h2>Beneficios y Entregas</h2>
+        <p>
+          Gestión independiente de bolsas alimentarias, gas comunal, insumos y ayudas sociales conectada a los beneficiarios de la base comunal.
+        </p>
+      </div>
+      <div class="censo-hero-acciones">
+        <a href="#nueva-entrega" class="boton boton--primario">+ Registrar entrega</a>
+        <form method="post" action="/beneficios/sincronizar">
+          <button type="submit" class="boton boton--secundario">Sincronizar con Neon</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="resumen-cards" aria-label="Resumen de beneficios">
+      <article class="resumen-card">
+        <div>
+          <span class="resumen-card-num"><%= statsVista.total || 0 %></span>
+          <h3>Total entregas</h3>
+        </div>
+      </article>
+      <article class="resumen-card">
+        <div>
+          <span class="resumen-card-num"><%= statsVista.entregados || 0 %></span>
+          <h3>Entregados</h3>
+        </div>
+      </article>
+      <article class="resumen-card">
+        <div>
+          <span class="resumen-card-num"><%= statsVista.pendientes || 0 %></span>
+          <h3>Programados / Pendientes</h3>
+        </div>
+      </article>
+      <article class="resumen-card">
+        <div>
+          <span class="resumen-card-num"><%= statsVista.familias || 0 %></span>
+          <h3>Familias atendidas</h3>
+        </div>
+      </article>
+    </section>
+
+    <form class="panel filtros-censo" method="get" action="/beneficios" role="search">
+      <div class="filtros-censo-campo filtros-censo-campo--busqueda">
+        <label for="filtro-q">Buscar beneficiario o programa</label>
+        <input
+          type="search"
+          id="filtro-q"
+          name="q"
+          value="<%= filtrosVista.q %>"
+          placeholder="Nombre, cédula, programa, consejo comunal"
+        >
+      </div>
+
+      <div class="filtros-censo-campo">
+        <label for="filtro-programa">Programa</label>
+        <select id="filtro-programa" name="programa">
+          <option value="">Todos</option>
+          <% listaProgramas.filter((p) => p !== 'Otro beneficio').forEach(function (prog) { %>
+            <option value="<%= prog %>" <%= filtrosVista.programa === prog ? 'selected' : '' %>><%= prog %></option>
+          <% }); %>
+        </select>
+      </div>
+
+      <div class="filtros-censo-campo">
+        <label for="filtro-consejo">Consejo comunal</label>
+        <select id="filtro-consejo" name="consejo">
+          <option value="">Todos</option>
+          <% listaConsejos.forEach(function (c) { %>
+            <option value="<%= c.nombre %>" <%= filtrosVista.consejo === c.nombre ? 'selected' : '' %>><%= c.nombre %></option>
+          <% }); %>
+        </select>
+      </div>
+
+      <div class="filtros-censo-campo">
+        <label for="filtro-estado">Estado</label>
+        <select id="filtro-estado" name="estado">
+          <option value="">Todos</option>
+          <option value="Entregado" <%= filtrosVista.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+          <option value="Programado" <%= filtrosVista.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
+          <option value="Pendiente" <%= filtrosVista.estado === 'Pendiente' ? 'selected' : '' %>>Pendiente</option>
+        </select>
+      </div>
+
+      <div class="filtros-censo-acciones">
+        <button type="submit" class="boton boton--primario">Filtrar</button>
+        <% if (filtrosVista.q || filtrosVista.programa || filtrosVista.consejo || filtrosVista.estado) { %>
+          <a href="/beneficios" class="boton boton--texto">Limpiar</a>
+        <% } %>
+      </div>
+    </form>
+
+    <section class="panel" id="nueva-entrega">
+      <div class="panel-head">
+        <h2>Registrar entrega de beneficio</h2>
+        <p>Seleccione un beneficiario de la base compartida o escriba sus datos directamente.</p>
+      </div>
+
+      <form method="post" action="/beneficios" class="formulario">
+        <div class="campos">
+          <div class="campo campo-ancho">
+            <label for="beneficio-persona-ref">Beneficiario registrado (base compartida)</label>
+            <select id="beneficio-persona-ref" name="persona_ref">
+              <option value="">— Seleccionar del padrón o ingresar manualmente —</option>
+              <% listaBeneficiarios.forEach(function (b) { %>
+                <option
+                  value="<%= b.tipo %>:<%= b.persona_id %>"
+                  data-nombre="<%= b.apellidos %>, <%= b.nombres %>"
+                  data-cedula="<%= b.cedula || '' %>"
+                  data-consejo="<%= b.consejo_comunal || '' %>"
+                  data-comunidad="<%= b.comunidad || '' %>"
+                >
+                  <%= b.apellidos %>, <%= b.nombres %><%= b.cedula ? ' · ' + b.cedula : '' %><%= b.consejo_comunal ? ' · ' + b.consejo_comunal : '' %>
+                </option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="beneficiario_nombre">Nombre del beneficiario *</label>
+              <input type="text" id="beneficiario_nombre" name="beneficiario_nombre" required>
+            </div>
+            <div class="campo">
+              <label for="cedula">Cédula</label>
+              <input type="text" id="cedula" name="cedula" placeholder="Ej. V-12345678">
+            </div>
+          </div>
+
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="programa">Programa o beneficio *</label>
+              <select id="programa" name="programa" required>
+                <% listaProgramas.forEach(function (prog) { %>
+                  <option value="<%= prog %>"><%= prog %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="campo" id="grupo-programa-otro" hidden>
+              <label for="programa_otro">Especifique el beneficio</label>
+              <input type="text" id="programa_otro" name="programa_otro" placeholder="Ej. Ayuda técnica / Silla de ruedas">
+            </div>
+          </div>
+
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="consejo_comunal">Consejo comunal</label>
+              <input type="text" id="consejo_comunal" name="consejo_comunal" list="lista-consejos-beneficios" placeholder="Nombre del consejo comunal">
+              <datalist id="lista-consejos-beneficios">
+                <% listaConsejos.forEach(function (c) { %>
+                  <option value="<%= c.nombre %>"></option>
+                <% }); %>
+              </datalist>
+            </div>
+            <div class="campo">
+              <label for="comunidad">Comunidad / Sector</label>
+              <input type="text" id="comunidad" name="comunidad">
+            </div>
+          </div>
+
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="tipo_entrega">Periodicidad</label>
+              <select id="tipo_entrega" name="tipo_entrega">
+                <option value="Única">Única</option>
+                <option value="Mensual">Mensual</option>
+                <option value="Quincenal">Quincenal</option>
+                <option value="Periódica">Periódica</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label for="cantidad">Cantidad / Detalle</label>
+              <input type="text" id="cantidad" name="cantidad" placeholder="Ej. 1 bolsa, 1 bombona 10kg">
+            </div>
+          </div>
+
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="estado">Estado</label>
+              <select id="estado" name="estado">
+                <option value="Entregado">Entregado</option>
+                <option value="Programado">Programado</option>
+                <option value="Pendiente">Pendiente</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label for="fecha_entrega">Fecha de entrega</label>
+              <input type="date" id="fecha_entrega" name="fecha_entrega" value="<%= hoyIso %>">
+            </div>
+          </div>
+
+          <div class="campo campo-ancho">
+            <label for="observaciones">Observaciones</label>
+            <textarea id="observaciones" name="observaciones" rows="2"></textarea>
+          </div>
+        </div>
+
+        <div class="acciones-form--fila">
+          <button type="submit" class="boton boton--primario">Registrar entrega</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Historial de entregas</h2>
+          <p>Seguimiento de beneficios asignados por consejo comunal y familia.</p>
+        </div>
+        <span class="contador"><%= listaEntregas.length %> entregas</span>
+      </div>
+
+      <% if (!listaEntregas.length) { %>
+        <div class="estado-vacio">
+          <strong>No hay entregas registradas</strong>
+          <p>Registre una entrega de beneficio arriba o ajuste los filtros de búsqueda.</p>
+        </div>
+      <% } else { %>
+        <div class="tabla-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Beneficiario</th>
+                <th>Programa</th>
+                <th>Consejo / Comunidad</th>
+                <th>Cantidad</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% listaEntregas.forEach(function (item) { %>
+                <tr>
+                  <td>
+                    <strong><%= item.beneficiario_nombre %></strong>
+                    <div class="censo-subtitulo"><%= item.cedula || 'Sin cédula' %></div>
+                  </td>
+                  <td>
+                    <strong><%= item.programa %></strong>
+                    <div class="censo-subtitulo"><%= item.tipo_entrega %></div>
+                  </td>
+                  <td>
+                    <%= item.consejo_comunal || '—' %>
+                    <% if (item.comunidad) { %>
+                      <div class="censo-subtitulo"><%= item.comunidad %></div>
+                    <% } %>
+                  </td>
+                  <td><%= item.cantidad || '—' %></td>
+                  <td><%= fechaCorta(item.fecha_entrega) %></td>
+                  <td>
+                    <span class="estado <%= item.estado === 'Entregado' ? 'estado--activo' : item.estado === 'Programado' ? 'estado--riesgo-moderado' : 'estado--oculto' %>">
+                      <%= item.estado %>
+                    </span>
+                  </td>
+                  <td>
+                    <div class="acciones-fila">
+                      <form method="post" action="/beneficios/<%= item.id %>/estado" class="beneficio-estado-form">
+                        <select name="estado" aria-label="Cambiar estado de entrega #<%= item.id %>">
+                          <option value="Entregado" <%= item.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+                          <option value="Programado" <%= item.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
+                          <option value="Pendiente" <%= item.estado === 'Pendiente' ? 'selected' : '' %>>Pendiente</option>
+                        </select>
+                        <button type="submit" class="boton boton--mini boton--secundario">Actualizar</button>
+                      </form>
+                      <form method="post" action="/beneficios/<%= item.id %>/eliminar">
+                        <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Módulo de Beneficios</div>
+  </footer>
+
+  <script>
+    (function () {
+      var selectorPersona = document.getElementById('beneficio-persona-ref');
+      if (selectorPersona) {
+        selectorPersona.addEventListener('change', function () {
+          var option = selectorPersona.options[selectorPersona.selectedIndex];
+          if (!option || !option.value) return;
+          var nombreInput = document.getElementById('beneficiario_nombre');
+          var cedulaInput = document.getElementById('cedula');
+          var consejoInput = document.getElementById('consejo_comunal');
+          var comunidadInput = document.getElementById('comunidad');
+          if (nombreInput && option.getAttribute('data-nombre')) {
+            nombreInput.value = option.getAttribute('data-nombre');
+          }
+          if (cedulaInput && option.getAttribute('data-cedula')) {
+            cedulaInput.value = option.getAttribute('data-cedula');
+          }
+          if (consejoInput && option.getAttribute('data-consejo')) {
+            consejoInput.value = option.getAttribute('data-consejo');
+          }
+          if (comunidadInput && option.getAttribute('data-comunidad')) {
+            comunidadInput.value = option.getAttribute('data-comunidad');
+          }
+        });
+      }
+
+      var selectorPrograma = document.getElementById('programa');
+      var grupoOtro = document.getElementById('grupo-programa-otro');
+      if (selectorPrograma && grupoOtro) {
+        function syncOtro() {
+          grupoOtro.hidden = selectorPrograma.value !== 'Otro beneficio';
+        }
+        selectorPrograma.addEventListener('change', syncOtro);
+        syncOtro();
+      }
+    })();
+  </script>
+</body>
+</html>
