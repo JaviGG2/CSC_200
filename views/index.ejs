@@ -45,40 +45,56 @@
       </div>
       <div class="censo-hero-acciones">
         <a href="/wizard" class="boton boton--primario">+ Registrar vivienda</a>
-        <button type="button" class="boton boton--secundario" id="btn-sincronizar-neon">
-          Subir a Neon
-        </button>
-        <button
-          type="button"
-          class="boton boton--secundario"
-          id="btn-sincronizar-locales"
-          <%= sincronizacion.solo_local ? '' : 'disabled' %>
-        >Subir solo local (<%= sincronizacion.solo_local || 0 %>)</button>
-        <% if (admin) { %>
+        <div class="menu-desplegable menu-desplegable--movil" data-menu-desplegable>
           <button
             type="button"
-            class="boton boton--peligro"
-            data-abrir-password
-            data-accion="/registros/vaciar"
-            data-titulo="Vaciar base de datos"
-            data-mensaje="Se eliminarán todos los registros del censo y la numeración volverá a empezar en 1. Esta acción no se puede deshacer."
-            data-texto-boton="Vaciar registros"
-          >Vaciar BD</button>
-        <% } %>
+            class="boton boton--secundario menu-desplegable-trigger"
+            data-menu-trigger
+            aria-expanded="false"
+            aria-haspopup="true"
+          >
+            <span>Opciones</span>
+            <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="menu-desplegable-panel" data-menu-panel>
+            <button type="button" class="boton boton--secundario" id="btn-sincronizar-neon">
+              Subir a Neon
+            </button>
+            <button
+              type="button"
+              class="boton boton--secundario"
+              id="btn-sincronizar-locales"
+              <%= sincronizacion.solo_local ? '' : 'disabled' %>
+            >Subir solo local (<%= sincronizacion.solo_local || 0 %>)</button>
+            <% if (admin) { %>
+              <button
+                type="button"
+                class="boton boton--peligro"
+                data-abrir-password
+                data-accion="/registros/vaciar"
+                data-titulo="Vaciar base de datos"
+                data-mensaje="Se eliminarán todos los registros del censo y la numeración volverá a empezar en 1. Esta acción no se puede deshacer."
+                data-texto-boton="Vaciar registros"
+              >Vaciar BD</button>
+            <% } %>
+          </div>
+        </div>
       </div>
     </section>
 
     <form class="panel filtros-censo" method="get" action="/censo" role="search">
-      <div class="filtros-censo-campo">
-        <label for="filtro-consejo">Consejo comunal</label>
-        <select id="filtro-consejo" name="consejo" data-auto-filtrar>
-          <option value="">Todos los consejos</option>
-          <% listaConsejos.forEach(function (consejo) { %>
-            <option value="<%= consejo.nombre %>" <%= filtrosVista.consejo === consejo.nombre ? 'selected' : '' %>>
-              <%= consejo.nombre %><%= consejo.sector ? ' · ' + consejo.sector : '' %>
-            </option>
-          <% }); %>
-        </select>
+      <div class="filtros-movil-cuerpo">
+        <div class="filtros-censo-campo">
+          <label for="filtro-consejo">Consejo comunal</label>
+          <select id="filtro-consejo" name="consejo" data-auto-filtrar>
+            <option value="">Todos los consejos</option>
+            <% listaConsejos.forEach(function (consejo) { %>
+              <option value="<%= consejo.nombre %>" <%= filtrosVista.consejo === consejo.nombre ? 'selected' : '' %>>
+                <%= consejo.nombre %><%= consejo.sector ? ' · ' + consejo.sector : '' %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
       </div>
 
       <div class="filtros-censo-campo filtros-censo-campo--busqueda">
@@ -101,11 +117,26 @@
         >
       </div>
 
-      <div class="filtros-censo-acciones">
-        <button type="submit" class="boton boton--primario">Filtrar</button>
+      <div class="filtros-movil-barra">
+        <button type="button" class="boton boton--mini boton--secundario" data-toggle-filtros aria-expanded="false">
+          <span>Filtros</span>
+          <% if (filtrosVista.consejo) { %>
+            <span class="filtros-movil-badge">1</span>
+          <% } %>
+          <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+        </button>
         <% if (filtrosVista.consejo || filtrosVista.q) { %>
-          <a href="/censo" class="boton boton--texto">Limpiar</a>
+          <a href="/censo" class="boton boton--mini boton--texto">Limpiar</a>
         <% } %>
+      </div>
+
+      <div class="filtros-movil-cuerpo">
+        <div class="filtros-censo-acciones">
+          <button type="submit" class="boton boton--primario">Filtrar</button>
+          <% if (filtrosVista.consejo || filtrosVista.q) { %>
+            <a href="/censo" class="boton boton--texto">Limpiar</a>
+          <% } %>
+        </div>
       </div>
 
       <% if (config && !config.ok) { %>
@@ -220,19 +251,37 @@
               </div>
 
               <div class="censo-vivienda-acciones">
-                <a href="/viviendas/<%= grupo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
-                <a href="/viviendas/<%= grupo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
-                <% if (admin) { %>
+                <div class="menu-desplegable menu-desplegable--movil menu-desplegable--fila" data-menu-desplegable>
                   <button
                     type="button"
-                    class="boton boton--mini boton--peligro"
-                    data-abrir-password
-                    data-accion="/viviendas/<%= grupo.id %>/eliminar"
-                    data-titulo="Eliminar vivienda"
-                    data-mensaje="Se eliminará la vivienda N.º <%= grupo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
-                    data-texto-boton="Eliminar vivienda"
-                  >Eliminar</button>
-                <% } %>
+                    class="boton boton--mini boton--secundario menu-desplegable-trigger"
+                    data-menu-trigger
+                    aria-expanded="false"
+                    aria-haspopup="true"
+                  >
+                    <span>Acciones</span>
+                    <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+                  </button>
+                  <div class="menu-desplegable-panel" data-menu-panel>
+                    <div class="menu-desplegable-sheet-head">
+                      <span>Vivienda N.º <%= grupo.id %></span>
+                      <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">×</button>
+                    </div>
+                    <a href="/viviendas/<%= grupo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
+                    <a href="/viviendas/<%= grupo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
+                    <% if (admin) { %>
+                      <button
+                        type="button"
+                        class="boton boton--mini boton--peligro"
+                        data-abrir-password
+                        data-accion="/viviendas/<%= grupo.id %>/eliminar"
+                        data-titulo="Eliminar vivienda"
+                        data-mensaje="Se eliminará la vivienda N.º <%= grupo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
+                        data-texto-boton="Eliminar vivienda"
+                      >Eliminar</button>
+                    <% } %>
+                  </div>
+                </div>
               </div>
 
               <details class="censo-detalle" <%= (grupo.jefe ? 1 : 0) + (grupo.integrantes ? grupo.integrantes.length : 0) <= 6 ? 'open' : '' %>>
@@ -338,19 +387,37 @@
                       </div>
 
                       <div class="censo-vivienda-acciones">
-                        <a href="/viviendas/<%= anexo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
-                        <a href="/viviendas/<%= anexo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
-                        <% if (admin) { %>
+                        <div class="menu-desplegable menu-desplegable--movil menu-desplegable--fila" data-menu-desplegable>
                           <button
                             type="button"
-                            class="boton boton--mini boton--peligro"
-                            data-abrir-password
-                            data-accion="/viviendas/<%= anexo.id %>/eliminar"
-                            data-titulo="Eliminar anexo"
-                            data-mensaje="Se eliminará el anexo N.º <%= anexo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
-                            data-texto-boton="Eliminar anexo"
-                          >Eliminar</button>
-                        <% } %>
+                            class="boton boton--mini boton--secundario menu-desplegable-trigger"
+                            data-menu-trigger
+                            aria-expanded="false"
+                            aria-haspopup="true"
+                          >
+                            <span>Acciones</span>
+                            <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+                          </button>
+                          <div class="menu-desplegable-panel" data-menu-panel>
+                            <div class="menu-desplegable-sheet-head">
+                              <span><%= anexo.numero_anexo || 'Anexo N.º ' + anexo.id %></span>
+                              <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">×</button>
+                            </div>
+                            <a href="/viviendas/<%= anexo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
+                            <a href="/viviendas/<%= anexo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
+                            <% if (admin) { %>
+                              <button
+                                type="button"
+                                class="boton boton--mini boton--peligro"
+                                data-abrir-password
+                                data-accion="/viviendas/<%= anexo.id %>/eliminar"
+                                data-titulo="Eliminar anexo"
+                                data-mensaje="Se eliminará el anexo N.º <%= anexo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
+                                data-texto-boton="Eliminar anexo"
+                              >Eliminar</button>
+                            <% } %>
+                          </div>
+                        </div>
                       </div>
 
                       <details class="censo-detalle">

@@ -45,9 +45,23 @@
           data-reset-form
           data-popup-foco="#beneficiario_nombre"
         >+ Registrar entrega</button>
-        <form method="post" action="/beneficios/sincronizar">
-          <button type="submit" class="boton boton--secundario" data-cargando-texto="Sincronizando...">Sincronizar con Neon</button>
-        </form>
+        <div class="menu-desplegable menu-desplegable--movil" data-menu-desplegable>
+          <button
+            type="button"
+            class="boton boton--secundario menu-desplegable-trigger"
+            data-menu-trigger
+            aria-expanded="false"
+            aria-haspopup="true"
+          >
+            <span>Opciones</span>
+            <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="menu-desplegable-panel" data-menu-panel>
+            <form method="post" action="/beneficios/sincronizar">
+              <button type="submit" class="boton boton--secundario" data-cargando-texto="Sincronizando...">Sincronizar con Neon</button>
+            </form>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -78,6 +92,9 @@
       </article>
     </section>
 
+    <%
+      const cantFiltrosBenExtras = [filtrosVista.programa, filtrosVista.consejo, filtrosVista.estado].filter(Boolean).length;
+    %>
     <form class="panel filtros-censo" method="get" action="/beneficios" role="search">
       <div class="filtros-censo-campo filtros-censo-campo--busqueda">
         <label for="filtro-q">
@@ -97,41 +114,56 @@
         >
       </div>
 
-      <div class="filtros-censo-campo">
-        <label for="filtro-programa">Programa</label>
-        <select id="filtro-programa" name="programa" data-auto-filtrar>
-          <option value="">Todos</option>
-          <% listaProgramas.filter((p) => p !== 'Otro beneficio').forEach(function (prog) { %>
-            <option value="<%= prog %>" <%= filtrosVista.programa === prog ? 'selected' : '' %>><%= prog %></option>
-          <% }); %>
-        </select>
-      </div>
-
-      <div class="filtros-censo-campo">
-        <label for="filtro-consejo">Consejo comunal</label>
-        <select id="filtro-consejo" name="consejo" data-auto-filtrar>
-          <option value="">Todos</option>
-          <% listaConsejos.forEach(function (c) { %>
-            <option value="<%= c.nombre %>" <%= filtrosVista.consejo === c.nombre ? 'selected' : '' %>><%= c.nombre %></option>
-          <% }); %>
-        </select>
-      </div>
-
-      <div class="filtros-censo-campo">
-        <label for="filtro-estado">Estado</label>
-        <select id="filtro-estado" name="estado" data-auto-filtrar>
-          <option value="">Todos</option>
-          <option value="Entregado" <%= filtrosVista.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
-          <option value="Programado" <%= filtrosVista.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
-          <option value="Pendiente" <%= filtrosVista.estado === 'Pendiente' ? 'selected' : '' %>>Pendiente</option>
-        </select>
-      </div>
-
-      <div class="filtros-censo-acciones">
-        <button type="submit" class="boton boton--primario">Filtrar</button>
-        <% if (filtrosVista.q || filtrosVista.programa || filtrosVista.consejo || filtrosVista.estado) { %>
-          <a href="/beneficios" class="boton boton--texto">Limpiar</a>
+      <div class="filtros-movil-barra">
+        <button type="button" class="boton boton--mini boton--secundario" data-toggle-filtros aria-expanded="false">
+          <span>Filtros</span>
+          <% if (cantFiltrosBenExtras) { %>
+            <span class="filtros-movil-badge"><%= cantFiltrosBenExtras %></span>
+          <% } %>
+          <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+        </button>
+        <% if (filtrosVista.q || cantFiltrosBenExtras) { %>
+          <a href="/beneficios" class="boton boton--mini boton--texto">Limpiar</a>
         <% } %>
+      </div>
+
+      <div class="filtros-movil-cuerpo">
+        <div class="filtros-censo-campo">
+          <label for="filtro-programa">Programa</label>
+          <select id="filtro-programa" name="programa" data-auto-filtrar>
+            <option value="">Todos</option>
+            <% listaProgramas.filter((p) => p !== 'Otro beneficio').forEach(function (prog) { %>
+              <option value="<%= prog %>" <%= filtrosVista.programa === prog ? 'selected' : '' %>><%= prog %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="filtros-censo-campo">
+          <label for="filtro-consejo">Consejo comunal</label>
+          <select id="filtro-consejo" name="consejo" data-auto-filtrar>
+            <option value="">Todos</option>
+            <% listaConsejos.forEach(function (c) { %>
+              <option value="<%= c.nombre %>" <%= filtrosVista.consejo === c.nombre ? 'selected' : '' %>><%= c.nombre %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="filtros-censo-campo">
+          <label for="filtro-estado">Estado</label>
+          <select id="filtro-estado" name="estado" data-auto-filtrar>
+            <option value="">Todos</option>
+            <option value="Entregado" <%= filtrosVista.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+            <option value="Programado" <%= filtrosVista.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
+            <option value="Pendiente" <%= filtrosVista.estado === 'Pendiente' ? 'selected' : '' %>>Pendiente</option>
+          </select>
+        </div>
+
+        <div class="filtros-censo-acciones">
+          <button type="submit" class="boton boton--primario">Filtrar</button>
+          <% if (filtrosVista.q || filtrosVista.programa || filtrosVista.consejo || filtrosVista.estado) { %>
+            <a href="/beneficios" class="boton boton--texto">Limpiar</a>
+          <% } %>
+        </div>
       </div>
     </form>
 
@@ -209,40 +241,58 @@
                     </span>
                   </td>
                   <td>
-                    <div class="acciones-fila">
+                    <div class="menu-desplegable menu-desplegable--movil menu-desplegable--fila" data-menu-desplegable>
                       <button
                         type="button"
-                        class="boton boton--mini boton--secundario"
-                        data-ver-beneficio
-                        data-nombre="<%= item.beneficiario_nombre %>"
-                        data-cedula="<%= item.cedula || 'Sin cédula' %>"
-                        data-programa="<%= item.programa %>"
-                        data-tipo="<%= item.tipo_entrega %>"
-                        data-consejo="<%= item.consejo_comunal || '—' %>"
-                        data-comunidad="<%= item.comunidad || '—' %>"
-                        data-cantidad="<%= item.cantidad || '—' %>"
-                        data-fecha="<%= fechaCorta(item.fecha_entrega) %>"
-                        data-estado="<%= item.estado %>"
-                        data-observaciones="<%= item.observaciones || 'Sin observaciones adicionales.' %>"
-                      >Detalle</button>
-
-                      <form method="post" action="/beneficios/<%= item.id %>/estado" class="beneficio-estado-form">
-                        <select name="estado" data-auto-filtrar aria-label="Cambiar estado de entrega #<%= item.id %>">
-                          <option value="Entregado" <%= item.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
-                          <option value="Programado" <%= item.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
-                          <option value="Pendiente" <%= item.estado === 'Pendiente' ? 'selected' : '' %>>Pendiente</option>
-                        </select>
-                      </form>
-
-                      <form
-                        method="post"
-                        action="/beneficios/<%= item.id %>/eliminar"
-                        data-confirmar="¿Eliminar la entrega de «<%= item.programa %>» para «<%= item.beneficiario_nombre %>»?"
-                        data-confirmar-titulo="Eliminar entrega"
-                        data-confirmar-boton="Eliminar entrega"
+                        class="boton boton--mini boton--secundario menu-desplegable-trigger"
+                        data-menu-trigger
+                        aria-expanded="false"
+                        aria-haspopup="true"
                       >
-                        <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
-                      </form>
+                        <span>Acciones</span>
+                        <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+                      </button>
+                      <div class="menu-desplegable-panel" data-menu-panel>
+                        <div class="menu-desplegable-sheet-head">
+                          <span><%= item.beneficiario_nombre %></span>
+                          <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">×</button>
+                        </div>
+                        <div class="acciones-fila">
+                          <button
+                            type="button"
+                            class="boton boton--mini boton--secundario"
+                            data-ver-beneficio
+                            data-nombre="<%= item.beneficiario_nombre %>"
+                            data-cedula="<%= item.cedula || 'Sin cédula' %>"
+                            data-programa="<%= item.programa %>"
+                            data-tipo="<%= item.tipo_entrega %>"
+                            data-consejo="<%= item.consejo_comunal || '—' %>"
+                            data-comunidad="<%= item.comunidad || '—' %>"
+                            data-cantidad="<%= item.cantidad || '—' %>"
+                            data-fecha="<%= fechaCorta(item.fecha_entrega) %>"
+                            data-estado="<%= item.estado %>"
+                            data-observaciones="<%= item.observaciones || 'Sin observaciones adicionales.' %>"
+                          >Detalle</button>
+
+                          <form method="post" action="/beneficios/<%= item.id %>/estado" class="beneficio-estado-form">
+                            <select name="estado" data-auto-filtrar aria-label="Cambiar estado de entrega #<%= item.id %>">
+                              <option value="Entregado" <%= item.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+                              <option value="Programado" <%= item.estado === 'Programado' ? 'selected' : '' %>>Programado</option>
+                              <option value="Pendiente" <%= item.estado === 'Pendiente' ? 'selected' : '' %>>Pendiente</option>
+                            </select>
+                          </form>
+
+                          <form
+                            method="post"
+                            action="/beneficios/<%= item.id %>/eliminar"
+                            data-confirmar="¿Eliminar la entrega de «<%= item.programa %>» para «<%= item.beneficiario_nombre %>»?"
+                            data-confirmar-titulo="Eliminar entrega"
+                            data-confirmar-boton="Eliminar entrega"
+                          >
+                            <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                          </form>
+                        </div>
+                      </div>
                     </div>
                   </td>
                 </tr>

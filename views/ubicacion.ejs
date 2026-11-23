@@ -25,7 +25,7 @@
 
     <div class="ubicacion-filtros">
       <div class="campo">
-        <label>Comunidad</label>
+        <label for="filtro-comunidad">Comunidad</label>
         <select id="filtro-comunidad" onchange="filtrarUbicacion()">
           <option value="">Todas las comunidades</option>
           <% agrupacion.forEach(function (c) { %>
@@ -33,20 +33,31 @@
           <% }); %>
         </select>
       </div>
-      <div class="campo">
-        <label>Manzana</label>
-        <select id="filtro-manzana" onchange="filtrarUbicacion()">
-          <option value="">Todas las manzanas</option>
-        </select>
+
+      <div class="filtros-movil-barra">
+        <button type="button" class="boton boton--mini boton--secundario" data-toggle-filtros aria-expanded="false">
+          <span>Más filtros</span>
+          <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+        </button>
+        <button type="button" class="boton boton--mini boton--texto" onclick="limpiarFiltros()">Limpiar</button>
       </div>
-      <div class="campo">
-        <label>Etapa</label>
-        <select id="filtro-etapa" onchange="filtrarUbicacion()">
-          <option value="">Todas las etapas</option>
-        </select>
-      </div>
-      <div class="campo campo-ancho" style="margin-top: 22px;">
-        <button type="button" class="boton boton--primario" onclick="limpiarFiltros()">Limpiar filtros</button>
+
+      <div class="filtros-movil-cuerpo">
+        <div class="campo">
+          <label for="filtro-manzana">Manzana</label>
+          <select id="filtro-manzana" onchange="filtrarUbicacion()">
+            <option value="">Todas las manzanas</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="filtro-etapa">Etapa</label>
+          <select id="filtro-etapa" onchange="filtrarUbicacion()">
+            <option value="">Todas las etapas</option>
+          </select>
+        </div>
+        <div class="campo campo-ancho" style="margin-top: 22px;">
+          <button type="button" class="boton boton--primario" onclick="limpiarFiltros()">Limpiar filtros</button>
+        </div>
       </div>
     </div>
 
