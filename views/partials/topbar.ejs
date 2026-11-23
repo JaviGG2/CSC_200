@@ -233,12 +233,35 @@
     if (window.__comunaMenusInit) return;
     window.__comunaMenusInit = true;
 
+    function movimientoReducido() {
+      return Boolean(
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      );
+    }
+
+    function cerrarMenuSuave(menu) {
+      if (!menu || !menu.classList.contains('menu-desplegable--abierto')) return;
+      var btn = menu.querySelector('[data-menu-trigger]');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      menu.classList.remove('menu-desplegable--abierto');
+
+      if (movimientoReducido()) {
+        menu.classList.remove('menu-desplegable--cerrando');
+        return;
+      }
+
+      if (menu._cierreTimer) clearTimeout(menu._cierreTimer);
+      menu.classList.add('menu-desplegable--cerrando');
+      menu._cierreTimer = setTimeout(function () {
+        menu.classList.remove('menu-desplegable--cerrando');
+        menu._cierreTimer = null;
+      }, 170);
+    }
+
     function cerrarTodosMenus(excepto) {
       document.querySelectorAll('[data-menu-desplegable].menu-desplegable--abierto').forEach(function (menu) {
         if (menu === excepto) return;
-        menu.classList.remove('menu-desplegable--abierto');
-        var btn = menu.querySelector('[data-menu-trigger]');
-        if (btn) btn.setAttribute('aria-expanded', 'false');
+        cerrarMenuSuave(menu);
       });
     }
 
@@ -251,8 +274,17 @@
         if (!menu) return;
         var abrir = !menu.classList.contains('menu-desplegable--abierto');
         cerrarTodosMenus(abrir ? menu : null);
-        menu.classList.toggle('menu-desplegable--abierto', abrir);
-        trigger.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        if (abrir) {
+          if (menu._cierreTimer) {
+            clearTimeout(menu._cierreTimer);
+            menu._cierreTimer = null;
+          }
+          menu.classList.remove('menu-desplegable--cerrando');
+          menu.classList.add('menu-desplegable--abierto');
+          trigger.setAttribute('aria-expanded', 'true');
+        } else {
+          cerrarMenuSuave(menu);
+        }
         return;
       }
 
@@ -280,5 +312,39 @@
     document.addEventListener('keydown', function (evento) {
       if (evento.key === 'Escape') cerrarTodosMenus(null);
     });
+
+    function asignarStagger() {
+      var selectores = [
+        '.portal-modulos-lista > .portal-modulo-card',
+        '.portal-grid-modulos > .portal-hub-card',
+        '.portal-db-resumen > .portal-db-dato',
+        '.resumen-cards > .resumen-card',
+        '.admin-cards > .admin-card',
+        '.censo-lista > .censo-vivienda',
+        '.tarjetas-grid > .tarjeta-vivienda',
+        '#contenedor-ubicacion > .grupo-ubicacion'
+      ];
+      selectores.forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (el, idx) {
+          if (el.dataset.staggerListo) return;
+          el.dataset.staggerListo = '1';
+          el.style.setProperty('--stagger-index', String(Math.min(idx, 8)));
+        });
+      });
+      document.querySelectorAll('.tabla-scroll table tbody').forEach(function (tbody) {
+        Array.prototype.slice.call(tbody.querySelectorAll('tr'), 0, 8).forEach(function (fila, idx) {
+          if (fila.dataset.staggerListo) return;
+          fila.dataset.staggerListo = '1';
+          fila.setAttribute('data-stagger-fila', '');
+          fila.style.setProperty('--stagger-index', String(idx));
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', asignarStagger);
+    } else {
+      asignarStagger();
+    }
   })();
 </script>

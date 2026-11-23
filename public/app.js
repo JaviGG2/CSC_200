@@ -1,6 +1,8 @@
 (() => {
   const abrirDialogo = (dialogo, selectorFoco) => {
-    if (!dialogo || dialogo.open) return;
+    if (!dialogo) return;
+    dialogo.classList.remove('dialogo--cerrando');
+    if (dialogo.open) return;
 
     if (typeof dialogo.showModal === 'function') {
       dialogo.showModal();
@@ -10,6 +12,39 @@
 
     const elementoFoco = selectorFoco ? dialogo.querySelector(selectorFoco) : null;
     if (elementoFoco) elementoFoco.focus();
+  };
+
+  const cerrarDialogoSuave = (dialogo) => {
+    if (!dialogo) return;
+    if (window.ComunaPopups && typeof window.ComunaPopups.cerrar === 'function') {
+      window.ComunaPopups.cerrar(dialogo);
+      return;
+    }
+    if (!dialogo.open) return;
+    const reducido =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducido || typeof dialogo.close !== 'function') {
+      dialogo.classList.remove('dialogo--cerrando');
+      if (typeof dialogo.close === 'function') dialogo.close();
+      return;
+    }
+    if (dialogo.classList.contains('dialogo--cerrando')) return;
+    dialogo.classList.add('dialogo--cerrando');
+    let listo = false;
+    let timer = null;
+    const finalizar = () => {
+      if (listo) return;
+      listo = true;
+      if (timer) clearTimeout(timer);
+      dialogo.removeEventListener('animationend', alFin);
+      dialogo.classList.remove('dialogo--cerrando');
+      if (dialogo.open) dialogo.close();
+    };
+    const alFin = (ev) => {
+      if (ev.target === dialogo) finalizar();
+    };
+    dialogo.addEventListener('animationend', alFin);
+    timer = setTimeout(finalizar, 200);
   };
 
   // "Sin cédula" se muestra como texto: no todas las personas tienen cédula.
@@ -169,14 +204,18 @@
 
   document.querySelectorAll('dialog').forEach((dialogo) => {
     dialogo.addEventListener('click', (evento) => {
-      if (evento.target === dialogo) dialogo.close();
+      if (evento.target === dialogo) cerrarDialogoSuave(dialogo);
+    });
+    dialogo.addEventListener('cancel', (evento) => {
+      evento.preventDefault();
+      cerrarDialogoSuave(dialogo);
     });
   });
 
   document.querySelectorAll('[data-cerrar-dialogo]').forEach((boton) => {
     boton.addEventListener('click', () => {
       const dialogo = boton.closest('dialog');
-      if (dialogo) dialogo.close();
+      if (dialogo) cerrarDialogoSuave(dialogo);
     });
   });
 

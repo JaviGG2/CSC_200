@@ -7,8 +7,15 @@
       .trim();
   }
 
+  function prefiereMovimientoReducido() {
+    return Boolean(
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  }
+
   function abrirDialogo(dialogo, selectorFoco) {
     if (!dialogo) return;
+    dialogo.classList.remove('dialogo--cerrando');
     if (!dialogo.open) {
       if (typeof dialogo.showModal === 'function') {
         dialogo.showModal();
@@ -24,11 +31,47 @@
 
   function cerrarDialogo(dialogo) {
     if (!dialogo) return;
-    if (typeof dialogo.close === 'function' && dialogo.open) {
-      dialogo.close();
-    } else {
+    if (!dialogo.open) {
+      dialogo.classList.remove('dialogo--cerrando');
       dialogo.removeAttribute('open');
+      return;
     }
+
+    if (prefiereMovimientoReducido() || typeof dialogo.close !== 'function') {
+      dialogo.classList.remove('dialogo--cerrando');
+      if (typeof dialogo.close === 'function') {
+        dialogo.close();
+      } else {
+        dialogo.removeAttribute('open');
+      }
+      return;
+    }
+
+    if (dialogo.classList.contains('dialogo--cerrando')) return;
+    dialogo.classList.add('dialogo--cerrando');
+
+    let terminado = false;
+    let timer = null;
+
+    const finalizar = () => {
+      if (terminado) return;
+      terminado = true;
+      if (timer) clearTimeout(timer);
+      dialogo.removeEventListener('animationend', alTerminar);
+      dialogo.classList.remove('dialogo--cerrando');
+      if (dialogo.open && typeof dialogo.close === 'function') {
+        dialogo.close();
+      } else {
+        dialogo.removeAttribute('open');
+      }
+    };
+
+    const alTerminar = (ev) => {
+      if (ev.target === dialogo) finalizar();
+    };
+
+    dialogo.addEventListener('animationend', alTerminar);
+    timer = setTimeout(finalizar, 200);
   }
 
   // 1. Diálogos modales: apertura, cierre por backdrop o botón [data-cerrar-dialogo]
@@ -92,6 +135,17 @@
     }
   });
 
+  document.addEventListener(
+    'cancel',
+    (evento) => {
+      if (evento.target instanceof HTMLDialogElement) {
+        evento.preventDefault();
+        cerrarDialogo(evento.target);
+      }
+    },
+    true
+  );
+
   // Autoabrir diálogos marcados con data-abrir="true"
   document.querySelectorAll('dialog[data-abrir="true"]').forEach((dialogo) => {
     abrirDialogo(dialogo, dialogo.getAttribute('data-popup-foco') || 'input:not([type="hidden"]), select');
@@ -146,6 +200,18 @@
     // Sin soporte URL
   }
 
+  function cerrarAlertaSuave(alerta) {
+    if (!alerta || !alerta.isConnected || alerta.classList.contains('alerta--saliendo')) return;
+    if (prefiereMovimientoReducido()) {
+      alerta.remove();
+      return;
+    }
+    alerta.classList.add('alerta--saliendo');
+    setTimeout(() => {
+      if (alerta.isConnected) alerta.remove();
+    }, 190);
+  }
+
   document.querySelectorAll('main .alerta').forEach((alerta) => {
     if (alerta.querySelector('.alerta-cerrar')) return;
     alerta.classList.add('alerta--cerrable');
@@ -155,14 +221,14 @@
     btn.className = 'alerta-cerrar';
     btn.setAttribute('aria-label', 'Cerrar aviso');
     btn.innerHTML = '<span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>';
-    btn.addEventListener('click', () => alerta.remove());
+    btn.addEventListener('click', () => cerrarAlertaSuave(alerta));
     alerta.appendChild(btn);
 
     if (alerta.classList.contains('alerta--exito')) {
-      let temporizador = setTimeout(() => alerta.remove(), 6000);
+      let temporizador = setTimeout(() => cerrarAlertaSuave(alerta), 6000);
       alerta.addEventListener('mouseenter', () => clearTimeout(temporizador));
       alerta.addEventListener('mouseleave', () => {
-        temporizador = setTimeout(() => alerta.remove(), 3500);
+        temporizador = setTimeout(() => cerrarAlertaSuave(alerta), 3500);
       });
     }
   });
@@ -293,6 +359,38 @@
       btnToggleDetalles.textContent = algunoCerrado ? 'Contraer familias' : 'Expandir familias';
     });
   }
+
+  function aplicarStaggerInicial() {
+    const grupos = [
+      '.portal-modulos-lista > .portal-modulo-card',
+      '.portal-grid-modulos > .portal-hub-card',
+      '.portal-db-resumen > .portal-db-dato',
+      '.resumen-cards > .resumen-card',
+      '.admin-cards > .admin-card',
+      '.censo-lista > .censo-vivienda',
+      '.tarjetas-grid > .tarjeta-vivienda',
+      '#contenedor-ubicacion > .grupo-ubicacion',
+    ];
+
+    grupos.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el, idx) => {
+        if (el.dataset.staggerListo) return;
+        el.dataset.staggerListo = '1';
+        el.style.setProperty('--stagger-index', String(Math.min(idx, 8)));
+      });
+    });
+
+    document.querySelectorAll('.tabla-scroll table tbody').forEach((tbody) => {
+      Array.from(tbody.querySelectorAll('tr')).slice(0, 8).forEach((fila, idx) => {
+        if (fila.dataset.staggerListo) return;
+        fila.dataset.staggerListo = '1';
+        fila.setAttribute('data-stagger-fila', '');
+        fila.style.setProperty('--stagger-index', String(idx));
+      });
+    });
+  }
+
+  aplicarStaggerInicial();
 
   window.ComunaPopups = {
     abrir: abrirDialogo,

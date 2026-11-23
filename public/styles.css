@@ -37,7 +37,88 @@
   --font-display: 'Plus Jakarta Sans', 'DM Sans', system-ui, -apple-system, sans-serif;
   --font-body: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
-  --transition: 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition: 160ms var(--ease-out);
+  --transition-panel: 220ms var(--ease-out);
+  --transition-sheet: 240ms var(--ease-out);
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: vtSalida 150ms var(--ease-out) both;
+}
+
+::view-transition-new(root) {
+  animation: vtEntrada 210ms var(--ease-out) both;
+}
+
+@keyframes vtSalida {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes vtEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes paginaEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tarjetaEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes filaEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes detalleEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 *,
@@ -101,6 +182,7 @@ code {
 .pagina {
   flex: 1;
   padding-block: 24px 48px;
+  animation: paginaEntrada 240ms var(--ease-out) both;
 }
 
 /* ============================================================================
@@ -390,7 +472,14 @@ code {
   font-size: 13.5px;
   font-weight: 600;
   line-height: 1.5;
-  animation: slideDown var(--transition) ease;
+  animation: slideDown 200ms var(--ease-out) both;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
+.alerta--saliendo {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
 }
 
 @keyframes slideDown {
@@ -731,7 +820,11 @@ select.error {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--transition), border-color var(--transition), color var(--transition);
+  transition: background var(--transition), border-color var(--transition), color var(--transition), transform 110ms var(--ease-out), box-shadow var(--transition);
+}
+
+.boton:active:not(:disabled) {
+  transform: scale(0.985);
 }
 
 .boton--primario {
@@ -741,6 +834,7 @@ select.error {
 
 .boton--primario:hover:not(:disabled) {
   background: var(--accent-dark);
+  box-shadow: 0 2px 6px rgba(127, 29, 29, 0.22);
 }
 
 .boton--primario:disabled {
@@ -821,7 +915,11 @@ select.error {
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
-  transition: background var(--transition), color var(--transition);
+  transition: background var(--transition), color var(--transition), transform 110ms var(--ease-out);
+}
+
+.boton-eliminar-fila:active:not(:disabled) {
+  transform: scale(0.985);
 }
 
 .boton-eliminar-fila:hover {
@@ -884,6 +982,14 @@ tbody td {
 
 tbody tr:last-child td {
   border-bottom: 0;
+}
+
+tbody tr {
+  transition: background 140ms var(--ease-out);
+}
+
+tbody tr[data-stagger-fila] {
+  animation: filaEntrada 220ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 28ms) both;
 }
 
 tbody tr:hover {
@@ -1068,17 +1174,59 @@ tbody tr.selected {
 }
 
 .dialogo[open] {
-  animation: popupEntrada 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: popupEntrada var(--transition-panel) var(--ease-out) both;
+}
+
+.dialogo[open]::backdrop {
+  animation: backdropEntrada 200ms var(--ease-out) both;
+}
+
+.dialogo.dialogo--cerrando {
+  animation: popupSalida 170ms var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+.dialogo.dialogo--cerrando::backdrop {
+  animation: backdropSalida 170ms var(--ease-out) forwards;
 }
 
 @keyframes popupEntrada {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: translateY(10px) scale(0.985);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes popupSalida {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@keyframes backdropEntrada {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes backdropSalida {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 
@@ -1272,6 +1420,14 @@ tbody tr.selected {
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: tarjetaEntrada 280ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 35ms) both;
+}
+
+.resumen-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
 .resumen-card-icono {
@@ -1348,6 +1504,13 @@ tbody tr.selected {
   background: var(--surface);
   padding: 18px 20px;
   box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  animation: tarjetaEntrada 280ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 35ms) both;
+}
+
+.censo-vivienda:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow);
 }
 
 .censo-vivienda-cabecera {
@@ -1456,10 +1619,15 @@ tbody tr.selected {
   color: var(--ink-secondary);
   padding: 4px 0;
   user-select: none;
+  transition: color var(--transition);
 }
 
 .censo-detalle summary:hover {
   color: var(--accent);
+}
+
+.censo-detalle[open] > *:not(summary) {
+  animation: detalleEntrada 200ms var(--ease-out) both;
 }
 
 .censo-detalle .tabla-scroll {
@@ -1578,6 +1746,14 @@ tbody tr.selected {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: tarjetaEntrada 280ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 35ms) both;
+}
+
+.tarjeta-vivienda:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
 .tarjeta-cabecera {
@@ -1664,6 +1840,7 @@ tbody tr.selected {
   margin-bottom: 14px;
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  animation: tarjetaEntrada 280ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 35ms) both;
 }
 
 .grupo-ubicacion-head {
@@ -1704,10 +1881,15 @@ tbody tr.selected {
 .grupo-ubicacion-head .indicador {
   color: var(--muted);
   font-size: 12px;
+  transition: transform var(--transition), color var(--transition);
 }
 
 .grupo-ubicacion-body {
   border-top: 1px solid var(--line);
+}
+
+.grupo-ubicacion-body:not(.collapso) {
+  animation: detalleEntrada 200ms var(--ease-out) both;
 }
 
 .grupo-ubicacion-body.collapso {
@@ -1729,11 +1911,14 @@ tbody tr.selected {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: border-color var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: tarjetaEntrada 260ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 30ms) both;
 }
 
 .tarjeta-mini:hover {
   border-color: #cbd5e1;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
 }
 
 .tarjeta-mini-numero {
@@ -1987,21 +2172,30 @@ tbody tr.selected {
   height: 100%;
   background: var(--accent);
   width: 0%;
-  transition: width 0.3s ease;
+  transition: width 280ms var(--ease-out);
 }
 
 .wizard-pagina {
   display: none;
-  animation: fadeIn 0.22s ease;
 }
 
 .wizard-pagina.pagina--activa {
   display: block;
+  animation: wizardAdelante 220ms var(--ease-out) both;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+.wizard-pagina.pagina--activa.wizard-pagina--atras {
+  animation: wizardAtras 220ms var(--ease-out) both;
+}
+
+@keyframes wizardAdelante {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes wizardAtras {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .wizard-nav {
@@ -2446,6 +2640,14 @@ tbody tr.selected {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: tarjetaEntrada 280ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 35ms) both;
+}
+
+.admin-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
 }
 
 .admin-card-num {
@@ -3103,6 +3305,7 @@ tbody tr.selected {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  animation: paginaEntrada 260ms var(--ease-out) both;
 }
 
 .login-portal-cabecera {
@@ -3236,13 +3439,18 @@ tbody tr.selected {
   flex-direction: column;
   gap: 6px;
   transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: tarjetaEntrada 280ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 45ms) both;
 }
 
 .portal-modulo-card:hover {
   border-color: var(--accent-border);
   background: var(--surface);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.portal-modulo-card:active {
+  transform: translateY(0) scale(0.99);
 }
 
 .portal-modulo-card--activo {
@@ -3365,6 +3573,8 @@ tbody tr.selected {
   border-radius: var(--radius-sm);
   background: var(--bg);
   text-align: center;
+  transition: border-color var(--transition), transform var(--transition);
+  animation: tarjetaEntrada 260ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 35ms) both;
 }
 
 .portal-db-dato strong {
@@ -3395,6 +3605,14 @@ tbody tr.selected {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: tarjetaEntrada 280ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 45ms) both;
+}
+
+.portal-hub-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
 .portal-hub-card-head {
@@ -3639,10 +3857,21 @@ tbody tr.selected {
     z-index: 250;
   }
 
-  .menu-desplegable--cabecera.menu-desplegable--abierto .menu-desplegable-panel--cabecera {
+  .menu-desplegable--cabecera.menu-desplegable--abierto .menu-desplegable-panel--cabecera,
+  .menu-desplegable--cabecera.menu-desplegable--cerrando .menu-desplegable-panel--cabecera {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    transform-origin: top right;
+  }
+
+  .menu-desplegable--cabecera.menu-desplegable--abierto .menu-desplegable-panel--cabecera {
+    animation: menuEntrada 180ms var(--ease-out) both;
+  }
+
+  .menu-desplegable--cabecera.menu-desplegable--cerrando .menu-desplegable-panel--cabecera {
+    animation: menuSalida 140ms var(--ease-out) forwards;
+    pointer-events: none;
   }
 
   .menu-desplegable--movil .menu-desplegable-trigger {
@@ -3662,7 +3891,8 @@ tbody tr.selected {
     display: none;
   }
 
-  .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel {
+  .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel,
+  .menu-desplegable--movil.menu-desplegable--cerrando .menu-desplegable-panel {
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -3678,16 +3908,29 @@ tbody tr.selected {
     background: var(--surface);
     box-shadow: var(--shadow-lg);
     z-index: 260;
+    transform-origin: top right;
   }
 
-  .menu-desplegable--admin.menu-desplegable--abierto .menu-desplegable-panel {
+  .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel {
+    animation: menuEntrada 180ms var(--ease-out) both;
+  }
+
+  .menu-desplegable--movil.menu-desplegable--cerrando .menu-desplegable-panel {
+    animation: menuSalida 140ms var(--ease-out) forwards;
+    pointer-events: none;
+  }
+
+  .menu-desplegable--admin.menu-desplegable--abierto .menu-desplegable-panel,
+  .menu-desplegable--admin.menu-desplegable--cerrando .menu-desplegable-panel {
     left: 0;
     right: 0;
     width: 100%;
     margin-top: -8px;
+    transform-origin: top center;
   }
 
-  .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel .acciones-fila {
+  .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel .acciones-fila,
+  .menu-desplegable--movil.menu-desplegable--cerrando .menu-desplegable-panel .acciones-fila {
     flex-direction: column;
     align-items: stretch;
     width: 100%;
@@ -3697,7 +3940,11 @@ tbody tr.selected {
   .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel .boton,
   .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel .admin-nav-link,
   .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel form,
-  .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel select {
+  .menu-desplegable--movil.menu-desplegable--abierto .menu-desplegable-panel select,
+  .menu-desplegable--movil.menu-desplegable--cerrando .menu-desplegable-panel .boton,
+  .menu-desplegable--movil.menu-desplegable--cerrando .menu-desplegable-panel .admin-nav-link,
+  .menu-desplegable--movil.menu-desplegable--cerrando .menu-desplegable-panel form,
+  .menu-desplegable--movil.menu-desplegable--cerrando .menu-desplegable-panel select {
     width: 100%;
     min-height: 44px;
     justify-content: flex-start;
@@ -3705,7 +3952,8 @@ tbody tr.selected {
   }
 
   /* Bottom action sheet en móvil para acciones de tarjetas y filas sin recortes por scroll */
-  .menu-desplegable--fila.menu-desplegable--abierto::before {
+  .menu-desplegable--fila.menu-desplegable--abierto::before,
+  .menu-desplegable--fila.menu-desplegable--cerrando::before {
     content: "";
     position: fixed;
     inset: 0;
@@ -3714,7 +3962,17 @@ tbody tr.selected {
     z-index: 380;
   }
 
-  .menu-desplegable--fila.menu-desplegable--abierto .menu-desplegable-panel {
+  .menu-desplegable--fila.menu-desplegable--abierto::before {
+    animation: backdropEntrada 200ms var(--ease-out) both;
+  }
+
+  .menu-desplegable--fila.menu-desplegable--cerrando::before {
+    animation: backdropSalida 160ms var(--ease-out) forwards;
+    pointer-events: none;
+  }
+
+  .menu-desplegable--fila.menu-desplegable--abierto .menu-desplegable-panel,
+  .menu-desplegable--fila.menu-desplegable--cerrando .menu-desplegable-panel {
     position: fixed;
     top: auto;
     left: 12px;
@@ -3726,6 +3984,16 @@ tbody tr.selected {
     gap: 8px;
     border-radius: var(--radius-lg);
     z-index: 400;
+    transform-origin: bottom center;
+  }
+
+  .menu-desplegable--fila.menu-desplegable--abierto .menu-desplegable-panel {
+    animation: sheetEntrada var(--transition-sheet) var(--ease-out) both;
+  }
+
+  .menu-desplegable--fila.menu-desplegable--cerrando .menu-desplegable-panel {
+    animation: sheetSalida 160ms var(--ease-out) forwards;
+    pointer-events: none;
   }
 
   .menu-desplegable--fila .menu-desplegable-sheet-head {
@@ -3762,6 +4030,66 @@ tbody tr.selected {
     font-size: 18px;
     line-height: 1;
     cursor: pointer;
+    transition: background var(--transition), transform 110ms var(--ease-out);
+  }
+
+  .menu-desplegable-cerrar:active {
+    transform: scale(0.95);
+  }
+
+  @keyframes menuEntrada {
+    from {
+      opacity: 0;
+      transform: translateY(-5px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes menuSalida {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.97);
+    }
+  }
+
+  @keyframes sheetEntrada {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes sheetSalida {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+  }
+
+  @keyframes filtroEntrada {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   /* Filtros colapsables en móvil: búsqueda visible + menú desplegable de filtros */
@@ -3800,6 +4128,11 @@ tbody tr.selected {
   form.filtros--movil-abierto .filtros-movil-cuerpo,
   .ubicacion-filtros.filtros--movil-abierto .filtros-movil-cuerpo {
     display: contents;
+  }
+
+  form.filtros--movil-abierto .filtros-movil-cuerpo > *,
+  .ubicacion-filtros.filtros--movil-abierto .filtros-movil-cuerpo > * {
+    animation: filtroEntrada 200ms var(--ease-out) both;
   }
 
   .resumen-cards {
@@ -3873,6 +4206,10 @@ tbody tr.selected {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
   *, *::before, *::after {
     transition: none !important;
     animation: none !important;

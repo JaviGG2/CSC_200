@@ -139,8 +139,15 @@
   iniciarTipoCedula();
 
   const mostrarPaso = (numero) => {
+    const haciaAtras = numero < pasoActual;
+
     paginas.forEach((pagina) => {
-      pagina.classList.toggle('pagina--activa', Number(pagina.dataset.paso) === numero);
+      const esActual = Number(pagina.dataset.paso) === numero;
+      pagina.classList.remove('wizard-pagina--atras');
+      if (esActual && haciaAtras) {
+        pagina.classList.add('wizard-pagina--atras');
+      }
+      pagina.classList.toggle('pagina--activa', esActual);
     });
 
     pasos.forEach((paso, indice) => {
