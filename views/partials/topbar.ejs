@@ -34,7 +34,10 @@
 
       <div class="app-header-right">
         <% if (moduloActual !== 'portal') { %>
-          <a href="/inicio" class="boton boton--mini boton--secundario">Módulos</a>
+          <a href="/inicio" class="boton boton--mini boton--secundario">
+            <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">apps</span>
+            <span>Módulos</span>
+          </a>
         <% } %>
 
         <% if (usuarioActual) { %>
@@ -45,7 +48,10 @@
               <small><%= usuarioActual.rol === 'admin' ? 'Administrador' : 'Gestor' %></small>
             </span>
             <form method="post" action="/logout" class="logout-form">
-              <button type="submit" class="boton boton--mini boton--secundario">Salir</button>
+              <button type="submit" class="boton boton--mini boton--secundario">
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">logout</span>
+                <span>Salir</span>
+              </button>
             </form>
           </div>
         <% } %>
@@ -60,23 +66,42 @@
           aria-expanded="false"
           aria-haspopup="true"
         >
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">menu</span>
           <span>Menú</span>
-          <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+          <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
         </button>
 
         <div class="menu-desplegable-panel menu-desplegable-panel--cabecera" data-menu-panel>
           <div class="menu-cabecera-titulo"><%= infoModulo.nombre %></div>
 
           <% if (moduloActual === 'censo') { %>
-            <a href="/censo" class="menu-desplegable-item <%= subseccionActual === 'inicio' || subseccionActual === 'censo' ? 'menu-desplegable-item--activo' : '' %>">Inicio del censo</a>
-            <a href="/wizard" class="menu-desplegable-item <%= subseccionActual === 'registro' ? 'menu-desplegable-item--activo' : '' %>">Registrar vivienda</a>
-            <a href="/personas" class="menu-desplegable-item <%= subseccionActual === 'personas' ? 'menu-desplegable-item--activo' : '' %>">Padrón de personas</a>
-            <a href="/ubicacion" class="menu-desplegable-item <%= subseccionActual === 'ubicacion' ? 'menu-desplegable-item--activo' : '' %>">Por ubicación</a>
+            <a href="/censo" class="menu-desplegable-item <%= subseccionActual === 'inicio' || subseccionActual === 'censo' ? 'menu-desplegable-item--activo' : '' %>">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">home</span>
+              <span>Inicio del censo</span>
+            </a>
+            <a href="/wizard" class="menu-desplegable-item <%= subseccionActual === 'registro' ? 'menu-desplegable-item--activo' : '' %>">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">add_home</span>
+              <span>Registrar vivienda</span>
+            </a>
+            <a href="/personas" class="menu-desplegable-item <%= subseccionActual === 'personas' ? 'menu-desplegable-item--activo' : '' %>">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">groups</span>
+              <span>Padrón de personas</span>
+            </a>
+            <a href="/ubicacion" class="menu-desplegable-item <%= subseccionActual === 'ubicacion' ? 'menu-desplegable-item--activo' : '' %>">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">location_on</span>
+              <span>Por ubicación</span>
+            </a>
             <% if (esAdminActual) { %>
-              <a href="/admin" class="menu-desplegable-item <%= subseccionActual === 'admin' ? 'menu-desplegable-item--activo' : '' %>">Administración</a>
+              <a href="/admin" class="menu-desplegable-item <%= subseccionActual === 'admin' ? 'menu-desplegable-item--activo' : '' %>">
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">admin_panel_settings</span>
+                <span>Administración</span>
+              </a>
             <% } %>
           <% } else if (moduloActual === 'expedientes') { %>
-            <a href="/expedientes-medicos" class="menu-desplegable-item menu-desplegable-item--activo">Listado de expedientes</a>
+            <a href="/expedientes-medicos" class="menu-desplegable-item menu-desplegable-item--activo">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">clinical_notes</span>
+              <span>Listado de expedientes</span>
+            </a>
             <button
               type="button"
               class="menu-desplegable-item"
@@ -86,21 +111,33 @@
               data-popup-subtitulo="Vincule el expediente a un habitante censado o ingrese los datos manualmente."
               data-popup-submit="Guardar expediente médico"
               data-popup-foco="#paciente_nombre"
-            >+ Nuevo expediente</button>
+            >
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">add_circle</span>
+              <span>Nuevo expediente</span>
+            </button>
           <% } else if (moduloActual === 'beneficios') { %>
-            <a href="/beneficios" class="menu-desplegable-item menu-desplegable-item--activo">Historial de entregas</a>
+            <a href="/beneficios" class="menu-desplegable-item menu-desplegable-item--activo">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">inventory_2</span>
+              <span>Historial de entregas</span>
+            </a>
             <button
               type="button"
               class="menu-desplegable-item"
               data-abrir-popup="dialogo-beneficio"
               data-reset-form
               data-popup-foco="#beneficiario_nombre"
-            >+ Registrar entrega</button>
+            >
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">add_circle</span>
+              <span>Registrar entrega</span>
+            </button>
           <% } %>
 
           <% if (moduloActual !== 'portal') { %>
             <div class="menu-desplegable-sep" role="separator"></div>
-            <a href="/inicio" class="menu-desplegable-item">Cambiar módulo</a>
+            <a href="/inicio" class="menu-desplegable-item">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">swap_horiz</span>
+              <span>Cambiar módulo</span>
+            </a>
           <% } %>
 
           <% if (usuarioActual) { %>
@@ -110,7 +147,10 @@
               <small><%= usuarioActual.rol === 'admin' ? 'Administrador' : 'Gestor' %></small>
             </div>
             <form method="post" action="/logout" class="menu-desplegable-form">
-              <button type="submit" class="menu-desplegable-item menu-desplegable-item--peligro">Cerrar sesión</button>
+              <button type="submit" class="menu-desplegable-item menu-desplegable-item--peligro">
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">logout</span>
+                <span>Cerrar sesión</span>
+              </button>
             </form>
           <% } %>
         </div>

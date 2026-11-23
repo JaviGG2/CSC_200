@@ -48,7 +48,10 @@
           data-popup-subtitulo="Vincule el expediente a un habitante censado o ingrese los datos manualmente."
           data-popup-submit="Guardar expediente médico"
           data-popup-foco="#paciente_nombre"
-        >+ Nuevo expediente</button>
+        >
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">add</span>
+          <span>Nuevo expediente</span>
+        </button>
         <div class="menu-desplegable menu-desplegable--movil" data-menu-desplegable>
           <button
             type="button"
@@ -58,11 +61,14 @@
             aria-haspopup="true"
           >
             <span>Opciones</span>
-            <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+            <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
           </button>
           <div class="menu-desplegable-panel" data-menu-panel>
             <form method="post" action="/expedientes-medicos/sincronizar">
-              <button type="submit" class="boton boton--secundario" data-cargando-texto="Sincronizando...">Sincronizar con Neon</button>
+              <button type="submit" class="boton boton--secundario" data-cargando-texto="Sincronizando...">
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">cloud_sync</span>
+                <span>Sincronizar con Neon</span>
+              </button>
             </form>
           </div>
         </div>
@@ -71,24 +77,36 @@
 
     <section class="resumen-cards" aria-label="Resumen de salud">
       <article class="resumen-card">
+        <span class="resumen-card-icono" aria-hidden="true">
+          <span class="material-symbols-rounded">clinical_notes</span>
+        </span>
         <div>
           <span class="resumen-card-num"><%= statsVista.total || 0 %></span>
           <h3>Expedientes registrados</h3>
         </div>
       </article>
       <article class="resumen-card">
+        <span class="resumen-card-icono" aria-hidden="true">
+          <span class="material-symbols-rounded">warning</span>
+        </span>
         <div>
           <span class="resumen-card-num"><%= statsVista.riesgo_alto || 0 %></span>
           <h3>Casos de riesgo alto</h3>
         </div>
       </article>
       <article class="resumen-card">
+        <span class="resumen-card-icono" aria-hidden="true">
+          <span class="material-symbols-rounded">accessible</span>
+        </span>
         <div>
           <span class="resumen-card-num"><%= statsVista.con_discapacidad || 0 %></span>
           <h3>Personas con discapacidad</h3>
         </div>
       </article>
       <article class="resumen-card">
+        <span class="resumen-card-icono" aria-hidden="true">
+          <span class="material-symbols-rounded">medication</span>
+        </span>
         <div>
           <span class="resumen-card-num"><%= statsVista.con_cronicas || 0 %></span>
           <h3>Condiciones crónicas</h3>
@@ -120,11 +138,12 @@
 
       <div class="filtros-movil-barra">
         <button type="button" class="boton boton--mini boton--secundario" data-toggle-filtros aria-expanded="false">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">tune</span>
           <span>Filtros</span>
           <% if (cantFiltrosMedExtras) { %>
             <span class="filtros-movil-badge"><%= cantFiltrosMedExtras %></span>
           <% } %>
-          <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+          <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
         </button>
         <% if (filtrosVista.q || cantFiltrosMedExtras) { %>
           <a href="/expedientes-medicos" class="boton boton--mini boton--texto">Limpiar</a>
@@ -249,13 +268,16 @@
                         aria-expanded="false"
                         aria-haspopup="true"
                       >
+                        <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">more_vert</span>
                         <span>Acciones</span>
-                        <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+                        <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
                       </button>
                       <div class="menu-desplegable-panel" data-menu-panel>
                         <div class="menu-desplegable-sheet-head">
                           <span><%= item.paciente_nombre %></span>
-                          <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">×</button>
+                          <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">
+                            <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+                          </button>
                         </div>
                         <div class="acciones-fila">
                           <button
@@ -273,7 +295,10 @@
                             data-alergias="<%= item.alergias || 'Ninguna registrada' %>"
                             data-medicamentos="<%= item.medicamentos_actuales || 'Sin tratamiento activo' %>"
                             data-observaciones="<%= item.observaciones || 'Sin observaciones adicionales.' %>"
-                          >Ficha</button>
+                          >
+                            <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">clinical_notes</span>
+                            <span>Ficha</span>
+                          </button>
 
                           <button
                             type="button"
@@ -292,7 +317,10 @@
                             data-alergias="<%= item.alergias || '' %>"
                             data-medicamentos="<%= item.medicamentos_actuales || '' %>"
                             data-observaciones="<%= item.observaciones || '' %>"
-                          >Editar</button>
+                          >
+                            <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">edit</span>
+                            <span>Editar</span>
+                          </button>
 
                           <form
                             method="post"
@@ -301,7 +329,10 @@
                             data-confirmar-titulo="Eliminar expediente médico"
                             data-confirmar-boton="Eliminar expediente"
                           >
-                            <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                            <button type="submit" class="boton boton--mini boton--peligro">
+                              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">delete</span>
+                              <span>Eliminar</span>
+                            </button>
                           </form>
                         </div>
                       </div>
@@ -333,7 +364,9 @@
         <h2 id="titulo-dialogo-expediente" data-popup-titulo>
           <%= edicion ? 'Editar expediente médico #' + edicion.id : 'Registrar expediente médico' %>
         </h2>
-        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+        </button>
       </div>
 
       <p class="dialogo-subtitulo" data-popup-subtitulo>
@@ -504,7 +537,9 @@
           <span class="eyebrow">Ficha clínica</span>
           <h2 id="detalle-med-nombre">Paciente</h2>
         </div>
-        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+        </button>
       </div>
 
       <dl class="dialogo-detalle-grid">

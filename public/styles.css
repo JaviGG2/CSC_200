@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0');
 
 /* ============================================================================
    SISTEMA DE DISEÑO — 60 / 30 / 10 (Neutros arquitectónicos + Carmesí institucional)
@@ -3483,9 +3484,43 @@ tbody tr.selected {
   gap: 4px;
 }
 
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 450, 'GRAD' 0, 'opsz' 24;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.material-symbols-rounded--sm {
+  font-size: 17px;
+  font-variation-settings: 'FILL' 0, 'wght' 450, 'GRAD' 0, 'opsz' 20;
+}
+
+.material-symbols-rounded--lg {
+  font-size: 24px;
+}
+
 .menu-desplegable-caret {
-  font-size: 11px;
   opacity: 0.75;
+  transition: transform var(--transition);
+}
+
+.menu-desplegable--abierto .menu-desplegable-caret,
+[data-toggle-filtros][aria-expanded="true"] .menu-desplegable-caret {
+  transform: rotate(180deg);
 }
 
 .menu-cabecera-titulo {
@@ -3523,6 +3558,7 @@ tbody tr.selected {
 .menu-desplegable-item {
   display: flex;
   align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 42px;
   padding: 8px 12px;

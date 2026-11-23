@@ -154,7 +154,7 @@
     btn.type = 'button';
     btn.className = 'alerta-cerrar';
     btn.setAttribute('aria-label', 'Cerrar aviso');
-    btn.textContent = '×';
+    btn.innerHTML = '<span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>';
     btn.addEventListener('click', () => alerta.remove());
     alerta.appendChild(btn);
 

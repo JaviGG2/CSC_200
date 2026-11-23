@@ -44,7 +44,10 @@
         </p>
       </div>
       <div class="censo-hero-acciones">
-        <a href="/wizard" class="boton boton--primario">+ Registrar vivienda</a>
+        <a href="/wizard" class="boton boton--primario">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">add</span>
+          <span>Registrar vivienda</span>
+        </a>
         <div class="menu-desplegable menu-desplegable--movil" data-menu-desplegable>
           <button
             type="button"
@@ -54,18 +57,22 @@
             aria-haspopup="true"
           >
             <span>Opciones</span>
-            <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+            <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
           </button>
           <div class="menu-desplegable-panel" data-menu-panel>
             <button type="button" class="boton boton--secundario" id="btn-sincronizar-neon">
-              Subir a Neon
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">cloud_upload</span>
+              <span>Subir a Neon</span>
             </button>
             <button
               type="button"
               class="boton boton--secundario"
               id="btn-sincronizar-locales"
               <%= sincronizacion.solo_local ? '' : 'disabled' %>
-            >Subir solo local (<%= sincronizacion.solo_local || 0 %>)</button>
+            >
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">cloud_sync</span>
+              <span>Subir solo local (<%= sincronizacion.solo_local || 0 %>)</span>
+            </button>
             <% if (admin) { %>
               <button
                 type="button"
@@ -75,7 +82,10 @@
                 data-titulo="Vaciar base de datos"
                 data-mensaje="Se eliminarán todos los registros del censo y la numeración volverá a empezar en 1. Esta acción no se puede deshacer."
                 data-texto-boton="Vaciar registros"
-              >Vaciar BD</button>
+              >
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">delete_forever</span>
+                <span>Vaciar BD</span>
+              </button>
             <% } %>
           </div>
         </div>
@@ -119,11 +129,12 @@
 
       <div class="filtros-movil-barra">
         <button type="button" class="boton boton--mini boton--secundario" data-toggle-filtros aria-expanded="false">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">tune</span>
           <span>Filtros</span>
           <% if (filtrosVista.consejo) { %>
             <span class="filtros-movil-badge">1</span>
           <% } %>
-          <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+          <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
         </button>
         <% if (filtrosVista.consejo || filtrosVista.q) { %>
           <a href="/censo" class="boton boton--mini boton--texto">Limpiar</a>
@@ -147,7 +158,7 @@
     <section class="resumen-cards" aria-label="Resumen del filtro">
       <article class="resumen-card">
         <span class="resumen-card-icono" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span class="material-symbols-rounded">home</span>
         </span>
         <div>
           <span class="resumen-card-num"><%= statsVista.viviendas || 0 %></span>
@@ -157,7 +168,7 @@
       </article>
       <article class="resumen-card">
         <span class="resumen-card-icono" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          <span class="material-symbols-rounded">layers</span>
         </span>
         <div>
           <span class="resumen-card-num"><%= statsVista.anexos || 0 %></span>
@@ -167,7 +178,7 @@
       </article>
       <article class="resumen-card">
         <span class="resumen-card-icono" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="material-symbols-rounded">groups</span>
         </span>
         <div>
           <span class="resumen-card-num"><%= statsVista.personas || 0 %></span>
@@ -259,16 +270,25 @@
                     aria-expanded="false"
                     aria-haspopup="true"
                   >
+                    <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">more_vert</span>
                     <span>Acciones</span>
-                    <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+                    <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
                   </button>
                   <div class="menu-desplegable-panel" data-menu-panel>
                     <div class="menu-desplegable-sheet-head">
                       <span>Vivienda N.º <%= grupo.id %></span>
-                      <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">×</button>
+                      <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">
+                        <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+                      </button>
                     </div>
-                    <a href="/viviendas/<%= grupo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
-                    <a href="/viviendas/<%= grupo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
+                    <a href="/viviendas/<%= grupo.id %>" class="boton boton--mini boton--secundario">
+                      <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">visibility</span>
+                      <span>Ver detalle</span>
+                    </a>
+                    <a href="/viviendas/<%= grupo.id %>/editar" class="boton boton--mini boton--primario">
+                      <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">edit</span>
+                      <span>Editar</span>
+                    </a>
                     <% if (admin) { %>
                       <button
                         type="button"
@@ -278,7 +298,10 @@
                         data-titulo="Eliminar vivienda"
                         data-mensaje="Se eliminará la vivienda N.º <%= grupo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
                         data-texto-boton="Eliminar vivienda"
-                      >Eliminar</button>
+                      >
+                        <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">delete</span>
+                        <span>Eliminar</span>
+                      </button>
                     <% } %>
                   </div>
                 </div>
@@ -395,16 +418,25 @@
                             aria-expanded="false"
                             aria-haspopup="true"
                           >
+                            <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">more_vert</span>
                             <span>Acciones</span>
-                            <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+                            <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
                           </button>
                           <div class="menu-desplegable-panel" data-menu-panel>
                             <div class="menu-desplegable-sheet-head">
                               <span><%= anexo.numero_anexo || 'Anexo N.º ' + anexo.id %></span>
-                              <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">×</button>
+                              <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">
+                                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+                              </button>
                             </div>
-                            <a href="/viviendas/<%= anexo.id %>" class="boton boton--mini boton--secundario">Ver detalle</a>
-                            <a href="/viviendas/<%= anexo.id %>/editar" class="boton boton--mini boton--primario">Editar</a>
+                            <a href="/viviendas/<%= anexo.id %>" class="boton boton--mini boton--secundario">
+                              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">visibility</span>
+                              <span>Ver detalle</span>
+                            </a>
+                            <a href="/viviendas/<%= anexo.id %>/editar" class="boton boton--mini boton--primario">
+                              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">edit</span>
+                              <span>Editar</span>
+                            </a>
                             <% if (admin) { %>
                               <button
                                 type="button"
@@ -414,7 +446,10 @@
                                 data-titulo="Eliminar anexo"
                                 data-mensaje="Se eliminará el anexo N.º <%= anexo.id %> junto con su jefe de familia e integrantes. Esta acción no se puede deshacer."
                                 data-texto-boton="Eliminar anexo"
-                              >Eliminar</button>
+                              >
+                                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">delete</span>
+                                <span>Eliminar</span>
+                              </button>
                             <% } %>
                           </div>
                         </div>
@@ -489,7 +524,9 @@
     <form method="post" action="" id="form-password" class="dialogo-form" data-bloquear>
       <div class="dialogo-head">
         <h2 data-password-titulo>Confirmar acción</h2>
-        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+        </button>
       </div>
 
       <p class="dialogo-texto" data-password-mensaje></p>

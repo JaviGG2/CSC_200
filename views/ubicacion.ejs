@@ -36,8 +36,9 @@
 
       <div class="filtros-movil-barra">
         <button type="button" class="boton boton--mini boton--secundario" data-toggle-filtros aria-expanded="false">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">tune</span>
           <span>Más filtros</span>
-          <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+          <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
         </button>
         <button type="button" class="boton boton--mini boton--texto" onclick="limpiarFiltros()">Limpiar</button>
       </div>
@@ -69,7 +70,7 @@
               <span class="badge"><%= comunidad.total %></span>
               <strong><%= comunidad.comunidad %></strong>
             </div>
-            <span class="indicador" id="indicador-<%= comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_') %>">▼</span>
+            <span class="material-symbols-rounded indicador" id="indicador-<%= comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_') %>" aria-hidden="true">expand_more</span>
           </div>
           <div class="grupo-ubicacion-body" id="cuerpo-<%= comunidad.comunidad.replace(/[^a-z0-9]+/gi, '_') %>">
             <div class="tarjetas-ubicacion">
@@ -150,7 +151,7 @@
                 <span class="badge">${comunidad.total}</span>
                 <strong>${comunidad.comunidad}</strong>
               </div>
-              <span class="indicador" id="indicador-${slug}">▼</span>
+              <span class="material-symbols-rounded indicador" id="indicador-${slug}" aria-hidden="true">expand_more</span>
             </div>
             <div class="grupo-ubicacion-body" id="cuerpo-${slug}">
               <div class="tarjetas-ubicacion">
@@ -193,10 +194,10 @@
       const estaOculto = cuerpo.classList.contains('collapso');
       if (estaOculto) {
         cuerpo.classList.remove('collapso');
-        indicador.textContent = '▼';
+        indicador.textContent = 'expand_more';
       } else {
         cuerpo.classList.add('collapso');
-        indicador.textContent = '▶';
+        indicador.textContent = 'chevron_right';
       }
     }
 

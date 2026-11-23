@@ -45,11 +45,17 @@
               aria-haspopup="true"
             >
               <span>Opciones</span>
-              <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+              <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
             </button>
             <div class="menu-desplegable-panel" data-menu-panel>
-              <a href="/api/export/personas.csv" class="boton boton--mini boton--secundario">Exportar CSV</a>
-              <a href="/reportes/imprimir" target="_blank" rel="noopener" class="boton boton--mini boton--secundario">Imprimir / PDF</a>
+              <a href="/api/export/personas.csv" class="boton boton--mini boton--secundario">
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">download</span>
+                <span>Exportar CSV</span>
+              </a>
+              <a href="/reportes/imprimir" target="_blank" rel="noopener" class="boton boton--mini boton--secundario">
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">print</span>
+                <span>Imprimir / PDF</span>
+              </a>
             </div>
           </div>
         </div>
@@ -77,11 +83,12 @@
 
           <div class="filtros-movil-barra">
             <button type="button" class="boton boton--mini boton--secundario" data-toggle-filtros aria-expanded="false">
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">tune</span>
               <span>Filtros avanzados</span>
               <% if (cantFiltrosExtras) { %>
                 <span class="filtros-movil-badge"><%= cantFiltrosExtras %></span>
               <% } %>
-              <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+              <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
             </button>
             <% if (filtros.q || cantFiltrosExtras) { %>
               <a href="/personas" class="boton boton--mini boton--texto">Limpiar</a>
@@ -246,16 +253,22 @@
                       aria-expanded="false"
                       aria-haspopup="true"
                     >
+                      <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">more_vert</span>
                       <span>Acciones</span>
-                      <span class="menu-desplegable-caret" aria-hidden="true">▾</span>
+                      <span class="material-symbols-rounded material-symbols-rounded--sm menu-desplegable-caret" aria-hidden="true">expand_more</span>
                     </button>
                     <div class="menu-desplegable-panel" data-menu-panel>
                       <div class="menu-desplegable-sheet-head">
                         <span><%= p.apellidos %>, <%= p.nombres %></span>
-                        <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">×</button>
+                        <button type="button" class="menu-desplegable-cerrar" data-cerrar-menu aria-label="Cerrar acciones">
+                          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+                        </button>
                       </div>
                       <div class="acciones-fila">
-                        <a href="/personas/<%= p.tipo %>/<%= p.persona_id %>" class="boton boton--mini boton--secundario">Ficha</a>
+                        <a href="/personas/<%= p.tipo %>/<%= p.persona_id %>" class="boton boton--mini boton--secundario">
+                          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">badge</span>
+                          <span>Ficha</span>
+                        </a>
                         <button
                           type="button"
                           class="boton boton--mini boton--peligro"
@@ -264,7 +277,10 @@
                           data-titulo="Eliminar persona"
                           data-mensaje="Se eliminará a <%= p.apellidos %>, <%= p.nombres %> del censo.<%= p.tipo === 'jefe' ? ' La vivienda quedará sin jefe registrado.' : '' %> Esta acción no se puede deshacer."
                           data-texto-boton="Eliminar"
-                        >Eliminar</button>
+                        >
+                          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">delete</span>
+                          <span>Eliminar</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -285,7 +301,9 @@
     <form method="post" action="" id="form-password" class="dialogo-form" data-bloquear>
       <div class="dialogo-head">
         <h2 data-password-titulo>Confirmar acción</h2>
-        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">×</button>
+        <button type="button" class="cerrar" data-cerrar-dialogo aria-label="Cerrar">
+          <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
+        </button>
       </div>
 
       <p class="dialogo-texto" data-password-mensaje></p>
