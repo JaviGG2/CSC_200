@@ -3523,12 +3523,16 @@ export function vaciarBaseDatos(): { viviendas: number; personas: number } {
     db.prepare('DELETE FROM jefes_familia').run();
     db.prepare('DELETE FROM viviendas').run();
     db.prepare('DELETE FROM registros_censo').run();
+    db.prepare('DELETE FROM expedientes_medicos').run();
+    db.prepare('DELETE FROM beneficios_entregas').run();
     db.prepare('DELETE FROM neon_eliminaciones').run();
 
     reiniciarSecuencia('integrantes_grupo_familiar');
     reiniciarSecuencia('jefes_familia');
     reiniciarSecuencia('viviendas');
     reiniciarSecuencia('registros_censo');
+    reiniciarSecuencia('expedientes_medicos');
+    reiniciarSecuencia('beneficios_entregas');
 
     return { viviendas, personas };
   })();

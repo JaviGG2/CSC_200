@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { requerirAdmin, requerirAuth } from '../../nucleo/autenticacion';
+import { vaciarNeon, invalidarCacheConfiguracion } from '../../../configuracion-neon';
 import {
   CAMPOS_OPCIONES,
   actualizarCampo,
@@ -796,12 +797,14 @@ export function crearRouterSocioeconomico(): Router {
   router.post(
     '/registros/vaciar',
     requerirAdmin,
-    (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (!claveAdministracionValida(req.body.clave, (res.locals.usuario as any)?.id)) {
           return renderizar(res, { status: 403, error: 'Contraseña incorrecta. No se eliminó ningún registro.' });
         }
         const eliminados = vaciarRegistros();
+        await vaciarNeon().catch(() => null);
+        invalidarCacheConfiguracion();
         const mensaje = eliminados
           ? `Se eliminaron ${eliminados} registro${eliminados === 1 ? '' : 's'}. La numeración volverá a empezar en 1.`
           : 'La base de datos ya estaba vacía.';

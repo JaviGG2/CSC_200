@@ -1150,3 +1150,20 @@ export async function guardarConfigSistemaEnNeon(
     };
   }
 }
+
+export async function vaciarNeon(): Promise<void> {
+  try {
+    await conCliente(async (cliente) => {
+      await cliente.query('BEGIN');
+      await cliente.query('DELETE FROM integrantes_grupo_familiar');
+      await cliente.query('DELETE FROM jefes_familia');
+      await cliente.query('DELETE FROM viviendas');
+      await cliente.query('DELETE FROM registros_censo');
+      await cliente.query('DELETE FROM expedientes_medicos');
+      await cliente.query('DELETE FROM beneficios_entregas');
+      await cliente.query('COMMIT');
+    });
+  } catch {
+    // ignore if neon is offline or not configured
+  }
+}
