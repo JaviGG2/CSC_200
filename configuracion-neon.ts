@@ -18,6 +18,8 @@ import {
   upsertUsuarioDesdeNeon,
   listarEliminacionesUsuarioNeon,
   eliminarEliminacionUsuarioNeon,
+  listarIngresosPendientesNeon,
+  marcarIngresosSincronizados,
 } from './db';
 import { asegurarEsquema, crearClienteNeon } from './neon';
 
@@ -76,14 +78,17 @@ async function sembrarNeonSiEstaVacio(cliente: Client): Promise<void> {
     if (Number(consejos.rows[0]?.total || 0) === 0) {
       const locales = listarConsejosComunales({ soloActivos: false });
       for (const consejo of locales) {
-        await cliente.query(
-          `INSERT INTO consejos_comunales (nombre, sector, activo)
-           SELECT $1::text, $2::text, $3::boolean
-           WHERE NOT EXISTS (
-             SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
-           )`,
-          [consejo.nombre, consejo.sector, consejo.activo]
+        const yaExiste = await cliente.query(
+          'SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1) LIMIT 1',
+          [consejo.nombre]
         );
+        if (!yaExiste.rowCount) {
+          await cliente.query(
+            `INSERT INTO consejos_comunales (nombre, sector, activo)
+             VALUES ($1, $2, $3)`,
+            [consejo.nombre, consejo.sector, consejo.activo]
+          );
+        }
       }
 
       if (locales.length === 0 && obtenerConfigSistema('consejos_sembrados') !== '1') {
@@ -91,14 +96,16 @@ async function sembrarNeonSiEstaVacio(cliente: Client): Promise<void> {
           .prepare("SELECT DISTINCT nombre FROM territorios WHERE tipo = 'comunidad' AND TRIM(nombre) <> ''")
           .all() as Array<{ nombre: string }>;
         for (const comunidad of comunidades) {
-          await cliente.query(
-            `INSERT INTO consejos_comunales (nombre)
-             SELECT $1::text
-             WHERE NOT EXISTS (
-               SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
-             )`,
+          const yaExiste = await cliente.query(
+            'SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1) LIMIT 1',
             [comunidad.nombre]
           );
+          if (!yaExiste.rowCount) {
+            await cliente.query(
+              'INSERT INTO consejos_comunales (nombre) VALUES ($1)',
+              [comunidad.nombre]
+            );
+          }
         }
       }
     }
@@ -430,10 +437,15 @@ async function upsertTerritorioConCliente(
       [porNuevoNombre.rows[0].id, nombre, padreId, activo]
     );
   } else {
+    const maxOrden = await cliente.query(
+      'SELECT COALESCE(MAX(orden), 0)::int + 10 AS siguiente FROM territorios WHERE tipo = $1',
+      [tipo]
+    );
+    const siguienteOrden = Number(maxOrden.rows[0]?.siguiente || 10);
     await cliente.query(
       `INSERT INTO territorios (tipo, nombre, padre_id, activo, orden)
-       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(orden), 0) + 10 FROM territorios WHERE tipo = $1))`,
-      [tipo, nombre, padreId, activo]
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tipo, nombre, padreId, activo, siguienteOrden]
     );
   }
 }
@@ -586,6 +598,49 @@ async function aplicarUsuarios(cliente: Client): Promise<number> {
   return rows.length;
 }
 
+async function aplicarIngresos(cliente: Client): Promise<number> {
+  const pendientes = listarIngresosPendientesNeon();
+  const sincronizados: number[] = [];
+
+  for (const ingreso of pendientes) {
+    const limpio = ingreso.usuario.trim().toLowerCase();
+    const uRes = await cliente.query(
+      'SELECT id FROM usuarios WHERE lower(usuario) = lower($1) LIMIT 1',
+      [limpio]
+    );
+    const usuarioIdNeon = uRes.rowCount ? Number(uRes.rows[0].id) : null;
+
+    await cliente.query(
+      `INSERT INTO ingresos_sistema (usuario_id, usuario, nombre, rol, modulo, fecha_ingreso)
+       VALUES ($1, $2, $3, $4, $5, $6::timestamptz)`,
+      [
+        usuarioIdNeon,
+        limpio,
+        ingreso.nombre,
+        ingreso.rol === 'admin' ? 'admin' : 'gestor',
+        ingreso.modulo || 'portal',
+        ingreso.fecha_ingreso,
+      ]
+    );
+
+    if (usuarioIdNeon) {
+      await cliente.query(
+        `UPDATE usuarios
+         SET total_ingresos = COALESCE(total_ingresos, 0) + 1,
+             ultimo_ingreso = GREATEST(ultimo_ingreso, $2::timestamptz),
+             ultima_actividad = GREATEST(ultima_actividad, $3::timestamptz)
+         WHERE id = $1`,
+        [usuarioIdNeon, ingreso.fecha_ingreso, ingreso.fecha_ingreso]
+      );
+    }
+
+    sincronizados.push(ingreso.id);
+  }
+
+  marcarIngresosSincronizados(sincronizados);
+  return sincronizados.length;
+}
+
 async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
   try {
     const resultado = await conCliente(async (cliente) => {
@@ -595,6 +650,7 @@ async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
       const campos = await aplicarConfigCampos(cliente);
       const territorios = await aplicarTerritorios(cliente);
       const usuarios = await aplicarUsuarios(cliente);
+      await aplicarIngresos(cliente);
       return { consejos, opciones, campos, territorios, usuarios };
     });
 

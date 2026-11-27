@@ -24,10 +24,7 @@
       <div class="panel-head panel-head--fila">
         <div>
           <h2>Catálogo de consejos comunales</h2>
-          <p>
-            Los consejos activos alimentan el filtro del Censo y el formulario de registro.
-            Los cambios se guardan en Neon y se reflejan a todos los usuarios.
-          </p>
+          <p>Catálogo activo para filtros y registro.</p>
         </div>
         <% if (config) { %>
           <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
@@ -70,7 +67,7 @@
     <section class="panel">
       <div class="panel-head">
         <h2>Consejos registrados</h2>
-        <p><%= consejos.length %> consejo(s). Los inactivos no aparecen en el formulario.</p>
+        <p><%= consejos.length %> consejo(s).</p>
       </div>
 
       <% if (!consejos.length) { %>

@@ -38,10 +38,7 @@
     <section class="censo-hero">
       <div class="censo-hero-texto">
         <span class="eyebrow">Censo General</span>
-        <h2>Consulta y exploración del censo</h2>
-        <p>
-          Explore viviendas, anexos y habitantes por consejo comunal o sincronice los registros de campo con la nube.
-        </p>
+        <h2>Viviendas y Habitantes</h2>
       </div>
       <div class="censo-hero-acciones">
         <a href="/wizard" class="boton boton--primario">
@@ -163,7 +160,6 @@
         <div>
           <span class="resumen-card-num"><%= statsVista.viviendas || 0 %></span>
           <h3>Viviendas principales</h3>
-          <p>Según el filtro seleccionado</p>
         </div>
       </article>
       <article class="resumen-card">
@@ -173,7 +169,6 @@
         <div>
           <span class="resumen-card-num"><%= statsVista.anexos || 0 %></span>
           <h3>Anexos vinculados</h3>
-          <p>Pisos, locales o dependencias</p>
         </div>
       </article>
       <article class="resumen-card">
@@ -183,7 +178,6 @@
         <div>
           <span class="resumen-card-num"><%= statsVista.personas || 0 %></span>
           <h3>Personas censadas</h3>
-          <p>Jefes de familia e integrantes</p>
         </div>
       </article>
     </section>
@@ -191,10 +185,7 @@
     <section class="censo-panel">
       <div class="censo-panel-head">
         <div>
-          <h2>Viviendas y personas</h2>
-          <p>
-            <%= gruposCenso.length %> vivienda(s) principal(es) · Los anexos vinculados aparecen dentro de su vivienda.
-          </p>
+          <h2>Viviendas registradas</h2>
         </div>
         <div class="panel-head-acciones">
           <span class="contador" id="censo-conteo-vivo"><%= gruposCenso.length %> viviendas visibles</span>

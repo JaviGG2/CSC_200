@@ -28,14 +28,12 @@
       <div class="login-portal-titulos">
         <span class="eyebrow">Sistema Integral Comunal</span>
         <h1>Comuna Socialista Carabobo 200</h1>
-        <p>Tres módulos independientes conectados únicamente por una base de datos comunal compartida.</p>
       </div>
     </section>
 
     <section class="portal-modulos-panel" aria-labelledby="titulo-modulos-login">
       <div class="portal-modulos-head">
-        <h2 id="titulo-modulos-login">Seleccione un módulo para ingresar</h2>
-        <p>Cada módulo solicita iniciar sesión antes de permitir el acceso.</p>
+        <h2 id="titulo-modulos-login">Seleccione un módulo</h2>
       </div>
 
       <div class="portal-modulos-lista portal-modulos-lista--tres" role="group" aria-label="Módulos del sistema">
@@ -64,18 +62,17 @@
             </div>
             <h3><%= mod.titulo %></h3>
             <p><%= mod.descripcion %></p>
-            <span class="portal-modulo-cta">Ingresar con sesión <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">arrow_forward</span></span>
+            <span class="portal-modulo-cta">Ingresar <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">arrow_forward</span></span>
           </button>
         <% }); %>
       </div>
 
       <div class="portal-modulos-pie">
-        <span class="censo-subtitulo">¿Desea elegir módulo después de entrar?</span>
         <button
           type="button"
           class="boton boton--secundario"
           id="btn-abrir-login-general"
-        >Iniciar sesión en el portal</button>
+        >Entrar al portal</button>
       </div>
     </section>
   </main>
@@ -101,12 +98,6 @@
           <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">close</span>
         </button>
       </div>
-
-      <p class="dialogo-subtitulo" id="login-subtitulo">
-        <%= infoModuloActivo
-          ? 'Autentíquese para abrir el módulo ' + infoModuloActivo.titulo + '.'
-          : 'Ingrese sus credenciales para acceder al selector de módulos.' %>
-      </p>
 
       <% if (error) { %>
         <div class="alerta alerta--error" role="alert"><%= error %></div>

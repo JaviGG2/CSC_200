@@ -27,7 +27,6 @@
     <section class="panel panel--wizard" id="wizard-registro">
       <div class="panel-head">
         <h2>Nueva Vivienda / Casa</h2>
-        <p>Registre el expediente completo en tres pasos: ubicación, jefe de familia y grupo familiar.</p>
       </div>
 
       <form id="form-wizard" novalidate>
@@ -38,11 +37,8 @@
               <span class="material-symbols-rounded">photo_camera</span>
             </span>
             <div>
-              <h3>Escaneo inteligente de planilla</h3>
-              <p>
-                Tome una foto del «Estudio Demográfico y Socioeconómico». La imagen se procesa
-                en memoria en el navegador y no se guarda en el servidor.
-              </p>
+              <h3>Escaneo de planilla</h3>
+              <p>Tome una foto para autocompletar los campos desde su navegador.</p>
             </div>
           </div>
           <div class="panel-escaneo-acciones">
@@ -160,7 +156,6 @@
                     <option value="<%= consejo.id %>"><%= consejo.nombre %></option>
                   <% }); %>
                 </select>
-                <p class="ayuda">Se autoselecciona si el escaneo detecta un consejo coincidente.</p>
               </div>
 
               <div class="campo campo-ancho">
@@ -168,7 +163,6 @@
                   <input type="checkbox" id="w-es-anexo" name="es_anexo" value="1">
                   <strong>¿Es un anexo?</strong>
                 </label>
-                <p class="ayuda">Marque si la vivienda es un anexo, piso o local interno de otra vivienda principal.</p>
               </div>
 
               <div class="bloque-anexo" id="bloque-anexo" hidden>
@@ -315,7 +309,6 @@
                     name="fecha_nacimiento"
                     required
                   >
-                  <p class="ayuda">La edad se calculará automáticamente.</p>
                 </div>
                 <div class="campo">
                   <label for="w-j-edad">Edad <span class="requerido">*</span></label>
@@ -341,7 +334,6 @@
                     <option value="<%= opcion.valor %>"><%= opcion.etiqueta %></option>
                   <% }); %>
                 </select>
-                <p class="ayuda">Catálogo administrado desde Neon.</p>
               </div>
 
               <div class="campos-dobles">
@@ -467,7 +459,6 @@
         <div class="wizard-pagina" data-paso="3">
           <div class="grupo">
             <h3 class="grupo-titulo">C. Grupo Familiar (Integrantes del Hogar)</h3>
-            <p class="ayuda">Registre a todos los miembros de la familia que viven en esta vivienda. Puede agregar tantos integrantes como sea necesario.</p>
 
             <div class="integrantes-card">
               <div class="integrantes-header">
@@ -603,7 +594,7 @@
                   >
                   <strong>Subir esta vivienda a Neon (nube)</strong>
                 </label>
-                <p class="ayuda">Si está activado, esta vivienda se subirá a la base de datos remota en la próxima sincronización. Si lo desactiva, se mantendrá solo en este equipo (modo local).</p>
+                <p class="ayuda">Desactive para mantener el registro solo en este equipo.</p>
               </div>
             </div>
           </div>

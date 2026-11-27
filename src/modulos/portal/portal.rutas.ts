@@ -6,10 +6,13 @@ import {
   verificarClave,
 } from '../../nucleo/autenticacion';
 import {
+  cerrarActividadUsuario,
   contarPersonas,
   contarViviendas,
   db,
+  obtenerEstadisticasIngresos,
   obtenerUsuarioPorUsuario,
+  registrarIngresoSistema,
   sincronizarConfiguracionNeon,
 } from '../../nucleo/base-datos';
 import { rutaLocalSegura, valorSimple } from '../../nucleo/http';
@@ -25,23 +28,23 @@ export type ModuloPortal = {
 export const MODULOS_PORTAL: ModuloPortal[] = [
   {
     clave: 'socioeconomico',
-    etiqueta: 'Módulo 1 · Censo General',
+    etiqueta: 'Módulo 1 · Censo',
     titulo: 'Socio-Demográfico',
-    descripcion: 'Registro socio-demográfico de viviendas, grupos familiares, ingresos, territorio y padrón comunal.',
+    descripcion: 'Viviendas, familias y padrón comunal.',
     ruta: '/censo',
   },
   {
     clave: 'medicos',
-    etiqueta: 'Módulo 2 · Salud Comunitaria',
+    etiqueta: 'Módulo 2 · Salud',
     titulo: 'Expedientes Médicos',
-    descripcion: 'Historias clínicas, condiciones crónicas, discapacidad, medicamentos y controles.',
+    descripcion: 'Historias clínicas y seguimiento de salud.',
     ruta: '/expedientes-medicos',
   },
   {
     clave: 'beneficios',
-    etiqueta: 'Módulo 3 · Programas Sociales',
+    etiqueta: 'Módulo 3 · Ayudas',
     titulo: 'Beneficios',
-    descripcion: 'Control de entregas, ayudas sociales, bolsas alimentarias y seguimiento por familia.',
+    descripcion: 'Entregas y programas sociales.',
     ruta: '/beneficios',
   },
 ];
@@ -78,6 +81,7 @@ function resumenCompartidoBaseDatos() {
     personas: contarPersonas(),
     expedientes,
     beneficios,
+    ingresos: obtenerEstadisticasIngresos(),
   };
 }
 
@@ -133,6 +137,13 @@ export function crearRouterPortal(): Router {
     });
   });
 
+  router.get('/api/status-people', requerirAuth, (_req: Request, res: Response) => {
+    return res.json({
+      ok: true,
+      ...obtenerEstadisticasIngresos(),
+    });
+  });
+
   router.get('/login', (req: Request, res: Response) => {
     const usuarioActual = res.locals.usuario;
     const nextParam = typeof req.query.next === 'string' ? rutaLocalSegura(req.query.next, '') : '';
@@ -183,6 +194,13 @@ export function crearRouterPortal(): Router {
       }
 
       guardarSesion(res, cuenta.id);
+      registrarIngresoSistema({
+        usuario_id: cuenta.id,
+        usuario: cuenta.usuario,
+        nombre: cuenta.nombre,
+        rol: cuenta.rol,
+        modulo: moduloSeleccionado || 'portal',
+      });
       return res.redirect(destino);
     } catch (error) {
       console.error('[login]', error);
@@ -194,6 +212,10 @@ export function crearRouterPortal(): Router {
   });
 
   router.post('/logout', (_req: Request, res: Response) => {
+    const usuarioActual = res.locals.usuario as { id?: number } | undefined;
+    if (usuarioActual?.id) {
+      cerrarActividadUsuario(Number(usuarioActual.id));
+    }
     borrarSesion(res);
     return res.redirect('/login');
   });

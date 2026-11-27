@@ -16,7 +16,6 @@
     <section class="panel">
       <div class="panel-head">
         <h2>Panel de Administración</h2>
-        <p>Gestión centralizada en Neon: consejos comunales, opciones del formulario, territorio, usuarios y reportes.</p>
       </div>
 
       <div class="admin-cards">
@@ -36,6 +35,13 @@
           <span class="admin-card-num"><%= stats.usuarios %></span>
           <h3>Usuarios del sistema</h3>
           <a href="/admin/usuarios" class="boton boton--mini boton--secundario">Gestionar</a>
+        </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= stats.personasIngresaron || 0 %></span>
+          <h3>Personas que ingresaron</h3>
+          <p class="admin-card-sub"><%= stats.totalIngresos || 0 %> ingreso(s) · <%= stats.activosAhora || 0 %> activo(s)</p>
+          <a href="/admin/usuarios#status-people" class="boton boton--mini boton--secundario">Ver accesos</a>
         </article>
 
         <article class="admin-card">
@@ -73,7 +79,6 @@
     <section class="panel">
       <div class="panel-head">
         <h2>Exportaciones</h2>
-        <p>Descargue reportes en formato compatible con Excel o imprima en PDF.</p>
       </div>
       <div class="acciones-form--fila">
         <a href="/api/export/viviendas.csv" class="boton boton--secundario">Viviendas (CSV/Excel)</a>

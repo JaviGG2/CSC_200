@@ -56,6 +56,7 @@ import {
   listarConfigCampos,
   listarConsejosComunales,
   listarConsejosComunalesConConteo,
+  listarIngresosRecientes,
   listarOpcionesFormulario,
   listarTerritorios,
   listarUsuarios,
@@ -63,6 +64,7 @@ import {
   marcarUsuarioSincronizado,
   obtenerCamposFormulario,
   obtenerConsejoComunalPorId,
+  obtenerEstadisticasIngresos,
   obtenerEstadisticasViviendas,
   obtenerExpedienteVivienda,
   obtenerIntegrantesPorVivienda,
@@ -1699,11 +1701,16 @@ export function crearRouterSocioeconomico(): Router {
 
   // Panel de administración (comparte usuarios en BD)
   router.get('/admin', requerirAdmin, (_req: Request, res: Response) => {
+    const ingresos = obtenerEstadisticasIngresos();
     return res.render('admin/index', {
       stats: {
         viviendas: contarViviendas(),
         personas: contarPersonas(),
         usuarios: listarUsuarios().length,
+        personasIngresaron: ingresos.personas_unicas,
+        totalIngresos: ingresos.total_ingresos,
+        ingresosHoy: ingresos.ingresos_hoy,
+        activosAhora: ingresos.activos_ahora,
         comunidades: listarTerritorios({ tipo: 'comunidad' }).length,
         manzanas: listarTerritorios({ tipo: 'manzana' }).length,
         campos: listarConfigCampos().length,
@@ -1964,6 +1971,9 @@ export function crearRouterSocioeconomico(): Router {
     const configNeon = await sincronizarConfiguracionNeon();
     return res.render('admin/usuarios', {
       usuarios: listarUsuarios(),
+      estadisticasIngresos: obtenerEstadisticasIngresos(),
+      ingresosRecientes: listarIngresosRecientes(30),
+      formatearFecha,
       ok: mensajeQuery(req, 'ok'),
       error: mensajeQuery(req, 'error'),
       usuarioSesion: res.locals.usuario,

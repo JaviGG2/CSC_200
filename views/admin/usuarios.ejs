@@ -1,5 +1,16 @@
 <%
   const config = typeof configNeon !== 'undefined' ? configNeon : null;
+  const estadoIngresos = typeof estadisticasIngresos !== 'undefined'
+    ? estadisticasIngresos
+    : { total_ingresos: 0, personas_unicas: 0, ingresos_hoy: 0, activos_ahora: 0, total_cuentas: usuarios.length, ultimo_ingreso: null };
+  const ingresosLista = typeof ingresosRecientes !== 'undefined' ? ingresosRecientes : [];
+  const fmtFecha = typeof formatearFecha === 'function' ? formatearFecha : (v) => (v || '—');
+  const etiquetaModulo = (mod) => {
+    if (mod === 'socioeconomico') return 'Socio-Demográfico';
+    if (mod === 'medicos') return 'Expedientes Médicos';
+    if (mod === 'beneficios') return 'Beneficios';
+    return 'Portal';
+  };
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -19,11 +30,41 @@
     <% if (ok) { %><div class="alerta alerta--exito"><%= ok %></div><% } %>
     <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
 
+    <section class="panel" id="status-people">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Status People</h2>
+          <p>Control de personas que han ingresado al sistema.</p>
+        </div>
+        <span class="contador">
+          <%= estadoIngresos.personas_unicas %> / <%= estadoIngresos.total_cuentas %> cuentas
+        </span>
+      </div>
+
+      <div class="status-people-grid">
+        <div class="status-people-dato">
+          <span class="status-people-label">Personas que ingresaron</span>
+          <strong class="status-people-valor"><%= estadoIngresos.personas_unicas %></strong>
+        </div>
+        <div class="status-people-dato">
+          <span class="status-people-label">Activos ahora</span>
+          <strong class="status-people-valor"><%= estadoIngresos.activos_ahora %></strong>
+        </div>
+        <div class="status-people-dato">
+          <span class="status-people-label">Ingresos hoy</span>
+          <strong class="status-people-valor"><%= estadoIngresos.ingresos_hoy %></strong>
+        </div>
+        <div class="status-people-dato">
+          <span class="status-people-label">Total de ingresos</span>
+          <strong class="status-people-valor"><%= estadoIngresos.total_ingresos %></strong>
+        </div>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="panel-head panel-head--fila">
         <div>
           <h2>Crear usuario</h2>
-          <p>Los gestores registran viviendas y consultan personas. Los administradores también configuran el sistema.</p>
         </div>
         <% if (config) { %>
           <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
@@ -79,6 +120,9 @@
               <th>Usuario</th>
               <th>Nombre</th>
               <th>Rol</th>
+              <th>Sesión</th>
+              <th>Ingresos</th>
+              <th>Último ingreso</th>
               <th>Estado</th>
               <th>Nueva contraseña</th>
               <th>Acciones</th>
@@ -97,6 +141,13 @@
                     <option value="admin" <%= u.rol === 'admin' ? 'selected' : '' %>>Admin</option>
                   </select>
                 </td>
+                <td>
+                  <span class="insignia <%= u.en_linea ? 'insignia--sincronizado' : 'insignia--local' %>">
+                    <%= u.en_linea ? 'En línea' : 'Sin sesión' %>
+                  </span>
+                </td>
+                <td class="col-id"><strong><%= u.total_ingresos || 0 %></strong></td>
+                <td class="col-fecha"><%= u.ultimo_ingreso ? fmtFecha(u.ultimo_ingreso) : 'Nunca' %></td>
                 <td>
                   <label class="check-inline">
                     <input form="edit-<%= u.id %>" type="checkbox" name="activo" value="1" <%= u.activo ? 'checked' : '' %>>
@@ -131,6 +182,54 @@
       <% usuarios.forEach(function (u) { %>
         <form id="edit-<%= u.id %>" method="post" action="/admin/usuarios/<%= u.id %>/editar"></form>
       <% }); %>
+    </section>
+
+    <section class="panel" id="accesos">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Ingresos recientes</h2>
+          <p>Últimos <%= ingresosLista.length %> accesos registrados.</p>
+        </div>
+      </div>
+
+      <div class="tabla-scroll">
+        <table class="tabla-personas">
+          <thead>
+            <tr>
+              <th>Persona</th>
+              <th>Rol</th>
+              <th>Módulo</th>
+              <th>Fecha y hora</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!ingresosLista.length) { %>
+              <tr>
+                <td colspan="4" class="tabla-vacia">
+                  <strong>Sin ingresos registrados</strong>
+                  <span>Los accesos aparecerán aquí cuando los usuarios inicien sesión.</span>
+                </td>
+              </tr>
+            <% } else { %>
+              <% ingresosLista.forEach(function (item) { %>
+                <tr>
+                  <td class="col-persona">
+                    <strong><%= item.nombre %></strong>
+                    <span>@<%= item.usuario %></span>
+                  </td>
+                  <td>
+                    <span class="insignia <%= item.rol === 'admin' ? 'insignia--sincronizado' : 'insignia--local' %>">
+                      <%= item.rol === 'admin' ? 'Administrador' : 'Gestor' %>
+                    </span>
+                  </td>
+                  <td class="col-dato"><%= etiquetaModulo(item.modulo) %></td>
+                  <td class="col-fecha"><%= fmtFecha(item.fecha_ingreso) %></td>
+                </tr>
+              <% }); %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
     </section>
   </main>
 

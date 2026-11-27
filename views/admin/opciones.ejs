@@ -23,10 +23,7 @@
       <div class="panel-head panel-head--fila">
         <div>
           <h2>Opciones de las listas desplegables</h2>
-          <p>
-            Administre los valores de parentesco, nivel de instrucción, estado civil, ingresos y
-            demás catálogos. El formulario de registro se alimenta directamente de estas opciones.
-          </p>
+          <p>Catálogos desplegables del formulario.</p>
         </div>
         <% if (config) { %>
           <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
@@ -54,7 +51,7 @@
                 <option value="<%= grupo.campo %>"><%= grupo.etiqueta %></option>
               <% }); %>
             </datalist>
-            <p class="ayuda">Use el nombre técnico del campo (minúsculas y guion bajo).</p>
+            <p class="ayuda">Solo minúsculas y guion bajo.</p>
           </div>
           <div class="campo">
             <label for="nueva-opcion-valor">Valor <span class="requerido">*</span></label>

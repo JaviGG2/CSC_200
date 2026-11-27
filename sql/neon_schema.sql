@@ -192,6 +192,26 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE INDEX IF NOT EXISTS idx_usuarios_rol
   ON usuarios (rol, activo);
 
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_ingreso TIMESTAMPTZ;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMPTZ;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS total_ingresos INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS ingresos_sistema (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
+  usuario VARCHAR(80) NOT NULL,
+  nombre VARCHAR(160) NOT NULL,
+  rol VARCHAR(20) NOT NULL DEFAULT 'gestor'
+    CHECK (rol IN ('admin', 'gestor')),
+  modulo VARCHAR(40) NOT NULL DEFAULT 'portal',
+  fecha_ingreso TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingresos_sistema_fecha
+  ON ingresos_sistema (fecha_ingreso DESC);
+CREATE INDEX IF NOT EXISTS idx_ingresos_sistema_usuario
+  ON ingresos_sistema (lower(usuario), fecha_ingreso DESC);
+
 -- ---------------------------------------------------------------------------
 -- Estructura territorial (estado / municipio / parroquia / comunidad / ...)
 -- ---------------------------------------------------------------------------

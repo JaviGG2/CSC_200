@@ -32,11 +32,8 @@
 
     <section class="censo-hero">
       <div class="censo-hero-texto">
-        <span class="eyebrow">Salud Comunitaria · Base Compartida</span>
+        <span class="eyebrow">Salud Comunitaria</span>
         <h2>Expedientes Médicos</h2>
-        <p>
-          Registro clínico independiente de habitantes, condiciones crónicas, discapacidades y tratamientos enlazado a la base comunal.
-        </p>
       </div>
       <div class="censo-hero-acciones">
         <button
@@ -45,7 +42,6 @@
           data-abrir-popup="dialogo-expediente"
           data-reset-form
           data-popup-titulo="Registrar expediente médico"
-          data-popup-subtitulo="Vincule el expediente a un habitante censado o ingrese los datos manualmente."
           data-popup-submit="Guardar expediente médico"
           data-popup-foco="#paciente_nombre"
         >
@@ -183,7 +179,6 @@
       <div class="panel-head panel-head--fila">
         <div>
           <h2>Listado de expedientes</h2>
-          <p>Historias médicas registradas en el módulo de salud comunitaria.</p>
         </div>
         <span class="contador" id="medicos-conteo-vivo"><%= listaExpedientes.length %> expedientes</span>
       </div>
@@ -198,7 +193,7 @@
             data-abrir-popup="dialogo-expediente"
             data-reset-form
             data-popup-titulo="Registrar expediente médico"
-            data-popup-subtitulo="Vincule el expediente a un habitante censado o ingrese los datos manualmente."
+            data-popup-subtitulo=""
             data-popup-submit="Guardar expediente médico"
             data-popup-foco="#paciente_nombre"
           >+ Nuevo expediente</button>
@@ -369,15 +364,11 @@
         </button>
       </div>
 
-      <p class="dialogo-subtitulo" data-popup-subtitulo>
-        Vincule el expediente a un habitante censado o ingrese los datos del paciente manualmente.
-      </p>
-
       <input type="hidden" name="id" id="expediente-id" value="<%= edicion ? edicion.id : '' %>">
 
       <div class="campos">
         <div class="campo campo-ancho">
-          <label for="medico-persona-ref">Vincular con habitante registrado (base compartida)</label>
+          <label for="medico-persona-ref">Habitante registrado</label>
           <div class="select-filtro-caja">
             <input
               type="search"

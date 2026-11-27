@@ -117,6 +117,10 @@ export type Usuario = {
   activo: boolean;
   sincronizado?: boolean;
   pendiente_neon?: boolean;
+  total_ingresos?: number;
+  ultimo_ingreso?: string | null;
+  ultima_actividad?: string | null;
+  en_linea?: boolean;
   creado_en: string;
 };
 
@@ -124,6 +128,25 @@ export type UsuarioConHash = Usuario & {
   clave_hash: string;
   sincronizado: boolean;
   pendiente_neon: boolean;
+};
+
+export type IngresoSistema = {
+  id: number;
+  usuario_id: number | null;
+  usuario: string;
+  nombre: string;
+  rol: 'admin' | 'gestor';
+  modulo: string;
+  fecha_ingreso: string;
+};
+
+export type EstadisticasIngresos = {
+  total_ingresos: number;
+  personas_unicas: number;
+  ingresos_hoy: number;
+  activos_ahora: number;
+  total_cuentas: number;
+  ultimo_ingreso: string | null;
 };
 
 export type TipoTerritorio =
@@ -550,6 +573,20 @@ db.exec(`
     creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     UNIQUE (tipo, nombre)
   );
+
+  CREATE TABLE IF NOT EXISTS ingresos_sistema (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    usuario TEXT NOT NULL,
+    nombre TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'gestor' CHECK (rol IN ('admin', 'gestor')),
+    modulo TEXT NOT NULL DEFAULT 'portal',
+    fecha_ingreso TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    pendiente_neon INTEGER NOT NULL DEFAULT 1 CHECK (pendiente_neon IN (0, 1))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_ingresos_fecha ON ingresos_sistema(fecha_ingreso DESC);
+  CREATE INDEX IF NOT EXISTS idx_ingresos_usuario ON ingresos_sistema(usuario_id, fecha_ingreso DESC);
 `);
 
 function asegurarColumnasUsuarios() {
@@ -565,6 +602,15 @@ function asegurarColumnasUsuarios() {
     db.exec(
       'ALTER TABLE usuarios ADD COLUMN pendiente_neon INTEGER NOT NULL DEFAULT 0 CHECK (pendiente_neon IN (0, 1))'
     );
+  }
+  if (!cols.includes('ultimo_ingreso')) {
+    db.exec('ALTER TABLE usuarios ADD COLUMN ultimo_ingreso TEXT');
+  }
+  if (!cols.includes('ultima_actividad')) {
+    db.exec('ALTER TABLE usuarios ADD COLUMN ultima_actividad TEXT');
+  }
+  if (!cols.includes('total_ingresos')) {
+    db.exec('ALTER TABLE usuarios ADD COLUMN total_ingresos INTEGER NOT NULL DEFAULT 0');
   }
 }
 
@@ -2433,20 +2479,34 @@ function formatearUsuario(fila: any): Usuario {
     activo: Boolean(fila.activo),
     sincronizado: Boolean(fila.sincronizado),
     pendiente_neon: Boolean(fila.pendiente_neon),
+    total_ingresos: Number(fila.total_ingresos || 0),
+    ultimo_ingreso: fila.ultimo_ingreso ?? null,
+    ultima_actividad: fila.ultima_actividad ?? null,
+    en_linea: Boolean(fila.en_linea),
     creado_en: fila.creado_en,
   };
 }
 
+const SELECT_USUARIO_CON_ESTADO = `
+  SELECT u.*,
+    CASE
+      WHEN u.ultima_actividad IS NOT NULL
+       AND datetime(u.ultima_actividad) >= datetime('now', 'localtime', '-15 minutes')
+      THEN 1 ELSE 0
+    END AS en_linea
+  FROM usuarios u
+`;
+
 export function listarUsuarios(): Usuario[] {
   const filas = db
-    .prepare('SELECT * FROM usuarios ORDER BY rol, usuario')
+    .prepare(`${SELECT_USUARIO_CON_ESTADO} ORDER BY u.rol, u.usuario`)
     .all() as any[];
   return filas.map(formatearUsuario);
 }
 
 export function listarUsuariosConHash(): UsuarioConHash[] {
   const filas = db
-    .prepare('SELECT * FROM usuarios ORDER BY id')
+    .prepare(`${SELECT_USUARIO_CON_ESTADO} ORDER BY u.id`)
     .all() as any[];
   return filas.map((fila) => ({
     ...formatearUsuario(fila),
@@ -2457,12 +2517,12 @@ export function listarUsuariosConHash(): UsuarioConHash[] {
 }
 
 export function obtenerUsuarioPorId(id: number): Usuario | null {
-  const fila = db.prepare('SELECT * FROM usuarios WHERE id = ?').get(id) as any;
+  const fila = db.prepare(`${SELECT_USUARIO_CON_ESTADO} WHERE u.id = ?`).get(id) as any;
   return fila ? formatearUsuario(fila) : null;
 }
 
 export function obtenerUsuarioConHashPorId(id: number): UsuarioConHash | null {
-  const fila = db.prepare('SELECT * FROM usuarios WHERE id = ?').get(id) as any;
+  const fila = db.prepare(`${SELECT_USUARIO_CON_ESTADO} WHERE u.id = ?`).get(id) as any;
   if (!fila) return null;
   return {
     ...formatearUsuario(fila),
@@ -2476,7 +2536,7 @@ export function obtenerUsuarioPorUsuario(
   usuario: string
 ): (Usuario & { clave_hash: string }) | null {
   const fila = db
-    .prepare('SELECT * FROM usuarios WHERE usuario = ? COLLATE NOCASE')
+    .prepare(`${SELECT_USUARIO_CON_ESTADO} WHERE u.usuario = ? COLLATE NOCASE`)
     .get(usuario) as any;
   if (!fila) return null;
   return { ...formatearUsuario(fila), clave_hash: fila.clave_hash };
@@ -2632,6 +2692,155 @@ export function contarAdminsActivos(): number {
     .prepare("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'admin' AND activo = 1")
     .get() as { total: number };
   return total;
+}
+
+// ============================================================================
+// STATUS PEOPLE / INGRESOS AL SISTEMA
+// ============================================================================
+
+const actividadEnMemoria = new Map<number, number>();
+const INTERVALO_ACTIVIDAD_MS = 60_000;
+
+export function registrarIngresoSistema({
+  usuario_id,
+  usuario,
+  nombre,
+  rol,
+  modulo = 'portal',
+}: {
+  usuario_id: number;
+  usuario: string;
+  nombre: string;
+  rol: 'admin' | 'gestor';
+  modulo?: string | null;
+}): number {
+  const limpioUsuario = String(usuario || '').trim().toLowerCase();
+  const limpioNombre = String(nombre || limpioUsuario).trim();
+  const rolValido: 'admin' | 'gestor' = rol === 'admin' ? 'admin' : 'gestor';
+  const moduloLimpio = String(modulo || 'portal').trim() || 'portal';
+
+  const ingresoId = db.transaction(() => {
+    const res = db
+      .prepare(`
+        INSERT INTO ingresos_sistema (usuario_id, usuario, nombre, rol, modulo, fecha_ingreso, pendiente_neon)
+        VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'), 1)
+      `)
+      .run(usuario_id, limpioUsuario, limpioNombre, rolValido, moduloLimpio);
+
+    db.prepare(`
+      UPDATE usuarios
+      SET total_ingresos = COALESCE(total_ingresos, 0) + 1,
+          ultimo_ingreso = datetime('now', 'localtime'),
+          ultima_actividad = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(usuario_id);
+
+    return Number(res.lastInsertRowid);
+  })();
+
+  actividadEnMemoria.set(usuario_id, Date.now());
+  return ingresoId;
+}
+
+export function registrarActividadUsuario(usuarioId: number): void {
+  if (!Number.isInteger(usuarioId) || usuarioId <= 0) return;
+  const ahora = Date.now();
+  const ultima = actividadEnMemoria.get(usuarioId) || 0;
+  if (ahora - ultima < INTERVALO_ACTIVIDAD_MS) return;
+
+  actividadEnMemoria.set(usuarioId, ahora);
+  db.prepare(`
+    UPDATE usuarios
+    SET ultima_actividad = datetime('now', 'localtime')
+    WHERE id = ?
+  `).run(usuarioId);
+}
+
+export function cerrarActividadUsuario(usuarioId: number): void {
+  if (!Number.isInteger(usuarioId) || usuarioId <= 0) return;
+  actividadEnMemoria.delete(usuarioId);
+  db.prepare('UPDATE usuarios SET ultima_actividad = NULL WHERE id = ?').run(usuarioId);
+}
+
+export function obtenerEstadisticasIngresos(): EstadisticasIngresos {
+  const resumen = db
+    .prepare(`
+      SELECT
+        COUNT(*) AS total_ingresos,
+        COUNT(DISTINCT lower(usuario)) AS personas_unicas,
+        COALESCE(SUM(CASE WHEN date(fecha_ingreso) = date('now', 'localtime') THEN 1 ELSE 0 END), 0) AS ingresos_hoy,
+        MAX(fecha_ingreso) AS ultimo_ingreso
+      FROM ingresos_sistema
+    `)
+    .get() as {
+      total_ingresos: number;
+      personas_unicas: number;
+      ingresos_hoy: number;
+      ultimo_ingreso: string | null;
+    };
+
+  const activos = db
+    .prepare(`
+      SELECT COUNT(*) AS total
+      FROM usuarios
+      WHERE activo = 1
+        AND ultima_actividad IS NOT NULL
+        AND datetime(ultima_actividad) >= datetime('now', 'localtime', '-15 minutes')
+    `)
+    .get() as { total: number };
+
+  const cuentas = db
+    .prepare('SELECT COUNT(*) AS total FROM usuarios WHERE activo = 1')
+    .get() as { total: number };
+
+  return {
+    total_ingresos: Number(resumen?.total_ingresos || 0),
+    personas_unicas: Number(resumen?.personas_unicas || 0),
+    ingresos_hoy: Number(resumen?.ingresos_hoy || 0),
+    activos_ahora: Number(activos?.total || 0),
+    total_cuentas: Number(cuentas?.total || 0),
+    ultimo_ingreso: resumen?.ultimo_ingreso ?? null,
+  };
+}
+
+export function listarIngresosRecientes(limite = 30): IngresoSistema[] {
+  const max = Math.max(1, Math.min(200, Number(limite) || 30));
+  const filas = db
+    .prepare(`
+      SELECT id, usuario_id, usuario, nombre, rol, modulo, fecha_ingreso
+      FROM ingresos_sistema
+      ORDER BY id DESC
+      LIMIT ?
+    `)
+    .all(max) as any[];
+
+  return filas.map((fila) => ({
+    id: fila.id,
+    usuario_id: fila.usuario_id ?? null,
+    usuario: fila.usuario,
+    nombre: fila.nombre,
+    rol: fila.rol === 'admin' ? 'admin' : 'gestor',
+    modulo: fila.modulo || 'portal',
+    fecha_ingreso: fila.fecha_ingreso,
+  }));
+}
+
+export function listarIngresosPendientesNeon(): IngresoSistema[] {
+  return db
+    .prepare(`
+      SELECT id, usuario_id, usuario, nombre, rol, modulo, fecha_ingreso
+      FROM ingresos_sistema
+      WHERE pendiente_neon = 1
+      ORDER BY id
+      LIMIT 100
+    `)
+    .all() as IngresoSistema[];
+}
+
+export function marcarIngresosSincronizados(ids: number[]): void {
+  if (!ids.length) return;
+  const marcadores = ids.map(() => '?').join(',');
+  db.prepare(`UPDATE ingresos_sistema SET pendiente_neon = 0 WHERE id IN (${marcadores})`).run(...ids);
 }
 
 // ============================================================================
@@ -3300,6 +3509,13 @@ module.exports = {
   listarEliminacionesUsuarioNeon,
   eliminarEliminacionUsuarioNeon,
   contarAdminsActivos,
+  registrarIngresoSistema,
+  registrarActividadUsuario,
+  cerrarActividadUsuario,
+  obtenerEstadisticasIngresos,
+  listarIngresosRecientes,
+  listarIngresosPendientesNeon,
+  marcarIngresosSincronizados,
   listarTerritorios,
   obtenerTerritorioPorId,
   crearTerritorio,

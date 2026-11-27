@@ -1,6 +1,14 @@
 <%
   const listaModulos = typeof modulos !== 'undefined' ? modulos : [];
-  const stats = typeof resumen !== 'undefined' ? resumen : { viviendas: 0, personas: 0, expedientes: 0, beneficios: 0 };
+  const stats = typeof resumen !== 'undefined' ? resumen : {
+    viviendas: 0,
+    personas: 0,
+    expedientes: 0,
+    beneficios: 0,
+    ingresos: { personas_unicas: 0, total_ingresos: 0, ingresos_hoy: 0, activos_ahora: 0 },
+  };
+  const ingresosStats = stats.ingresos || { personas_unicas: 0, total_ingresos: 0, ingresos_hoy: 0, activos_ahora: 0 };
+  const adminPortal = typeof esAdmin !== 'undefined' && esAdmin;
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -26,11 +34,8 @@
           height="88"
         >
         <div>
-          <span class="eyebrow">Base de Datos Compartida · SQLite + Neon</span>
+          <span class="eyebrow">Portal Comunal</span>
           <h1>Comuna Socialista Carabobo 200</h1>
-          <p>
-            Cada módulo trabaja de forma independiente con sus propios procesos y vistas, compartiendo únicamente la base de datos comunal.
-          </p>
         </div>
       </div>
 
@@ -51,6 +56,26 @@
           <strong><%= stats.beneficios %></strong>
           <span>Beneficios</span>
         </div>
+        <% if (adminPortal) { %>
+          <a
+            href="/admin/usuarios#status-people"
+            class="portal-db-dato portal-db-dato--link"
+            title="Personas que ingresaron: <%= ingresosStats.personas_unicas %> · Total de accesos: <%= ingresosStats.total_ingresos %> · Activos ahora: <%= ingresosStats.activos_ahora %>"
+          >
+            <strong><%= ingresosStats.personas_unicas %></strong>
+            <span>Ingresaron</span>
+            <small class="portal-db-sub"><%= ingresosStats.activos_ahora %> activos · <%= ingresosStats.total_ingresos %> accesos</small>
+          </a>
+        <% } else { %>
+          <div
+            class="portal-db-dato"
+            title="Personas que ingresaron: <%= ingresosStats.personas_unicas %> · Total de accesos: <%= ingresosStats.total_ingresos %> · Activos ahora: <%= ingresosStats.activos_ahora %>"
+          >
+            <strong><%= ingresosStats.personas_unicas %></strong>
+            <span>Ingresaron</span>
+            <small class="portal-db-sub"><%= ingresosStats.activos_ahora %> activos · <%= ingresosStats.total_ingresos %> accesos</small>
+          </div>
+        <% } %>
       </div>
     </section>
 
@@ -84,7 +109,7 @@
           </div>
 
           <a href="<%= mod.ruta %>" class="boton boton--primario boton--bloque">
-            Abrir <%= mod.titulo %>
+            Abrir
           </a>
         </article>
       <% }); %>

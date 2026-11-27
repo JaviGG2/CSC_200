@@ -2665,9 +2665,48 @@ tbody tr.selected {
   color: var(--muted);
 }
 
+.admin-card-sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-card .boton {
   align-self: flex-start;
   margin-top: 8px;
+}
+
+.status-people-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line-soft);
+}
+
+.status-people-dato {
+  padding: 18px 22px;
+  border-right: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-people-dato:last-child {
+  border-right: 0;
+}
+
+.status-people-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.status-people-valor {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .panel > .acciones-form--fila {
@@ -3563,7 +3602,7 @@ tbody tr.selected {
 
 .portal-db-resumen {
   display: grid;
-  grid-template-columns: repeat(4, minmax(84px, 1fr));
+  grid-template-columns: repeat(5, minmax(84px, 1fr));
   gap: 10px;
 }
 
@@ -3577,6 +3616,17 @@ tbody tr.selected {
   animation: tarjetaEntrada 260ms var(--ease-out) calc(min(var(--stagger-index, 0), 8) * 35ms) both;
 }
 
+.portal-db-dato--link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.portal-db-dato--link:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
 .portal-db-dato strong {
   display: block;
   font-family: var(--font-display);
@@ -3587,11 +3637,21 @@ tbody tr.selected {
 }
 
 .portal-db-dato span {
+  display: block;
   font-size: 11px;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.portal-db-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .portal-grid-modulos {
@@ -3829,6 +3889,18 @@ tbody tr.selected {
   .portal-db-resumen {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  .portal-db-dato:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .status-people-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .status-people-dato {
+    border-bottom: 1px solid var(--line-soft);
   }
 }
 

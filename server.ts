@@ -9,6 +9,7 @@ import { leerCookie, verificarToken } from './src/nucleo/autenticacion';
 import {
   inicializarEsquemaNeon,
   obtenerUsuarioPorId,
+  registrarActividadUsuario,
   rutaBaseDatos,
   sincronizarConfiguracionNeon,
 } from './src/nucleo/base-datos';
@@ -40,6 +41,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
       res.locals.usuario = usuario;
       res.locals.esAdmin = usuario.rol === 'admin';
       (req as any).usuario = usuario;
+      registrarActividadUsuario(usuario.id);
     }
   }
 
