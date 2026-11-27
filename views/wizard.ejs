@@ -88,6 +88,9 @@
               const parroquiaPredeterminado =
                 (territorios.parroquias && territorios.parroquias.find((p) => /^san antonio$/i.test(p.nombre))?.nombre) ||
                 (territorios.parroquias && territorios.parroquias.length === 1 ? territorios.parroquias[0].nombre : 'SAN ANTONIO');
+              const comunidadPredeterminado =
+                (territorios.comunidades && territorios.comunidades.find((c) => /carabobo\s*200/i.test(c.nombre))?.nombre) ||
+                (territorios.comunidades && territorios.comunidades.length === 1 ? territorios.comunidades[0].nombre : 'Carabobo 200');
             %>
 
             <div class="campos">
@@ -133,20 +136,18 @@
                   >
                 </div>
 
-              <div class="campo">
-                <label for="w-comunidad">Comunidad <span class="requerido">*</span></label>
-                <% if (territorios.comunidades.length) { %>
-                  <select id="w-comunidad" name="comunidad" required>
-                    <option value="">Seleccione...</option>
-                    <% territorios.comunidades.forEach(function (c) { %>
-                      <option value="<%= c.nombre %>"><%= c.nombre %></option>
-                    <% }); %>
-                  </select>
-                <% } else { %>
-                  <input type="text" id="w-comunidad" name="comunidad" maxlength="120" placeholder="Ej.: Comunidad 20 de Julio" required>
-                  <p class="ayuda">No hay comunidades configuradas. Agréguelas en Administración → Territorio.</p>
-                <% } %>
-              </div>
+                <div class="campo">
+                  <label for="w-comunidad">Comunidad <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="w-comunidad"
+                    name="comunidad"
+                    maxlength="120"
+                    value="<%= comunidadPredeterminado %>"
+                    readonly
+                    required
+                  >
+                </div>
               </div>
 
               <div class="campo campo-ancho">
