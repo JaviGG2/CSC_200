@@ -6,6 +6,7 @@ import {
   normalizarNombre,
   valorSimple,
 } from '../../nucleo/http';
+import { sincronizarConfiguracionNeon } from '../../nucleo/base-datos';
 import {
   actualizarExpedienteMedico,
   crearExpedienteMedico,
@@ -25,7 +26,9 @@ export function crearRouterMedicos(): Router {
   const router = Router();
   router.use('/expedientes-medicos', requerirAuth);
 
-  router.get('/expedientes-medicos', (req: Request, res: Response) => {
+  router.get('/expedientes-medicos', async (req: Request, res: Response) => {
+    await sincronizarConfiguracionNeon().catch(() => null);
+
     const q = valorSimple(req.query.q);
     const nivelRiesgo = valorSimple(req.query.riesgo);
     const discapacidad = valorSimple(req.query.discapacidad);

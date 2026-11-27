@@ -642,6 +642,96 @@ async function aplicarIngresos(cliente: Client): Promise<number> {
   return sincronizados.length;
 }
 
+async function aplicarRegistrosDesdeNeon(cliente: Client): Promise<number> {
+  const { rows } = await cliente.query(
+    'SELECT id, cedula, nombres, apellidos, fecha_nacimiento, datos_extras FROM registros_censo'
+  );
+
+  const transaccion = db.transaction(() => {
+    for (const fila of rows) {
+      const neonId = Number(fila.id);
+      const datos = (fila.datos_extras || {}) as any;
+      const comunidad = datos.comunidad || 'Carabobo 200';
+      const etapa = datos.etapa || null;
+      const manzana = datos.manzana || null;
+      const direccion = datos.direccion || 'S/D';
+      const numeroCasa = datos.numero_casa || null;
+      const fechaRegistro = datos.fecha_registro_vivienda || fila.fecha_nacimiento || new Date().toISOString();
+
+      let viviendaId: number | null = null;
+      const existenteNeon = db.prepare('SELECT id FROM viviendas WHERE neon_id = ?').get(neonId) as { id: number } | undefined;
+      if (existenteNeon) {
+        viviendaId = existenteNeon.id;
+        db.prepare(`
+          UPDATE viviendas SET comunidad = ?, etapa = ?, manzana = ?, direccion = ?, numero_casa = ?, sincronizado = 1
+          WHERE id = ?
+        `).run(comunidad, etapa, manzana, direccion, numeroCasa, viviendaId);
+      } else {
+        const resViv = db.prepare(`
+          INSERT INTO viviendas (comunidad, etapa, manzana, direccion, numero_casa, fecha_registro, sincronizado, neon_id)
+          VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+        `).run(comunidad, etapa, manzana, direccion, numeroCasa, fechaRegistro, neonId);
+        viviendaId = Number(resViv.lastInsertRowid);
+      }
+
+      if (viviendaId && datos.jefe) {
+        const j = datos.jefe;
+        const cedulaCompleta = String(j.cedula || fila.cedula || 'V-00000000');
+        const matchVE = /^([VES])-?(.*)$/i.exec(cedulaCompleta);
+        const cedulaTipo = (matchVE ? matchVE[1].toUpperCase() : 'V') as any;
+        const cedulaNumero = matchVE ? matchVE[2].trim() : cedulaCompleta;
+
+        const existenteJefe = db.prepare('SELECT id FROM jefes_familia WHERE vivienda_id = ?').get(viviendaId) as { id: number } | undefined;
+        if (existenteJefe) {
+          db.prepare(`
+            UPDATE jefes_familia SET cedula_tipo = ?, cedula_numero = ?, nombres = ?, apellidos = ?, fecha_nacimiento = ?, sexo = ?, telefono_movil = ?, telefono_habitacion = ?, telefono_trabajo = ?, correo = ?, nivel_instruccion = ?, estado_civil = ?, profesion = ?, trabaja_actual = ?, clasificacion_ingresos = ?, frecuencia_ingresos = ?
+            WHERE id = ?
+          `).run(
+            cedulaTipo, cedulaNumero, j.nombres || fila.nombres, j.apellidos || fila.apellidos,
+            j.fecha_nacimiento || '1900-01-01', j.sexo || 'M', j.telefono_movil || null,
+            j.telefono_habitacion || null, j.telefono_trabajo || null, j.correo || null,
+            j.nivel_instruccion || 'Primaria', j.estado_civil || 'Soltero/a', j.profesion || null,
+            j.trabaja_actual || 'No', j.clasificacion_ingresos || 'Mensual', j.frecuencia_ingresos || null,
+            existenteJefe.id
+          );
+        } else {
+          db.prepare(`
+            INSERT INTO jefes_familia (vivienda_id, cedula_tipo, cedula_numero, nombres, apellidos, fecha_nacimiento, sexo, telefono_movil, telefono_habitacion, telefono_trabajo, correo, nivel_instruccion, estado_civil, profesion, trabaja_actual, clasificacion_ingresos, frecuencia_ingresos)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            viviendaId, cedulaTipo, cedulaNumero, j.nombres || fila.nombres, j.apellidos || fila.apellidos,
+            j.fecha_nacimiento || '1900-01-01', j.sexo || 'M', j.telefono_movil || null,
+            j.telefono_habitacion || null, j.telefono_trabajo || null, j.correo || null,
+            j.nivel_instruccion || 'Primaria', j.estado_civil || 'Soltero/a', j.profesion || null,
+            j.trabaja_actual || 'No', j.clasificacion_ingresos || 'Mensual', j.frecuencia_ingresos || null
+          );
+        }
+      }
+
+      if (viviendaId && Array.isArray(datos.integrantes)) {
+        db.prepare('DELETE FROM integrantes_grupo_familiar WHERE vivienda_id = ?').run(viviendaId);
+        for (const [idx, integ] of datos.integrantes.entries()) {
+          const cedulaInteg = String(integ.cedula || '');
+          const matchInteg = /^([VES])-?(.*)$/i.exec(cedulaInteg);
+          const iTipo = matchInteg ? matchInteg[1].toUpperCase() : null;
+          const iNum = matchInteg ? matchInteg[2].trim() : (cedulaInteg || null);
+
+          db.prepare(`
+            INSERT INTO integrantes_grupo_familiar (vivienda_id, numero, apellidos, nombres, cedula_tipo, cedula_numero, fecha_nacimiento, sexo, parentesco, nivel_instruccion, profesion)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            viviendaId, Number(integ.numero || idx + 1), integ.apellidos || '', integ.nombres || '',
+            iTipo, iNum, integ.fecha_nacimiento || null, integ.sexo || null,
+            integ.parentesco || 'Otro', integ.nivel_instruccion || null, integ.profesion || null
+          );
+        }
+      }
+    }
+  });
+  transaccion();
+  return rows.length;
+}
+
 async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
   try {
     const resultado = await conCliente(async (cliente) => {
@@ -652,6 +742,7 @@ async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
       const territorios = await aplicarTerritorios(cliente);
       const usuarios = await aplicarUsuarios(cliente);
       await aplicarIngresos(cliente);
+      const registros = await aplicarRegistrosDesdeNeon(cliente);
 
       const asistenteNeon = await cliente.query(
         'SELECT valor FROM config_sistema WHERE clave = $1 LIMIT 1',
@@ -662,7 +753,7 @@ async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
         guardarConfigSistema('asistente_habilitado', valorNeon);
       }
 
-      return { consejos, opciones, campos, territorios, usuarios };
+      return { consejos, opciones, campos, territorios, usuarios, registros };
     });
 
     return {

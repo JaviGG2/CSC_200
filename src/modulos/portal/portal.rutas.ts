@@ -120,11 +120,13 @@ function renderizarLogin(
 export function crearRouterPortal(): Router {
   const router = Router();
 
-  router.get('/', (req: Request, res: Response) => {
+  router.get('/', async (req: Request, res: Response) => {
     if (!res.locals.usuario) {
       const nextParam = typeof req.query.next === 'string' ? rutaLocalSegura(req.query.next, '') : '';
       return renderizarLogin(res, { next: nextParam });
     }
+
+    await sincronizarConfiguracionNeon().catch(() => null);
 
     return res.render('portal/inicio', {
       modulos: MODULOS_PORTAL,
@@ -132,7 +134,8 @@ export function crearRouterPortal(): Router {
     });
   });
 
-  router.get('/inicio', requerirAuth, (_req: Request, res: Response) => {
+  router.get('/inicio', requerirAuth, async (_req: Request, res: Response) => {
+    await sincronizarConfiguracionNeon().catch(() => null);
     return res.render('portal/inicio', {
       modulos: MODULOS_PORTAL,
       resumen: resumenCompartidoBaseDatos(),

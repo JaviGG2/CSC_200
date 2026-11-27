@@ -117,6 +117,7 @@ export function obtenerEstadisticasBeneficios(): {
   entregados: number;
   pendientes: number;
   viviendasAtendidas: number;
+  familias: number;
   pendientesSync: number;
 } {
   const fila = db
@@ -131,11 +132,13 @@ export function obtenerEstadisticasBeneficios(): {
     `)
     .get() as any;
 
+  const vivAtendidas = Number(fila?.viviendasAtendidas || 0);
   return {
     total: Number(fila?.total || 0),
     entregados: Number(fila?.entregados || 0),
     pendientes: Number(fila?.pendientes || 0),
-    viviendasAtendidas: Number(fila?.viviendasAtendidas || 0),
+    viviendasAtendidas: vivAtendidas,
+    familias: vivAtendidas,
     pendientesSync: Number(fila?.pendientesSync || 0),
   };
 }

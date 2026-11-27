@@ -6,6 +6,7 @@ import {
   normalizarNombre,
   valorSimple,
 } from '../../nucleo/http';
+import { sincronizarConfiguracionNeon } from '../../nucleo/base-datos';
 import {
   actualizarEstadoBeneficio,
   crearEntregaBeneficio,
@@ -37,7 +38,9 @@ export function crearRouterBeneficios(): Router {
   const router = Router();
   router.use('/beneficios', requerirAuth);
 
-  router.get('/beneficios', (req: Request, res: Response) => {
+  router.get('/beneficios', async (req: Request, res: Response) => {
+    await sincronizarConfiguracionNeon().catch(() => null);
+
     const q = valorSimple(req.query.q);
     const programa = valorSimple(req.query.programa);
     const consejo = valorSimple(req.query.consejo);

@@ -115,7 +115,13 @@ export function obtenerEstadisticasMedicas(): {
   riesgoAlto: number;
   riesgoModerado: number;
   conDiscapacidad: number;
+  conCronicas: number;
   pendientesSync: number;
+  riesgo_alto: number;
+  riesgo_moderado: number;
+  con_discapacidad: number;
+  con_cronicas: number;
+  pendientes_sync: number;
 } {
   const fila = db
     .prepare(`
@@ -124,17 +130,30 @@ export function obtenerEstadisticasMedicas(): {
         COALESCE(SUM(CASE WHEN nivel_riesgo = 'Alto' THEN 1 ELSE 0 END), 0) AS riesgoAlto,
         COALESCE(SUM(CASE WHEN nivel_riesgo = 'Moderado' THEN 1 ELSE 0 END), 0) AS riesgoModerado,
         COALESCE(SUM(CASE WHEN discapacidad IS NOT NULL AND TRIM(discapacidad) <> '' AND lower(discapacidad) <> 'ninguna' THEN 1 ELSE 0 END), 0) AS conDiscapacidad,
+        COALESCE(SUM(CASE WHEN condiciones_cronicas IS NOT NULL AND TRIM(condiciones_cronicas) <> '' AND lower(condiciones_cronicas) <> 'ninguna' THEN 1 ELSE 0 END), 0) AS conCronicas,
         COALESCE(SUM(CASE WHEN sincronizado = 0 THEN 1 ELSE 0 END), 0) AS pendientesSync
       FROM expedientes_medicos
     `)
     .get() as any;
 
+  const alto = Number(fila?.riesgoAlto || 0);
+  const moderado = Number(fila?.riesgoModerado || 0);
+  const discapacidad = Number(fila?.conDiscapacidad || 0);
+  const cronicas = Number(fila?.conCronicas || 0);
+  const pendientes = Number(fila?.pendientesSync || 0);
+
   return {
     total: Number(fila?.total || 0),
-    riesgoAlto: Number(fila?.riesgoAlto || 0),
-    riesgoModerado: Number(fila?.riesgoModerado || 0),
-    conDiscapacidad: Number(fila?.conDiscapacidad || 0),
-    pendientesSync: Number(fila?.pendientesSync || 0),
+    riesgoAlto: alto,
+    riesgoModerado: moderado,
+    conDiscapacidad: discapacidad,
+    conCronicas: cronicas,
+    pendientesSync: pendientes,
+    riesgo_alto: alto,
+    riesgo_moderado: moderado,
+    con_discapacidad: discapacidad,
+    con_cronicas: cronicas,
+    pendientes_sync: pendientes,
   };
 }
 
