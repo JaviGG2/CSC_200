@@ -85,12 +85,19 @@
               <tr>
                 <th scope="col">Consejo comunal</th>
                 <th scope="col">Sector</th>
+                <th scope="col">Viviendas</th>
                 <th scope="col">Estado</th>
                 <th scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <% consejos.forEach(function (consejo) { %>
+                <%
+                  const totalViviendas = Number(consejo.viviendas_count || 0);
+                  const detalleViviendas = totalViviendas > 0
+                    ? ` Tiene ${totalViviendas} vivienda(s) asignada(s) que quedarán sin consejo comunal.`
+                    : '';
+                %>
                 <tr>
                   <td>
                     <input
@@ -113,6 +120,7 @@
                       maxlength="160"
                     >
                   </td>
+                  <td><%= totalViviendas %></td>
                   <td>
                     <label class="check-inline">
                       <input
@@ -133,6 +141,16 @@
                           <%= consejo.activo ? 'Desactivar' : 'Activar' %>
                         </button>
                       </form>
+                      <form
+                        method="post"
+                        action="/admin/consejos/<%= consejo.id %>/eliminar"
+                        style="display:inline;"
+                        data-confirmar="¿Eliminar el consejo comunal «<%= consejo.nombre %>»?<%= detalleViviendas %> Esta acción no se puede deshacer."
+                        data-confirmar-titulo="Eliminar consejo comunal"
+                        data-confirmar-boton="Eliminar consejo"
+                      >
+                        <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                      </form>
                     </div>
                   </td>
                 </tr>
@@ -151,5 +169,8 @@
   <footer class="pie">
     <div class="contenedor">Comuna Socialista Carabobo 200 · Consejos comunales</div>
   </footer>
+
+  <%- include('../partials/dialogo-confirmacion') %>
+  <script src="/popups.js" defer></script>
 </body>
 </html>

@@ -98,6 +98,17 @@ function numeroONulo(valor: number | string | null | undefined): number | null {
   return Number.isFinite(numero) ? numero : null;
 }
 
+function fechaNeonValida(
+  valor: string | null | undefined,
+  respaldo?: string | null
+): string {
+  const limpio = textoONulo(valor);
+  if (limpio && /^\d{4}-\d{2}-\d{2}/.test(limpio)) return limpio.slice(0, 10);
+  const alt = textoONulo(respaldo);
+  if (alt && /^\d{4}-\d{2}-\d{2}/.test(alt)) return alt.slice(0, 10);
+  return '1900-01-01';
+}
+
 function esCadenaNeonValida(cadena: string): boolean {
   const limpia = cadena.trim();
   if (!limpia) return false;
@@ -207,7 +218,7 @@ async function resolverConsejo(
   if (!vivienda.consejo_comunal_id) return null;
 
   const consejo = obtenerConsejoComunalPorId(vivienda.consejo_comunal_id);
-  if (!consejo || !consejo.activo) return null;
+  if (!consejo) return null;
 
   const existente = await cliente.query(
     'SELECT id FROM consejos_comunales WHERE lower(nombre) = lower($1) LIMIT 1',
@@ -334,7 +345,7 @@ export async function guardarViviendaConCliente(
       textoONulo(jefe.cedula_numero),
       jefe.nombres,
       jefe.apellidos,
-      jefe.fecha_nacimiento,
+      fechaNeonValida(jefe.fecha_nacimiento, vivienda.fecha_registro),
       numeroONulo(jefe.edad),
       jefe.sexo,
       textoONulo(jefe.telefono_movil),
@@ -445,7 +456,7 @@ export async function guardarViviendaConCliente(
       cedulaNeonJefe(viviendaId, jefe),
       jefe.nombres,
       jefe.apellidos,
-      jefe.fecha_nacimiento,
+      fechaNeonValida(jefe.fecha_nacimiento, vivienda.fecha_registro),
       JSON.stringify(datosExtras),
       vivienda.comunidad,
     ]

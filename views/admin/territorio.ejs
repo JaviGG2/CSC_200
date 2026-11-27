@@ -1,3 +1,6 @@
+<%
+  const config = typeof configNeon !== 'undefined' ? configNeon : null;
+%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -13,32 +16,73 @@
   <main class="contenedor pagina">
     <%- include('../partials/admin-nav') %>
 
-    <% if (ok) { %><div class="alerta alerta--exito"><%= ok %></div><% } %>
-    <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
+    <% if (ok) { %><div class="alerta alerta--exito" role="status"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error" role="alert"><%= error %></div><% } %>
 
     <section class="panel">
-      <div class="panel-head">
-        <h2>Gestión de Territorio</h2>
-        <p>Estados, municipios, parroquias, comunidades, etapas y manzanas disponibles en el censo.</p>
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Gestión de Territorio</h2>
+          <p>Estados, municipios, parroquias, comunidades, etapas y manzanas disponibles en el censo.</p>
+        </div>
+        <% if (config) { %>
+          <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
+            <%= config.ok ? 'Sincronizado con Neon' : 'Sin conexión a Neon' %>
+          </span>
+        <% } %>
       </div>
 
       <form method="post" action="/admin/territorio" class="formulario">
         <div class="campos">
           <div class="campos-dobles">
             <div class="campo">
-              <label for="etapa">Etapa</label>
-              <input type="text" id="etapa" name="etapa" maxlength="50" placeholder="Escriba la etapa, ej.: Etapa 4">
+              <label for="tipo-territorio">Nivel territorial <span class="requerido">*</span></label>
+              <select id="tipo-territorio" name="tipo" required>
+                <option value="">Seleccione un nivel...</option>
+                <option value="estado">Estado</option>
+                <option value="municipio">Municipio</option>
+                <option value="parroquia">Parroquia</option>
+                <option value="comunidad">Comunidad</option>
+                <option value="etapa">Etapa</option>
+                <option value="manzana">Manzana</option>
+              </select>
             </div>
             <div class="campo">
-              <label for="manzana">Manzana</label>
-              <input type="text" id="manzana" name="manzana" maxlength="30" placeholder="Escriba la manzana, ej.: Manzana 5">
+              <label for="nombre-territorio">Nombre <span class="requerido">*</span></label>
+              <input
+                type="text"
+                id="nombre-territorio"
+                name="nombre"
+                maxlength="120"
+                placeholder="Ej.: Comunidad 20 de Julio, Etapa 4, Manzana A"
+                required
+              >
             </div>
           </div>
-          <p class="ayuda">Escriba al menos una. Se agregan a las listas disponibles del registro.</p>
+
+          <div class="campos-dobles">
+            <div class="campo">
+              <label for="padre-territorio">Pertenece a (opcional)</label>
+              <select id="padre-territorio" name="padre_id">
+                <option value="">— Ninguno (nivel independiente) —</option>
+                <% territorios.forEach(function (padre) { %>
+                  <option value="<%= padre.id %>"><%= padre.tipo %> · <%= padre.nombre %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="campo">
+              <label for="activo-territorio">Estado</label>
+              <select id="activo-territorio" name="activo">
+                <option value="1" selected>Activo</option>
+                <option value="0">Inactivo</option>
+              </select>
+            </div>
+          </div>
+          <p class="ayuda">Los elementos activos aparecen inmediatamente en el formulario de registro de viviendas.</p>
         </div>
 
         <div class="acciones-form--fila">
-          <button type="submit" class="boton boton--primario">Agregar etapa / manzana</button>
+          <button type="submit" class="boton boton--primario">Agregar territorio</button>
         </div>
       </form>
     </section>

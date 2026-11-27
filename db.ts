@@ -531,6 +531,25 @@ db.exec(`
     requerido INTEGER NOT NULL DEFAULT 0 CHECK (requerido IN (0, 1)),
     orden INTEGER NOT NULL DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS config_sistema (
+    clave TEXT PRIMARY KEY,
+    valor TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS neon_consejos_eliminaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL UNIQUE,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS neon_territorios_eliminaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL,
+    nombre TEXT NOT NULL,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (tipo, nombre)
+  );
 `);
 
 function asegurarColumnasUsuarios() {
@@ -550,6 +569,49 @@ function asegurarColumnasUsuarios() {
 }
 
 asegurarColumnasUsuarios();
+
+function asegurarColumnasCatalogosNeon() {
+  const colsConsejos = (db.prepare('PRAGMA table_info(consejos_comunales)').all() as Array<{ name: string }>).map(
+    (c) => c.name
+  );
+  if (!colsConsejos.includes('pendiente_neon')) {
+    db.exec(
+      'ALTER TABLE consejos_comunales ADD COLUMN pendiente_neon INTEGER NOT NULL DEFAULT 0 CHECK (pendiente_neon IN (0, 1))'
+    );
+  }
+  if (!colsConsejos.includes('nombre_original_neon')) {
+    db.exec('ALTER TABLE consejos_comunales ADD COLUMN nombre_original_neon TEXT');
+  }
+
+  const colsTerritorios = (db.prepare('PRAGMA table_info(territorios)').all() as Array<{ name: string }>).map(
+    (c) => c.name
+  );
+  if (!colsTerritorios.includes('pendiente_neon')) {
+    db.exec(
+      'ALTER TABLE territorios ADD COLUMN pendiente_neon INTEGER NOT NULL DEFAULT 0 CHECK (pendiente_neon IN (0, 1))'
+    );
+  }
+  if (!colsTerritorios.includes('nombre_original_neon')) {
+    db.exec('ALTER TABLE territorios ADD COLUMN nombre_original_neon TEXT');
+  }
+}
+
+asegurarColumnasCatalogosNeon();
+
+export function obtenerConfigSistema(clave: string): string | null {
+  const fila = db.prepare('SELECT valor FROM config_sistema WHERE clave = ?').get(clave) as
+    | { valor: string }
+    | undefined;
+  return fila ? fila.valor : null;
+}
+
+export function guardarConfigSistema(clave: string, valor: string): void {
+  db.prepare(`
+    INSERT INTO config_sistema (clave, valor)
+    VALUES (?, ?)
+    ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor
+  `).run(clave, valor);
+}
 
 const CONFIG_CAMPOS_INICIALES: Array<{
   clave: string;
@@ -644,10 +706,15 @@ db.transaction((opciones: typeof OPCIONES_CAMPOS_INICIALES) => {
 })(OPCIONES_CAMPOS_INICIALES);
 
 function sembrarTerritoriosIniciales() {
+  if (obtenerConfigSistema('territorios_sembrados') === '1') return;
+
   const { total } = db.prepare('SELECT COUNT(*) AS total FROM territorios').get() as {
     total: number;
   };
-  if (total > 0) return;
+  if (total > 0) {
+    guardarConfigSistema('territorios_sembrados', '1');
+    return;
+  }
 
   const insertar = db.prepare(
     'INSERT INTO territorios (tipo, nombre, padre_id, orden) VALUES (?, ?, ?, ?)'
@@ -675,11 +742,23 @@ function sembrarTerritoriosIniciales() {
     insertar.run('manzana', 'Manzana 4', etapa1, 40);
     insertar.run('manzana', '1', etapa1, 50);
   })();
+
+  guardarConfigSistema('territorios_sembrados', '1');
 }
 
 sembrarTerritoriosIniciales();
 
 function sembrarConsejosComunales() {
+  if (obtenerConfigSistema('consejos_sembrados') === '1') return;
+
+  const { total } = db.prepare('SELECT COUNT(*) AS total FROM consejos_comunales').get() as {
+    total: number;
+  };
+  if (total > 0) {
+    guardarConfigSistema('consejos_sembrados', '1');
+    return;
+  }
+
   db.prepare(`
     INSERT OR IGNORE INTO consejos_comunales (nombre)
     SELECT DISTINCT nombre FROM territorios
@@ -691,6 +770,8 @@ function sembrarConsejosComunales() {
     SELECT DISTINCT comunidad FROM viviendas
     WHERE comunidad IS NOT NULL AND TRIM(comunidad) <> ''
   `).run();
+
+  guardarConfigSistema('consejos_sembrados', '1');
 }
 
 sembrarConsejosComunales();
@@ -1569,42 +1650,68 @@ export function actualizarVivienda({
   vivienda_principal_id?: number | null;
   sincronizar_neon?: boolean;
 }): boolean {
+  const asignaciones: string[] = [];
+  const valores: unknown[] = [];
+
+  if (estado !== undefined) {
+    asignaciones.push('estado = ?');
+    valores.push(estado);
+  }
+  if (municipio !== undefined) {
+    asignaciones.push('municipio = ?');
+    valores.push(municipio);
+  }
+  if (parroquia !== undefined) {
+    asignaciones.push('parroquia = ?');
+    valores.push(parroquia);
+  }
+  if (comunidad !== undefined) {
+    asignaciones.push('comunidad = ?');
+    valores.push(comunidad);
+  }
+  if (etapa !== undefined) {
+    asignaciones.push('etapa = ?');
+    valores.push(etapa);
+  }
+  if (manzana !== undefined) {
+    asignaciones.push('manzana = ?');
+    valores.push(manzana);
+  }
+  if (direccion !== undefined) {
+    asignaciones.push('direccion = ?');
+    valores.push(direccion);
+  }
+  if (numero_casa !== undefined) {
+    asignaciones.push('numero_casa = ?');
+    valores.push(numero_casa);
+  }
+  if (consejo_comunal_id !== undefined) {
+    asignaciones.push('consejo_comunal_id = ?');
+    valores.push(consejo_comunal_id);
+  }
+  if (es_anexo !== undefined) {
+    asignaciones.push('es_anexo = ?');
+    valores.push(es_anexo ? 1 : 0);
+  }
+  if (numero_anexo !== undefined) {
+    asignaciones.push('numero_anexo = ?');
+    valores.push(numero_anexo);
+  }
+  if (vivienda_principal_id !== undefined) {
+    asignaciones.push('vivienda_principal_id = ?');
+    valores.push(vivienda_principal_id);
+  }
+  if (sincronizar_neon !== undefined) {
+    asignaciones.push('sincronizar_neon = ?');
+    valores.push(sincronizar_neon ? 1 : 0);
+  }
+
+  asignaciones.push('sincronizado = 0', 'sincronizado_en = NULL');
+  valores.push(id);
+
   const resultado = db
-    .prepare(`
-      UPDATE viviendas
-      SET estado = COALESCE(?, estado),
-          municipio = COALESCE(?, municipio),
-          parroquia = COALESCE(?, parroquia),
-          comunidad = COALESCE(?, comunidad),
-          etapa = COALESCE(?, etapa),
-          manzana = COALESCE(?, manzana),
-          direccion = COALESCE(?, direccion),
-          numero_casa = COALESCE(?, numero_casa),
-          consejo_comunal_id = COALESCE(?, consejo_comunal_id),
-          es_anexo = COALESCE(?, es_anexo),
-          numero_anexo = COALESCE(?, numero_anexo),
-          vivienda_principal_id = COALESCE(?, vivienda_principal_id),
-          sincronizar_neon = COALESCE(?, sincronizar_neon),
-          sincronizado = 0,
-          sincronizado_en = NULL
-      WHERE id = ?
-    `)
-    .run(
-      estado ?? null,
-      municipio ?? null,
-      parroquia ?? null,
-      comunidad ?? null,
-      etapa ?? null,
-      manzana ?? null,
-      direccion ?? null,
-      numero_casa ?? null,
-      consejo_comunal_id ?? null,
-      es_anexo === undefined ? null : es_anexo ? 1 : 0,
-      numero_anexo ?? null,
-      vivienda_principal_id ?? null,
-      sincronizar_neon === undefined ? null : sincronizar_neon ? 1 : 0,
-      id
-    );
+    .prepare(`UPDATE viviendas SET ${asignaciones.join(', ')} WHERE id = ?`)
+    .run(...valores);
   return resultado.changes > 0;
 }
 
@@ -1751,55 +1858,94 @@ export function actualizarJefeFamilia({
   frecuencia_ingresos?: string | null;
   ingreso_mensual_bs?: number | null;
 }): boolean {
-  const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null;
-  const trabajaNormalizado =
-    trabaja_actual === undefined ? null : normalizarTrabajaActual(trabaja_actual);
+  const asignaciones: string[] = [];
+  const valores: unknown[] = [];
+
+  if (cedula_tipo !== undefined) {
+    asignaciones.push('cedula_tipo = ?');
+    valores.push(cedula_tipo);
+    if (cedula_tipo === 'S') {
+      asignaciones.push('cedula_numero = NULL');
+    } else if (cedula_numero !== undefined) {
+      asignaciones.push('cedula_numero = ?');
+      valores.push(cedula_numero);
+    }
+  } else if (cedula_numero !== undefined) {
+    asignaciones.push('cedula_numero = ?');
+    valores.push(cedula_numero);
+  }
+
+  if (nombres !== undefined) {
+    asignaciones.push('nombres = ?');
+    valores.push(nombres);
+  }
+  if (apellidos !== undefined) {
+    asignaciones.push('apellidos = ?');
+    valores.push(apellidos);
+  }
+  if (fecha_nacimiento !== undefined) {
+    asignaciones.push('fecha_nacimiento = ?', 'edad = ?');
+    valores.push(fecha_nacimiento, fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null);
+  }
+  if (sexo !== undefined) {
+    asignaciones.push('sexo = ?');
+    valores.push(/^f/i.test(String(sexo ?? '').trim()) ? 'F' : 'M');
+  }
+  if (telefono_movil !== undefined) {
+    asignaciones.push('telefono_movil = ?');
+    valores.push(telefono_movil);
+  }
+  if (telefono_habitacion !== undefined) {
+    asignaciones.push('telefono_habitacion = ?');
+    valores.push(telefono_habitacion);
+  }
+  if (telefono_trabajo !== undefined) {
+    asignaciones.push('telefono_trabajo = ?');
+    valores.push(telefono_trabajo);
+  }
+  if (correo !== undefined) {
+    asignaciones.push('correo = ?');
+    valores.push(correo);
+  }
+  if (nivel_instruccion !== undefined) {
+    asignaciones.push('nivel_instruccion = ?');
+    valores.push(nivel_instruccion);
+  }
+  if (estado_civil !== undefined) {
+    asignaciones.push('estado_civil = ?');
+    valores.push(estado_civil);
+  }
+  if (profesion !== undefined) {
+    asignaciones.push('profesion = ?');
+    valores.push(profesion);
+  }
+  if (trabaja_actual !== undefined) {
+    asignaciones.push('trabaja_actual = ?');
+    valores.push(normalizarTrabajaActual(trabaja_actual));
+  }
+  if (clasificacion_ingresos !== undefined) {
+    asignaciones.push('clasificacion_ingresos = ?');
+    valores.push(clasificacion_ingresos);
+  }
+  if (frecuencia_ingresos !== undefined) {
+    asignaciones.push('frecuencia_ingresos = ?');
+    valores.push(frecuencia_ingresos);
+  }
+  if (ingreso_mensual_bs !== undefined) {
+    const ingresoNormalizado =
+      ingreso_mensual_bs !== null && Number.isFinite(Number(ingreso_mensual_bs))
+        ? Number(ingreso_mensual_bs)
+        : null;
+    asignaciones.push('ingreso_mensual_bs = ?');
+    valores.push(ingresoNormalizado);
+  }
+
+  if (!asignaciones.length) return false;
+  valores.push(id);
 
   const resultado = db
-    .prepare(`
-      UPDATE jefes_familia
-      SET cedula_tipo = COALESCE(?, cedula_tipo),
-          cedula_numero = CASE WHEN ? = 'S' THEN NULL ELSE COALESCE(?, cedula_numero) END,
-          nombres = COALESCE(?, nombres),
-          apellidos = COALESCE(?, apellidos),
-          fecha_nacimiento = COALESCE(?, fecha_nacimiento),
-          edad = COALESCE(?, edad),
-          sexo = COALESCE(?, sexo),
-          telefono_movil = COALESCE(?, telefono_movil),
-          telefono_habitacion = COALESCE(?, telefono_habitacion),
-          telefono_trabajo = COALESCE(?, telefono_trabajo),
-          correo = COALESCE(?, correo),
-          nivel_instruccion = COALESCE(?, nivel_instruccion),
-          estado_civil = COALESCE(?, estado_civil),
-          profesion = COALESCE(?, profesion),
-          trabaja_actual = COALESCE(?, trabaja_actual),
-          clasificacion_ingresos = COALESCE(?, clasificacion_ingresos),
-          frecuencia_ingresos = COALESCE(?, frecuencia_ingresos),
-          ingreso_mensual_bs = COALESCE(?, ingreso_mensual_bs)
-      WHERE id = ?
-    `)
-    .run(
-      cedula_tipo ?? null,
-      cedula_tipo ?? null,
-      cedula_numero ?? null,
-      nombres ?? null,
-      apellidos ?? null,
-      fecha_nacimiento ?? null,
-      edad,
-      sexo ?? null,
-      telefono_movil ?? null,
-      telefono_habitacion ?? null,
-      telefono_trabajo ?? null,
-      correo ?? null,
-      nivel_instruccion ?? null,
-      estado_civil ?? null,
-      profesion ?? null,
-      trabajaNormalizado,
-      clasificacion_ingresos ?? null,
-      frecuencia_ingresos ?? null,
-      ingreso_mensual_bs ?? null,
-      id
-    );
+    .prepare(`UPDATE jefes_familia SET ${asignaciones.join(', ')} WHERE id = ?`)
+    .run(...valores);
   return resultado.changes > 0;
 }
 
@@ -1911,41 +2057,70 @@ export function actualizarIntegrante({
   profesion?: string | null;
   ingreso_mensual?: number | null;
 }): boolean {
-  const edad = fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null;
+  const asignaciones: string[] = [];
+  const valores: unknown[] = [];
+
+  if (numero !== undefined) {
+    asignaciones.push('numero = ?');
+    valores.push(numero);
+  }
+  if (apellidos !== undefined) {
+    asignaciones.push('apellidos = ?');
+    valores.push(apellidos);
+  }
+  if (nombres !== undefined) {
+    asignaciones.push('nombres = ?');
+    valores.push(nombres);
+  }
+  if (cedula_tipo !== undefined) {
+    asignaciones.push('cedula_tipo = ?');
+    valores.push(cedula_tipo);
+    if (cedula_tipo === 'S') {
+      asignaciones.push('cedula_numero = NULL');
+    } else if (cedula_numero !== undefined) {
+      asignaciones.push('cedula_numero = ?');
+      valores.push(cedula_numero);
+    }
+  } else if (cedula_numero !== undefined) {
+    asignaciones.push('cedula_numero = ?');
+    valores.push(cedula_numero);
+  }
+
+  if (fecha_nacimiento !== undefined) {
+    asignaciones.push('fecha_nacimiento = ?', 'edad = ?');
+    valores.push(fecha_nacimiento, fecha_nacimiento ? calcularEdad(fecha_nacimiento) : null);
+  }
+  if (sexo !== undefined) {
+    asignaciones.push('sexo = ?');
+    valores.push(sexo);
+  }
+  if (parentesco !== undefined) {
+    asignaciones.push('parentesco = ?');
+    valores.push(parentesco);
+  }
+  if (nivel_instruccion !== undefined) {
+    asignaciones.push('nivel_instruccion = ?');
+    valores.push(nivel_instruccion);
+  }
+  if (profesion !== undefined) {
+    asignaciones.push('profesion = ?');
+    valores.push(profesion);
+  }
+  if (ingreso_mensual !== undefined) {
+    const ingresoNormalizado =
+      ingreso_mensual !== null && Number.isFinite(Number(ingreso_mensual))
+        ? Number(ingreso_mensual)
+        : null;
+    asignaciones.push('ingreso_mensual = ?');
+    valores.push(ingresoNormalizado);
+  }
+
+  if (!asignaciones.length) return false;
+  valores.push(id);
 
   const resultado = db
-    .prepare(`
-      UPDATE integrantes_grupo_familiar
-      SET numero = COALESCE(?, numero),
-          apellidos = COALESCE(?, apellidos),
-          nombres = COALESCE(?, nombres),
-          cedula_tipo = COALESCE(?, cedula_tipo),
-          cedula_numero = CASE WHEN ? = 'S' THEN NULL ELSE COALESCE(?, cedula_numero) END,
-          fecha_nacimiento = COALESCE(?, fecha_nacimiento),
-          edad = COALESCE(?, edad),
-          sexo = COALESCE(?, sexo),
-          parentesco = COALESCE(?, parentesco),
-          nivel_instruccion = COALESCE(?, nivel_instruccion),
-          profesion = COALESCE(?, profesion),
-          ingreso_mensual = COALESCE(?, ingreso_mensual)
-      WHERE id = ?
-    `)
-    .run(
-      numero ?? null,
-      apellidos ?? null,
-      nombres ?? null,
-      cedula_tipo ?? null,
-      cedula_tipo ?? null,
-      cedula_numero ?? null,
-      fecha_nacimiento ?? null,
-      edad,
-      sexo ?? null,
-      parentesco ?? null,
-      nivel_instruccion ?? null,
-      profesion ?? null,
-      ingreso_mensual ?? null,
-      id
-    );
+    .prepare(`UPDATE integrantes_grupo_familiar SET ${asignaciones.join(', ')} WHERE id = ?`)
+    .run(...valores);
   return resultado.changes > 0;
 }
 
@@ -2002,6 +2177,10 @@ export function crearViviendaCompleta({
 // CONSEJOS COMUNALES Y BÚSQUEDA DE VIVIENDA PRINCIPAL
 // ============================================================================
 
+export type ConsejoComunalConConteo = ConsejoComunal & {
+  viviendas_count: number;
+};
+
 export function listarConsejosComunales(
   { soloActivos = true }: { soloActivos?: boolean } = {}
 ): ConsejoComunal[] {
@@ -2019,6 +2198,30 @@ export function listarConsejosComunales(
     nombre: fila.nombre,
     sector: fila.sector ?? null,
     activo: Boolean(fila.activo),
+  }));
+}
+
+export function listarConsejosComunalesConConteo(
+  { soloActivos = false }: { soloActivos?: boolean } = {}
+): ConsejoComunalConConteo[] {
+  const filtro = soloActivos ? 'WHERE c.activo = 1' : '';
+  const filas = db
+    .prepare(`
+      SELECT c.*, COUNT(v.id) AS viviendas_count
+      FROM consejos_comunales c
+      LEFT JOIN viviendas v ON v.consejo_comunal_id = c.id
+      ${filtro}
+      GROUP BY c.id
+      ORDER BY c.nombre COLLATE NOCASE
+    `)
+    .all() as any[];
+
+  return filas.map((fila) => ({
+    id: fila.id,
+    nombre: fila.nombre,
+    sector: fila.sector ?? null,
+    activo: Boolean(fila.activo),
+    viviendas_count: Number(fila.viviendas_count || 0),
   }));
 }
 
@@ -2040,29 +2243,134 @@ export function crearConsejoComunal({
   nombre,
   sector = null,
   activo = true,
+  pendiente_neon = false,
 }: {
   nombre: string;
   sector?: string | null;
   activo?: boolean;
+  pendiente_neon?: boolean;
 }): number {
-  const resultado = db
-    .prepare(`
-      INSERT OR IGNORE INTO consejos_comunales (nombre, sector, activo)
-      VALUES (?, ?, ?)
-    `)
-    .run(nombre, sector, activo ? 1 : 0);
-  if (resultado.changes === 0) {
-    db.prepare(`
-      UPDATE consejos_comunales
-      SET sector = COALESCE(?, sector), activo = ?
-      WHERE nombre = ? COLLATE NOCASE
-    `).run(sector, activo ? 1 : 0, nombre);
-    const fila = db
-      .prepare('SELECT id FROM consejos_comunales WHERE nombre = ? COLLATE NOCASE')
-      .get(nombre) as { id: number } | undefined;
-    return fila ? fila.id : 0;
-  }
-  return Number(resultado.lastInsertRowid);
+  return db.transaction(() => {
+    db.prepare('DELETE FROM neon_consejos_eliminaciones WHERE lower(nombre) = lower(?)').run(nombre);
+    const pendiente = pendiente_neon ? 1 : 0;
+    const resultado = db
+      .prepare(`
+        INSERT OR IGNORE INTO consejos_comunales (nombre, sector, activo, pendiente_neon, nombre_original_neon)
+        VALUES (?, ?, ?, ?, NULL)
+      `)
+      .run(nombre, sector, activo ? 1 : 0, pendiente);
+    if (resultado.changes === 0) {
+      db.prepare(`
+        UPDATE consejos_comunales
+        SET sector = ?, activo = ?, pendiente_neon = ?, nombre_original_neon = CASE WHEN ? = 0 THEN NULL ELSE nombre_original_neon END
+        WHERE nombre = ? COLLATE NOCASE
+      `).run(sector, activo ? 1 : 0, pendiente, pendiente, nombre);
+      const fila = db
+        .prepare('SELECT id FROM consejos_comunales WHERE nombre = ? COLLATE NOCASE')
+        .get(nombre) as { id: number } | undefined;
+      return fila ? fila.id : 0;
+    }
+    return Number(resultado.lastInsertRowid);
+  })();
+}
+
+export function actualizarConsejoComunal({
+  id,
+  nombre,
+  sector,
+  activo,
+  pendiente_neon = false,
+  nombre_original_neon = null,
+}: {
+  id: number;
+  nombre: string;
+  sector: string | null;
+  activo: boolean;
+  pendiente_neon?: boolean;
+  nombre_original_neon?: string | null;
+}): boolean {
+  return db.transaction(() => {
+    const actual = db
+      .prepare('SELECT id, nombre, nombre_original_neon FROM consejos_comunales WHERE id = ?')
+      .get(id) as { id: number; nombre: string; nombre_original_neon: string | null } | undefined;
+    if (!actual) return false;
+
+    const originalParaNeon = pendiente_neon
+      ? actual.nombre_original_neon || nombre_original_neon || actual.nombre
+      : null;
+
+    db.prepare('DELETE FROM neon_consejos_eliminaciones WHERE lower(nombre) = lower(?)').run(nombre);
+
+    const resultado = db
+      .prepare(`
+        UPDATE consejos_comunales
+        SET nombre = ?, sector = ?, activo = ?, pendiente_neon = ?, nombre_original_neon = ?
+        WHERE id = ?
+      `)
+      .run(nombre, sector, activo ? 1 : 0, pendiente_neon ? 1 : 0, originalParaNeon, id);
+
+    if (actual.nombre.toLowerCase() !== nombre.toLowerCase()) {
+      db.prepare(
+        'UPDATE beneficios_entregas SET consejo_comunal = ? WHERE lower(consejo_comunal) = lower(?)'
+      ).run(nombre, actual.nombre);
+    }
+
+    return resultado.changes > 0;
+  })();
+}
+
+export function eliminarConsejoComunal(id: number): boolean {
+  return db.transaction(() => {
+    const actual = db.prepare('SELECT id FROM consejos_comunales WHERE id = ?').get(id) as
+      | { id: number }
+      | undefined;
+    if (!actual) return false;
+    db.prepare('UPDATE viviendas SET consejo_comunal_id = NULL WHERE consejo_comunal_id = ?').run(id);
+    return db.prepare('DELETE FROM consejos_comunales WHERE id = ?').run(id).changes > 0;
+  })();
+}
+
+export function listarConsejosPendientesNeon(): Array<{
+  id: number;
+  nombre: string;
+  sector: string | null;
+  activo: boolean;
+  nombre_original_neon: string | null;
+}> {
+  const filas = db
+    .prepare('SELECT id, nombre, sector, activo, nombre_original_neon FROM consejos_comunales WHERE pendiente_neon = 1 ORDER BY id')
+    .all() as any[];
+  return filas.map((f) => ({
+    id: f.id,
+    nombre: f.nombre,
+    sector: f.sector ?? null,
+    activo: Boolean(f.activo),
+    nombre_original_neon: f.nombre_original_neon ?? null,
+  }));
+}
+
+export function marcarConsejoSincronizado(id: number): void {
+  db.prepare('UPDATE consejos_comunales SET pendiente_neon = 0, nombre_original_neon = NULL WHERE id = ?').run(id);
+}
+
+export function encolarEliminacionConsejoNeon(nombre: string): void {
+  const limpio = String(nombre || '').trim();
+  if (!limpio) return;
+  db.prepare(`
+    INSERT INTO neon_consejos_eliminaciones (nombre)
+    VALUES (?)
+    ON CONFLICT (nombre) DO NOTHING
+  `).run(limpio);
+}
+
+export function listarEliminacionesConsejoNeon(): Array<{ id: number; nombre: string }> {
+  return db
+    .prepare('SELECT id, nombre FROM neon_consejos_eliminaciones ORDER BY id')
+    .all() as Array<{ id: number; nombre: string }>;
+}
+
+export function eliminarEliminacionConsejoNeon(id: number): void {
+  db.prepare('DELETE FROM neon_consejos_eliminaciones WHERE id = ?').run(id);
 }
 
 export type ViviendaPrincipalBusqueda = {
@@ -2405,22 +2713,31 @@ export function crearTerritorio({
   tipo,
   nombre,
   padre_id = null,
+  activo = true,
+  pendiente_neon = false,
 }: {
   tipo: TipoTerritorio;
   nombre: string;
   padre_id?: number | null;
+  activo?: boolean;
+  pendiente_neon?: boolean;
 }): number {
   if (!TIPOS_TERRITORIO.includes(tipo)) {
     throw new Error('Tipo de territorio inválido.');
   }
 
-  const resultado = db
-    .prepare(`
-      INSERT INTO territorios (tipo, nombre, padre_id, orden)
-      VALUES (?, ?, ?, (SELECT COALESCE(MAX(orden), 0) + 10 FROM territorios WHERE tipo = ?))
-    `)
-    .run(tipo, nombre, padre_id, tipo);
-  return resultado.lastInsertRowid as number;
+  return db.transaction(() => {
+    db.prepare(
+      'DELETE FROM neon_territorios_eliminaciones WHERE tipo = ? AND lower(nombre) = lower(?)'
+    ).run(tipo, nombre);
+    const resultado = db
+      .prepare(`
+        INSERT INTO territorios (tipo, nombre, padre_id, activo, pendiente_neon, nombre_original_neon, orden)
+        VALUES (?, ?, ?, ?, ?, NULL, (SELECT COALESCE(MAX(orden), 0) + 10 FROM territorios WHERE tipo = ?))
+      `)
+      .run(tipo, nombre, padre_id, activo ? 1 : 0, pendiente_neon ? 1 : 0, tipo);
+    return resultado.lastInsertRowid as number;
+  })();
 }
 
 export function actualizarTerritorio({
@@ -2428,31 +2745,117 @@ export function actualizarTerritorio({
   nombre,
   padre_id,
   activo,
+  pendiente_neon,
+  nombre_original_neon,
 }: {
   id: number;
   nombre?: string;
   padre_id?: number | null;
   activo?: boolean;
+  pendiente_neon?: boolean;
+  nombre_original_neon?: string | null;
 }): boolean {
+  const actual = db
+    .prepare('SELECT id, tipo, nombre, nombre_original_neon FROM territorios WHERE id = ?')
+    .get(id) as
+    | { id: number; tipo: string; nombre: string; nombre_original_neon: string | null }
+    | undefined;
+  if (!actual) return false;
+
+  const asignaciones: string[] = [];
+  const valores: unknown[] = [];
+
+  if (nombre !== undefined) {
+    asignaciones.push('nombre = ?');
+    valores.push(nombre);
+    db.prepare(
+      'DELETE FROM neon_territorios_eliminaciones WHERE tipo = ? AND lower(nombre) = lower(?)'
+    ).run(actual.tipo, nombre);
+  }
+  if (padre_id !== undefined) {
+    asignaciones.push('padre_id = ?');
+    valores.push(padre_id);
+  }
+  if (activo !== undefined) {
+    asignaciones.push('activo = ?');
+    valores.push(activo ? 1 : 0);
+  }
+  if (pendiente_neon !== undefined) {
+    asignaciones.push('pendiente_neon = ?');
+    valores.push(pendiente_neon ? 1 : 0);
+    if (pendiente_neon) {
+      const original = actual.nombre_original_neon || nombre_original_neon || actual.nombre;
+      asignaciones.push('nombre_original_neon = ?');
+      valores.push(original);
+    } else {
+      asignaciones.push('nombre_original_neon = NULL');
+    }
+  } else if (nombre_original_neon !== undefined) {
+    asignaciones.push('nombre_original_neon = ?');
+    valores.push(nombre_original_neon);
+  }
+
+  if (!asignaciones.length) return false;
+  valores.push(id);
+
   const resultado = db
-    .prepare(`
-      UPDATE territorios
-      SET nombre = COALESCE(?, nombre),
-          padre_id = COALESCE(?, padre_id),
-          activo = COALESCE(?, activo)
-      WHERE id = ?
-    `)
-    .run(
-      nombre ?? null,
-      padre_id === undefined ? null : padre_id,
-      activo === undefined ? null : activo ? 1 : 0,
-      id
-    );
+    .prepare(`UPDATE territorios SET ${asignaciones.join(', ')} WHERE id = ?`)
+    .run(...valores);
   return resultado.changes > 0;
 }
 
 export function eliminarTerritorio(id: number): boolean {
   return db.prepare('DELETE FROM territorios WHERE id = ?').run(id).changes > 0;
+}
+
+export function listarTerritoriosPendientesNeon(): Array<
+  Territorio & { nombre_original_neon: string | null }
+> {
+  const filas = db
+    .prepare(`
+      SELECT t.*, p.nombre AS padre_nombre
+      FROM territorios t
+      LEFT JOIN territorios p ON p.id = t.padre_id
+      WHERE t.pendiente_neon = 1
+      ORDER BY t.id
+    `)
+    .all() as any[];
+
+  return filas.map((fila) => ({
+    ...formatearTerritorio(fila),
+    nombre_original_neon: fila.nombre_original_neon ?? null,
+  }));
+}
+
+export function marcarTerritorioSincronizado(id: number): void {
+  db.prepare(
+    'UPDATE territorios SET pendiente_neon = 0, nombre_original_neon = NULL WHERE id = ?'
+  ).run(id);
+}
+
+export function encolarEliminacionTerritorioNeon(tipo: string, nombre: string): void {
+  const t = String(tipo || '').trim();
+  const n = String(nombre || '').trim();
+  if (!t || !n) return;
+  db.prepare(`
+    INSERT INTO neon_territorios_eliminaciones (tipo, nombre)
+    VALUES (?, ?)
+    ON CONFLICT (tipo, nombre) DO NOTHING
+  `).run(t, n);
+}
+
+export function listarEliminacionesTerritorioNeon(): Array<{
+  id: number;
+  tipo: string;
+  nombre: string;
+}> {
+  return db
+    .prepare('SELECT id, tipo, nombre FROM neon_territorios_eliminaciones ORDER BY id')
+    .all() as Array<{ id: number; tipo: string; nombre: string }>;
+}
+
+export function eliminarEliminacionTerritorioNeon(id: number): void {
+  db.prepare('DELETE FROM neon_territorios_eliminaciones WHERE id = ?').run(id);
 }
 
 // ============================================================================
@@ -2870,8 +3273,18 @@ module.exports = {
   obtenerExpedienteVivienda,
   crearViviendaCompleta,
   listarConsejosComunales,
+  listarConsejosComunalesConConteo,
   obtenerConsejoComunalPorId,
   crearConsejoComunal,
+  actualizarConsejoComunal,
+  eliminarConsejoComunal,
+  listarConsejosPendientesNeon,
+  marcarConsejoSincronizado,
+  encolarEliminacionConsejoNeon,
+  listarEliminacionesConsejoNeon,
+  eliminarEliminacionConsejoNeon,
+  obtenerConfigSistema,
+  guardarConfigSistema,
   buscarViviendasPrincipales,
   listarUsuarios,
   listarUsuariosConHash,
@@ -2892,6 +3305,11 @@ module.exports = {
   crearTerritorio,
   actualizarTerritorio,
   eliminarTerritorio,
+  listarTerritoriosPendientesNeon,
+  marcarTerritorioSincronizado,
+  encolarEliminacionTerritorioNeon,
+  listarEliminacionesTerritorioNeon,
+  eliminarEliminacionTerritorioNeon,
   listarConfigCampos,
   obtenerConfigCamposMap,
   actualizarConfigCampo,

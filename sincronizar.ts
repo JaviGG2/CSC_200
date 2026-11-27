@@ -234,7 +234,9 @@ function prepararUpsert(registros: ViviendaPendiente[]): {
       registro.cedula,
       registro.nombres,
       registro.apellidos,
-      registro.fecha_nacimiento ?? registro.fecha_registro,
+      (registro.fecha_nacimiento && String(registro.fecha_nacimiento).trim()) ||
+        registro.fecha_registro ||
+        '1900-01-01',
       JSON.stringify(registro.datos_extras),
       registro.comunidad
     );

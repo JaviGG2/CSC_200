@@ -3,6 +3,15 @@ import {
   db,
   crearConsejoComunal,
   listarConsejosComunales,
+  listarConsejosPendientesNeon,
+  marcarConsejoSincronizado,
+  listarEliminacionesConsejoNeon,
+  eliminarEliminacionConsejoNeon,
+  listarTerritoriosPendientesNeon,
+  marcarTerritorioSincronizado,
+  listarEliminacionesTerritorioNeon,
+  eliminarEliminacionTerritorioNeon,
+  obtenerConfigSistema,
   listarConfigCampos,
   listarUsuariosConHash,
   marcarUsuarioSincronizado,
@@ -46,35 +55,54 @@ async function conCliente<T>(fn: (cliente: Client) => Promise<T>): Promise<T> {
   }
 }
 
-async function sembrarNeonSiEstaVacio(cliente: Client): Promise<void> {
-  const consejos = await cliente.query('SELECT COUNT(*)::int AS total FROM consejos_comunales');
-  if (Number(consejos.rows[0]?.total || 0) === 0) {
-    const locales = listarConsejosComunales({ soloActivos: false });
-    for (const consejo of locales) {
-      await cliente.query(
-        `INSERT INTO consejos_comunales (nombre, sector, activo)
-         SELECT $1::text, $2::text, $3::boolean
-         WHERE NOT EXISTS (
-           SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
-         )`,
-        [consejo.nombre, consejo.sector, consejo.activo]
-      );
-    }
+async function obtenerBanderaNeon(cliente: Client, clave: string): Promise<boolean> {
+  const res = await cliente.query('SELECT valor FROM config_sistema WHERE clave = $1', [clave]);
+  return res.rowCount ? res.rows[0].valor === '1' : false;
+}
 
-    // Si tampoco había consejos locales, se derivan de las comunidades.
-    const comunidades = db
-      .prepare("SELECT DISTINCT nombre FROM territorios WHERE tipo = 'comunidad' AND TRIM(nombre) <> ''")
-      .all() as Array<{ nombre: string }>;
-    for (const comunidad of comunidades) {
-      await cliente.query(
-        `INSERT INTO consejos_comunales (nombre)
-         SELECT $1::text
-         WHERE NOT EXISTS (
-           SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
-         )`,
-        [comunidad.nombre]
-      );
+async function guardarBanderaNeon(cliente: Client, clave: string, valor = '1'): Promise<void> {
+  await cliente.query(
+    `INSERT INTO config_sistema (clave, valor)
+     VALUES ($1, $2)
+     ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor, updated_at = now()`,
+    [clave, valor]
+  );
+}
+
+async function sembrarNeonSiEstaVacio(cliente: Client): Promise<void> {
+  const consejosSembrados = await obtenerBanderaNeon(cliente, 'consejos_sembrados');
+  if (!consejosSembrados) {
+    const consejos = await cliente.query('SELECT COUNT(*)::int AS total FROM consejos_comunales');
+    if (Number(consejos.rows[0]?.total || 0) === 0) {
+      const locales = listarConsejosComunales({ soloActivos: false });
+      for (const consejo of locales) {
+        await cliente.query(
+          `INSERT INTO consejos_comunales (nombre, sector, activo)
+           SELECT $1::text, $2::text, $3::boolean
+           WHERE NOT EXISTS (
+             SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
+           )`,
+          [consejo.nombre, consejo.sector, consejo.activo]
+        );
+      }
+
+      if (locales.length === 0 && obtenerConfigSistema('consejos_sembrados') !== '1') {
+        const comunidades = db
+          .prepare("SELECT DISTINCT nombre FROM territorios WHERE tipo = 'comunidad' AND TRIM(nombre) <> ''")
+          .all() as Array<{ nombre: string }>;
+        for (const comunidad of comunidades) {
+          await cliente.query(
+            `INSERT INTO consejos_comunales (nombre)
+             SELECT $1::text
+             WHERE NOT EXISTS (
+               SELECT 1 FROM consejos_comunales WHERE lower(nombre) = lower($1::text)
+             )`,
+            [comunidad.nombre]
+          );
+        }
+      }
     }
+    await guardarBanderaNeon(cliente, 'consejos_sembrados', '1');
   }
 
   const opciones = await cliente.query('SELECT COUNT(*)::int AS total FROM opciones_campos');
@@ -104,29 +132,33 @@ async function sembrarNeonSiEstaVacio(cliente: Client): Promise<void> {
     }
   }
 
-  const territorios = await cliente.query('SELECT COUNT(*)::int AS total FROM territorios');
-  if (Number(territorios.rows[0]?.total || 0) === 0) {
-    const locales = db
-      .prepare('SELECT tipo, nombre, padre_id, activo, orden FROM territorios ORDER BY id')
-      .all() as any[];
-    const porIdLocal = new Map<number, string>();
-    for (const territorio of locales) {
-      const padreNombre = territorio.padre_id ? porIdLocal.get(territorio.padre_id) : null;
-      let padreIdNeon: number | null = null;
-      if (padreNombre) {
-        const padre = await cliente.query(
-          'SELECT id FROM territorios WHERE lower(nombre) = lower($1) ORDER BY id LIMIT 1',
-          [padreNombre]
+  const territoriosSembrados = await obtenerBanderaNeon(cliente, 'territorios_sembrados');
+  if (!territoriosSembrados) {
+    const territorios = await cliente.query('SELECT COUNT(*)::int AS total FROM territorios');
+    if (Number(territorios.rows[0]?.total || 0) === 0) {
+      const locales = db
+        .prepare('SELECT id, tipo, nombre, padre_id, activo, orden FROM territorios ORDER BY id')
+        .all() as any[];
+      const porIdLocal = new Map<number, string>();
+      for (const territorio of locales) {
+        const padreNombre = territorio.padre_id ? porIdLocal.get(territorio.padre_id) : null;
+        let padreIdNeon: number | null = null;
+        if (padreNombre) {
+          const padre = await cliente.query(
+            'SELECT id FROM territorios WHERE lower(nombre) = lower($1) ORDER BY id LIMIT 1',
+            [padreNombre]
+          );
+          padreIdNeon = padre.rowCount ? Number(padre.rows[0].id) : null;
+        }
+        await cliente.query(
+          `INSERT INTO territorios (tipo, nombre, padre_id, activo, orden)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [territorio.tipo, territorio.nombre, padreIdNeon, Boolean(territorio.activo), territorio.orden]
         );
-        padreIdNeon = padre.rowCount ? Number(padre.rows[0].id) : null;
+        porIdLocal.set(territorio.id, territorio.nombre);
       }
-      await cliente.query(
-        `INSERT INTO territorios (tipo, nombre, padre_id, activo, orden)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [territorio.tipo, territorio.nombre, padreIdNeon, Boolean(territorio.activo), territorio.orden]
-      );
-      porIdLocal.set(territorio.id, territorio.nombre);
     }
+    await guardarBanderaNeon(cliente, 'territorios_sembrados', '1');
   }
 
   const usuarios = await cliente.query('SELECT COUNT(*)::int AS total FROM usuarios');
@@ -143,7 +175,95 @@ async function sembrarNeonSiEstaVacio(cliente: Client): Promise<void> {
   }
 }
 
+async function upsertConsejoConCliente(
+  cliente: Client,
+  {
+    nombre,
+    nombreOriginal,
+    sector,
+    activo,
+  }: {
+    nombre: string;
+    nombreOriginal?: string | null;
+    sector: string | null;
+    activo: boolean;
+  }
+): Promise<void> {
+  const original = (nombreOriginal || nombre).trim();
+  const existente = await cliente.query(
+    'SELECT id, nombre FROM consejos_comunales WHERE lower(nombre) = lower($1) LIMIT 1',
+    [original]
+  );
+
+  if (existente.rowCount) {
+    await cliente.query(
+      `UPDATE consejos_comunales
+       SET nombre = $2, sector = $3, activo = $4, updated_at = now()
+       WHERE id = $1`,
+      [existente.rows[0].id, nombre, sector, activo]
+    );
+    if (String(existente.rows[0].nombre).toLowerCase() !== nombre.toLowerCase()) {
+      await cliente.query(
+        `UPDATE beneficios_entregas
+         SET consejo_comunal = $2
+         WHERE lower(consejo_comunal) = lower($1)`,
+        [existente.rows[0].nombre, nombre]
+      );
+    }
+    return;
+  }
+
+  const porNuevoNombre = await cliente.query(
+    'SELECT id FROM consejos_comunales WHERE lower(nombre) = lower($1) LIMIT 1',
+    [nombre]
+  );
+
+  if (porNuevoNombre.rowCount) {
+    await cliente.query(
+      `UPDATE consejos_comunales
+       SET nombre = $2, sector = $3, activo = $4, updated_at = now()
+       WHERE id = $1`,
+      [porNuevoNombre.rows[0].id, nombre, sector, activo]
+    );
+  } else {
+    await cliente.query(
+      `INSERT INTO consejos_comunales (nombre, sector, activo)
+       VALUES ($1, $2, $3)`,
+      [nombre, sector, activo]
+    );
+  }
+}
+
+async function borrarConsejoConCliente(cliente: Client, nombre: string): Promise<void> {
+  await cliente.query(
+    `UPDATE viviendas
+     SET consejo_comunal_id = NULL
+     WHERE consejo_comunal_id IN (
+       SELECT id FROM consejos_comunales WHERE lower(nombre) = lower($1)
+     )`,
+    [nombre]
+  );
+  await cliente.query('DELETE FROM consejos_comunales WHERE lower(nombre) = lower($1)', [nombre]);
+}
+
 async function aplicarConsejos(cliente: Client): Promise<number> {
+  const eliminaciones = listarEliminacionesConsejoNeon();
+  for (const item of eliminaciones) {
+    await borrarConsejoConCliente(cliente, item.nombre);
+    eliminarEliminacionConsejoNeon(item.id);
+  }
+
+  const pendientes = listarConsejosPendientesNeon();
+  for (const item of pendientes) {
+    await upsertConsejoConCliente(cliente, {
+      nombre: item.nombre,
+      nombreOriginal: item.nombre_original_neon,
+      sector: item.sector,
+      activo: item.activo,
+    });
+    marcarConsejoSincronizado(item.id);
+  }
+
   const { rows } = await cliente.query(
     'SELECT id, nombre, sector, activo FROM consejos_comunales ORDER BY nombre'
   );
@@ -154,17 +274,20 @@ async function aplicarConsejos(cliente: Client): Promise<number> {
         nombre: fila.nombre,
         sector: fila.sector,
         activo: Boolean(fila.activo),
+        pendiente_neon: false,
       });
     }
 
-    // Lo que ya no exista en Neon deja de ofrecerse en el formulario.
     const nombresNeon = new Set(rows.map((fila: any) => String(fila.nombre).toLowerCase()));
     const locales = db
-      .prepare('SELECT id, nombre, activo FROM consejos_comunales WHERE activo = 1')
-      .all() as Array<{ id: number; nombre: string; activo: number }>;
+      .prepare('SELECT id, nombre FROM consejos_comunales WHERE pendiente_neon = 0')
+      .all() as Array<{ id: number; nombre: string }>;
     for (const local of locales) {
       if (!nombresNeon.has(local.nombre.toLowerCase())) {
-        db.prepare('UPDATE consejos_comunales SET activo = 0 WHERE id = ?').run(local.id);
+        db.prepare('UPDATE viviendas SET consejo_comunal_id = NULL WHERE consejo_comunal_id = ?').run(
+          local.id
+        );
+        db.prepare('DELETE FROM consejos_comunales WHERE id = ?').run(local.id);
       }
     }
   });
@@ -257,7 +380,86 @@ async function aplicarConfigCampos(cliente: Client): Promise<number> {
   return rows.length;
 }
 
+async function upsertTerritorioConCliente(
+  cliente: Client,
+  {
+    tipo,
+    nombre,
+    nombreOriginal,
+    padreNombre,
+    activo = true,
+  }: {
+    tipo: string;
+    nombre: string;
+    nombreOriginal?: string | null;
+    padreNombre?: string | null;
+    activo?: boolean;
+  }
+): Promise<void> {
+  let padreId: number | null = null;
+  if (padreNombre) {
+    const padre = await cliente.query(
+      'SELECT id FROM territorios WHERE lower(nombre) = lower($1) LIMIT 1',
+      [padreNombre]
+    );
+    padreId = padre.rowCount ? Number(padre.rows[0].id) : null;
+  }
+
+  const original = (nombreOriginal || nombre).trim();
+  const existente = await cliente.query(
+    'SELECT id FROM territorios WHERE tipo = $1 AND lower(nombre) = lower($2) LIMIT 1',
+    [tipo, original]
+  );
+
+  if (existente.rowCount) {
+    await cliente.query(
+      'UPDATE territorios SET nombre = $2, padre_id = $3, activo = $4 WHERE id = $1',
+      [existente.rows[0].id, nombre, padreId, activo]
+    );
+    return;
+  }
+
+  const porNuevoNombre = await cliente.query(
+    'SELECT id FROM territorios WHERE tipo = $1 AND lower(nombre) = lower($2) LIMIT 1',
+    [tipo, nombre]
+  );
+
+  if (porNuevoNombre.rowCount) {
+    await cliente.query(
+      'UPDATE territorios SET nombre = $2, padre_id = $3, activo = $4 WHERE id = $1',
+      [porNuevoNombre.rows[0].id, nombre, padreId, activo]
+    );
+  } else {
+    await cliente.query(
+      `INSERT INTO territorios (tipo, nombre, padre_id, activo, orden)
+       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(orden), 0) + 10 FROM territorios WHERE tipo = $1))`,
+      [tipo, nombre, padreId, activo]
+    );
+  }
+}
+
 async function aplicarTerritorios(cliente: Client): Promise<number> {
+  const eliminaciones = listarEliminacionesTerritorioNeon();
+  for (const item of eliminaciones) {
+    await cliente.query(
+      'DELETE FROM territorios WHERE tipo = $1 AND lower(nombre) = lower($2)',
+      [item.tipo, item.nombre]
+    );
+    eliminarEliminacionTerritorioNeon(item.id);
+  }
+
+  const pendientes = listarTerritoriosPendientesNeon();
+  for (const item of pendientes) {
+    await upsertTerritorioConCliente(cliente, {
+      tipo: item.tipo,
+      nombre: item.nombre,
+      nombreOriginal: item.nombre_original_neon,
+      padreNombre: item.padre_nombre,
+      activo: item.activo,
+    });
+    marcarTerritorioSincronizado(item.id);
+  }
+
   const { rows } = await cliente.query(
     `SELECT t.tipo, t.nombre, t.activo, t.orden, p.nombre AS padre_nombre
      FROM territorios t
@@ -266,21 +468,10 @@ async function aplicarTerritorios(cliente: Client): Promise<number> {
   );
 
   const transaccion = db.transaction(() => {
-    for (const fila of rows) {
-      const existente = db
-        .prepare(
-          'SELECT id FROM territorios WHERE tipo = ? AND lower(nombre) = lower(?) LIMIT 1'
-        )
-        .get(fila.tipo, fila.nombre) as { id: number } | undefined;
+    const clavesNeon = new Set<string>();
 
-      if (existente) {
-        db.prepare('UPDATE territorios SET activo = ?, orden = ? WHERE id = ?').run(
-          fila.activo ? 1 : 0,
-          Number(fila.orden) || 0,
-          existente.id
-        );
-        continue;
-      }
+    for (const fila of rows) {
+      clavesNeon.add(`${fila.tipo}:${String(fila.nombre).toLowerCase()}`);
 
       let padreId: number | null = null;
       if (fila.padre_nombre) {
@@ -290,9 +481,31 @@ async function aplicarTerritorios(cliente: Client): Promise<number> {
         padreId = padre ? padre.id : null;
       }
 
+      const existente = db
+        .prepare(
+          'SELECT id FROM territorios WHERE tipo = ? AND lower(nombre) = lower(?) LIMIT 1'
+        )
+        .get(fila.tipo, fila.nombre) as { id: number } | undefined;
+
+      if (existente) {
+        db.prepare(
+          'UPDATE territorios SET padre_id = ?, activo = ?, orden = ?, pendiente_neon = 0, nombre_original_neon = NULL WHERE id = ?'
+        ).run(padreId, fila.activo ? 1 : 0, Number(fila.orden) || 0, existente.id);
+        continue;
+      }
+
       db.prepare(
-        'INSERT INTO territorios (tipo, nombre, padre_id, activo, orden) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO territorios (tipo, nombre, padre_id, activo, orden, pendiente_neon, nombre_original_neon) VALUES (?, ?, ?, ?, ?, 0, NULL)'
       ).run(fila.tipo, fila.nombre, padreId, fila.activo ? 1 : 0, Number(fila.orden) || 0);
+    }
+
+    const locales = db
+      .prepare('SELECT id, tipo, nombre FROM territorios WHERE pendiente_neon = 0')
+      .all() as Array<{ id: number; tipo: string; nombre: string }>;
+    for (const local of locales) {
+      if (!clavesNeon.has(`${local.tipo}:${local.nombre.toLowerCase()}`)) {
+        db.prepare('DELETE FROM territorios WHERE id = ?').run(local.id);
+      }
     }
   });
   transaccion();
@@ -435,34 +648,18 @@ export function invalidarCacheConfiguracion(): void {
 
 export async function guardarConsejoEnNeon({
   nombre,
+  nombreOriginal,
   sector,
   activo,
 }: {
   nombre: string;
+  nombreOriginal?: string | null;
   sector: string | null;
   activo: boolean;
 }): Promise<ResultadoConfiguracionNeon> {
   try {
     await conCliente(async (cliente) => {
-      const existente = await cliente.query(
-        'SELECT id FROM consejos_comunales WHERE lower(nombre) = lower($1) LIMIT 1',
-        [nombre]
-      );
-
-      if (existente.rowCount) {
-        await cliente.query(
-          `UPDATE consejos_comunales
-           SET nombre = $2, sector = $3, activo = $4, updated_at = now()
-           WHERE id = $1`,
-          [existente.rows[0].id, nombre, sector, activo]
-        );
-      } else {
-        await cliente.query(
-          `INSERT INTO consejos_comunales (nombre, sector, activo)
-           VALUES ($1, $2, $3)`,
-          [nombre, sector, activo]
-        );
-      }
+      await upsertConsejoConCliente(cliente, { nombre, nombreOriginal, sector, activo });
     });
 
     invalidarCacheConfiguracion();
@@ -472,6 +669,24 @@ export async function guardarConsejoEnNeon({
       ok: false,
       configurado: Boolean(process.env.DATABASE_URL),
       mensaje: `No se pudo guardar el consejo en Neon: ${detalleError(error)}`,
+    };
+  }
+}
+
+export async function eliminarConsejoEnNeon(
+  nombre: string
+): Promise<ResultadoConfiguracionNeon> {
+  try {
+    await conCliente(async (cliente) => {
+      await borrarConsejoConCliente(cliente, nombre);
+    });
+    invalidarCacheConfiguracion();
+    return { ok: true, configurado: true, mensaje: 'Consejo comunal eliminado de Neon.' };
+  } catch (error) {
+    return {
+      ok: false,
+      configurado: Boolean(process.env.DATABASE_URL),
+      mensaje: `No se pudo eliminar el consejo de Neon: ${detalleError(error)}`,
     };
   }
 }
@@ -644,42 +859,25 @@ export async function eliminarTerritorioEnNeon({
 export async function guardarTerritorioEnNeon({
   tipo,
   nombre,
+  nombreOriginal,
   padreNombre,
   activo = true,
 }: {
   tipo: string;
   nombre: string;
+  nombreOriginal?: string | null;
   padreNombre?: string | null;
   activo?: boolean;
 }): Promise<ResultadoConfiguracionNeon> {
   try {
     await conCliente(async (cliente) => {
-      let padreId: number | null = null;
-      if (padreNombre) {
-        const padre = await cliente.query(
-          'SELECT id FROM territorios WHERE lower(nombre) = lower($1) LIMIT 1',
-          [padreNombre]
-        );
-        padreId = padre.rowCount ? Number(padre.rows[0].id) : null;
-      }
-
-      const existente = await cliente.query(
-        'SELECT id FROM territorios WHERE tipo = $1 AND lower(nombre) = lower($2) LIMIT 1',
-        [tipo, nombre]
-      );
-
-      if (existente.rowCount) {
-        await cliente.query(
-          'UPDATE territorios SET nombre = $2, padre_id = $3, activo = $4 WHERE id = $1',
-          [existente.rows[0].id, nombre, padreId, activo]
-        );
-      } else {
-        await cliente.query(
-          `INSERT INTO territorios (tipo, nombre, padre_id, activo, orden)
-           VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(orden), 0) + 10 FROM territorios WHERE tipo = $1))`,
-          [tipo, nombre, padreId, activo]
-        );
-      }
+      await upsertTerritorioConCliente(cliente, {
+        tipo,
+        nombre,
+        nombreOriginal,
+        padreNombre,
+        activo,
+      });
     });
     invalidarCacheConfiguracion();
     return { ok: true, configurado: true, mensaje: 'Territorio guardado en Neon.' };

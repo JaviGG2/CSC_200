@@ -1,3 +1,15 @@
+<%
+  const consejosLista = typeof consejos !== 'undefined' && Array.isArray(consejos) ? consejos : [];
+  const opcionesVista = typeof opciones !== 'undefined' && opciones ? opciones : {};
+  const terr = typeof territorios !== 'undefined' && territorios ? territorios : {};
+  const combinarOpciones = (campo, respaldo, valorActual) => {
+    const base = opcionesVista[campo] && opcionesVista[campo].length ? opcionesVista[campo].slice() : respaldo.slice();
+    if (valorActual && !base.some((o) => o.valor === valorActual)) {
+      base.push({ valor: valorActual, etiqueta: valorActual });
+    }
+    return base;
+  };
+%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -15,13 +27,13 @@
       <a href="/viviendas/<%= vivienda.id %>">← Volver a la ficha de la vivienda</a>
     </div>
 
-    <% if (ok) { %><div class="alerta alerta--exito"><%= ok %></div><% } %>
-    <% if (error) { %><div class="alerta alerta--error"><%= error %></div><% } %>
+    <% if (ok) { %><div class="alerta alerta--exito" role="status"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error" role="alert"><%= error %></div><% } %>
 
     <section class="panel">
       <div class="panel-head">
         <h2>Editar Vivienda N.º <%= vivienda.id %></h2>
-        <p>Actualice la ubicación y los datos del jefe de familia.</p>
+        <p>Actualice la ubicación, el consejo comunal y los datos del jefe de familia.</p>
       </div>
 
       <form method="post" action="/viviendas/<%= vivienda.id %>/editar" class="formulario">
@@ -30,44 +42,101 @@
           <div class="campos">
             <div class="campos-dobles">
               <div class="campo">
-                <label for="estado">Estado</label>
-                <input type="text" id="estado" name="estado" value="<%= vivienda.estado %>" required>
+                <label for="estado">Estado <span class="requerido">*</span></label>
+                <input type="text" id="estado" name="estado" list="lista-estados" value="<%= vivienda.estado %>" required>
+                <datalist id="lista-estados">
+                  <% (terr.estados || []).forEach(function (t) { %>
+                    <option value="<%= t.nombre %>"></option>
+                  <% }); %>
+                </datalist>
               </div>
               <div class="campo">
-                <label for="municipio">Municipio</label>
-                <input type="text" id="municipio" name="municipio" value="<%= vivienda.municipio %>" required>
+                <label for="municipio">Municipio <span class="requerido">*</span></label>
+                <input type="text" id="municipio" name="municipio" list="lista-municipios" value="<%= vivienda.municipio %>" required>
+                <datalist id="lista-municipios">
+                  <% (terr.municipios || []).forEach(function (t) { %>
+                    <option value="<%= t.nombre %>"></option>
+                  <% }); %>
+                </datalist>
               </div>
             </div>
 
             <div class="campo">
-              <label for="parroquia">Parroquia</label>
-              <input type="text" id="parroquia" name="parroquia" value="<%= vivienda.parroquia %>" required>
+              <label for="parroquia">Parroquia <span class="requerido">*</span></label>
+              <input type="text" id="parroquia" name="parroquia" list="lista-parroquias" value="<%= vivienda.parroquia %>" required>
+              <datalist id="lista-parroquias">
+                <% (terr.parroquias || []).forEach(function (t) { %>
+                  <option value="<%= t.nombre %>"></option>
+                <% }); %>
+              </datalist>
             </div>
 
             <div class="campos-dobles">
               <div class="campo">
-                <label for="comunidad">Comunidad</label>
-                <input type="text" id="comunidad" name="comunidad" value="<%= vivienda.comunidad %>" required>
+                <label for="comunidad">Comunidad <span class="requerido">*</span></label>
+                <input type="text" id="comunidad" name="comunidad" list="lista-comunidades" value="<%= vivienda.comunidad %>" required>
+                <datalist id="lista-comunidades">
+                  <% (terr.comunidades || []).forEach(function (t) { %>
+                    <option value="<%= t.nombre %>"></option>
+                  <% }); %>
+                </datalist>
               </div>
+              <div class="campo">
+                <label for="consejo_comunal_id">Consejo Comunal</label>
+                <select id="consejo_comunal_id" name="consejo_comunal_id">
+                  <option value="">Sin consejo comunal</option>
+                  <% consejosLista.forEach(function (c) { %>
+                    <% if (c.activo || Number(vivienda.consejo_comunal_id) === Number(c.id)) { %>
+                      <option value="<%= c.id %>" <%= Number(vivienda.consejo_comunal_id) === Number(c.id) ? 'selected' : '' %>>
+                        <%= c.nombre %><%= !c.activo ? ' (inactivo)' : '' %>
+                      </option>
+                    <% } %>
+                  <% }); %>
+                </select>
+              </div>
+            </div>
+
+            <div class="campos-dobles">
               <div class="campo">
                 <label for="etapa">Etapa</label>
-                <input type="text" id="etapa" name="etapa" value="<%= vivienda.etapa || '' %>">
+                <input type="text" id="etapa" name="etapa" list="lista-etapas" value="<%= vivienda.etapa || '' %>">
+                <datalist id="lista-etapas">
+                  <% (terr.etapas || []).forEach(function (t) { %>
+                    <option value="<%= t.nombre %>"></option>
+                  <% }); %>
+                </datalist>
+              </div>
+              <div class="campo">
+                <label for="manzana">Manzana</label>
+                <input type="text" id="manzana" name="manzana" list="lista-manzanas" value="<%= vivienda.manzana || '' %>">
+                <datalist id="lista-manzanas">
+                  <% (terr.manzanas || []).forEach(function (t) { %>
+                    <option value="<%= t.nombre %>"></option>
+                  <% }); %>
+                </datalist>
               </div>
             </div>
 
             <div class="campos-dobles">
-              <div class="campo">
-                <label for="manzana">Manzana</label>
-                <input type="text" id="manzana" name="manzana" value="<%= vivienda.manzana || '' %>">
-              </div>
               <div class="campo">
                 <label for="numero_casa">Número de casa</label>
                 <input type="text" id="numero_casa" name="numero_casa" value="<%= vivienda.numero_casa || '' %>">
               </div>
+              <div class="campo">
+                <label class="check" style="margin-top: 26px;">
+                  <input type="checkbox" id="es_anexo" name="es_anexo" value="1" <%= vivienda.es_anexo ? 'checked' : '' %>>
+                  <strong>¿Es un anexo?</strong>
+                </label>
+              </div>
+            </div>
+
+            <div class="campo" id="bloque-editar-anexo" <%= vivienda.es_anexo ? '' : 'hidden' %>>
+              <label for="numero_anexo">Número / etiqueta del anexo</label>
+              <input type="text" id="numero_anexo" name="numero_anexo" maxlength="50" value="<%= vivienda.numero_anexo || '' %>" placeholder="Ej.: Anexo A, Piso 2">
             </div>
 
             <div class="campo campo-ancho">
-              <label for="direccion">Dirección</label>
+              <label for="direccion">Dirección <span class="requerido">*</span></label>
               <input type="text" id="direccion" name="direccion" value="<%= vivienda.direccion %>" required>
             </div>
           </div>
@@ -88,17 +157,17 @@
                 </div>
                 <div class="campo">
                   <label for="cedula_numero">Número de cédula</label>
-                  <input type="text" id="cedula_numero" name="cedula_numero" value="<%= jefe.cedula_numero || '' %>" <%= jefe.cedula_tipo === 'S' ? '' : 'required' %>>
+                  <input type="text" id="cedula_numero" name="cedula_numero" maxlength="8" pattern="\d{6,8}" value="<%= jefe.cedula_numero || '' %>" <%= jefe.cedula_tipo === 'S' ? '' : 'required' %>>
                 </div>
               </div>
 
               <div class="campos-dobles">
                 <div class="campo">
-                  <label for="nombres">Nombres</label>
+                  <label for="nombres">Nombres <span class="requerido">*</span></label>
                   <input type="text" id="nombres" name="nombres" value="<%= jefe.nombres %>" required>
                 </div>
                 <div class="campo">
-                  <label for="apellidos">Apellidos</label>
+                  <label for="apellidos">Apellidos <span class="requerido">*</span></label>
                   <input type="text" id="apellidos" name="apellidos" value="<%= jefe.apellidos %>" required>
                 </div>
               </div>
@@ -111,8 +180,12 @@
                 <div class="campo">
                   <label for="sexo">Sexo</label>
                   <select id="sexo" name="sexo">
-                    <option value="M" <%= jefe.sexo === 'M' ? 'selected' : '' %>>Masculino</option>
-                    <option value="F" <%= jefe.sexo === 'F' ? 'selected' : '' %>>Femenino</option>
+                    <% combinarOpciones('sexo', [
+                      { valor: 'M', etiqueta: 'Masculino' },
+                      { valor: 'F', etiqueta: 'Femenino' },
+                    ], jefe.sexo).forEach(function (opcion) { %>
+                      <option value="<%= opcion.valor %>" <%= jefe.sexo === opcion.valor ? 'selected' : '' %>><%= opcion.etiqueta %></option>
+                    <% }); %>
                   </select>
                 </div>
               </div>
@@ -143,16 +216,29 @@
                 <div class="campo">
                   <label for="nivel_instruccion">Nivel de instrucción</label>
                   <select id="nivel_instruccion" name="nivel_instruccion">
-                    <% ['Primaria','Bachillerato','Técnico','Universitario','Posgrado','Ninguno'].forEach(function (n) { %>
-                      <option value="<%= n %>" <%= jefe.nivel_instruccion === n ? 'selected' : '' %>><%= n %></option>
+                    <% combinarOpciones('nivel_instruccion', [
+                      { valor: 'Primaria', etiqueta: 'Primaria' },
+                      { valor: 'Bachillerato', etiqueta: 'Bachillerato' },
+                      { valor: 'Técnico', etiqueta: 'Técnico' },
+                      { valor: 'Universitario', etiqueta: 'Universitario' },
+                      { valor: 'Posgrado', etiqueta: 'Posgrado' },
+                      { valor: 'Ninguno', etiqueta: 'Ninguno' },
+                    ], jefe.nivel_instruccion).forEach(function (opcion) { %>
+                      <option value="<%= opcion.valor %>" <%= jefe.nivel_instruccion === opcion.valor ? 'selected' : '' %>><%= opcion.etiqueta %></option>
                     <% }); %>
                   </select>
                 </div>
                 <div class="campo">
                   <label for="estado_civil">Estado civil</label>
                   <select id="estado_civil" name="estado_civil">
-                    <% ['Soltero/a','Casado/a','Divorciado/a','Viudo/a','Concubino/a'].forEach(function (e) { %>
-                      <option value="<%= e %>" <%= jefe.estado_civil === e ? 'selected' : '' %>><%= e %></option>
+                    <% combinarOpciones('estado_civil', [
+                      { valor: 'Soltero/a', etiqueta: 'Soltero/a' },
+                      { valor: 'Casado/a', etiqueta: 'Casado/a' },
+                      { valor: 'Divorciado/a', etiqueta: 'Divorciado/a' },
+                      { valor: 'Viudo/a', etiqueta: 'Viudo/a' },
+                      { valor: 'Concubino/a', etiqueta: 'Concubino/a' },
+                    ], jefe.estado_civil).forEach(function (opcion) { %>
+                      <option value="<%= opcion.valor %>" <%= jefe.estado_civil === opcion.valor ? 'selected' : '' %>><%= opcion.etiqueta %></option>
                     <% }); %>
                   </select>
                 </div>
@@ -166,29 +252,59 @@
                 <div class="campo">
                   <label for="trabaja_actual">¿Trabaja actualmente?</label>
                   <select id="trabaja_actual" name="trabaja_actual">
-                    <option value="Sí" <%= jefe.trabaja_actual === 'Sí' ? 'selected' : '' %>>Sí</option>
-                    <option value="No" <%= jefe.trabaja_actual === 'No' ? 'selected' : '' %>>No</option>
+                    <% combinarOpciones('trabaja_actual', [
+                      { valor: 'Sí', etiqueta: 'Sí' },
+                      { valor: 'No', etiqueta: 'No' },
+                    ], jefe.trabaja_actual).forEach(function (opcion) { %>
+                      <option value="<%= opcion.valor %>" <%= jefe.trabaja_actual === opcion.valor ? 'selected' : '' %>><%= opcion.etiqueta %></option>
+                    <% }); %>
+                  </select>
+                </div>
+              </div>
+
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="clasificacion_ingresos">Clasificación de ingresos</label>
+                  <select id="clasificacion_ingresos" name="clasificacion_ingresos">
+                    <% combinarOpciones('clasificacion_ingresos', [
+                      { valor: 'Diario', etiqueta: 'Diario' },
+                      { valor: 'Semanal', etiqueta: 'Semanal' },
+                      { valor: 'Quincenal', etiqueta: 'Quincenal' },
+                      { valor: 'Mensual', etiqueta: 'Mensual' },
+                      { valor: 'Por Trabajo Independiente/Informal', etiqueta: 'Por Trabajo Independiente/Informal' },
+                    ], jefe.clasificacion_ingresos).forEach(function (opcion) { %>
+                      <option value="<%= opcion.valor %>" <%= jefe.clasificacion_ingresos === opcion.valor ? 'selected' : '' %>><%= opcion.etiqueta %></option>
+                    <% }); %>
+                  </select>
+                </div>
+
+                <div class="campo">
+                  <label for="frecuencia_ingresos">Frecuencia de ingresos</label>
+                  <select id="frecuencia_ingresos" name="frecuencia_ingresos">
+                    <option value="">Seleccione...</option>
+                    <% combinarOpciones('frecuencia_ingresos', [
+                      { valor: 'Diario', etiqueta: 'Diario' },
+                      { valor: 'Semanal', etiqueta: 'Semanal' },
+                      { valor: 'Quincenal', etiqueta: 'Quincenal' },
+                      { valor: 'Mensual', etiqueta: 'Mensual' },
+                      { valor: 'Variable', etiqueta: 'Variable' },
+                    ], jefe.frecuencia_ingresos).forEach(function (opcion) { %>
+                      <option value="<%= opcion.valor %>" <%= jefe.frecuencia_ingresos === opcion.valor ? 'selected' : '' %>><%= opcion.etiqueta %></option>
+                    <% }); %>
                   </select>
                 </div>
               </div>
 
               <div class="campo">
-                <label for="clasificacion_ingresos">Clasificación de ingresos</label>
-                <select id="clasificacion_ingresos" name="clasificacion_ingresos">
-                  <% ['Diario','Semanal','Quincenal','Mensual','Por Trabajo Independiente/Informal'].forEach(function (c) { %>
-                    <option value="<%= c %>" <%= jefe.clasificacion_ingresos === c ? 'selected' : '' %>><%= c %></option>
-                  <% }); %>
-                </select>
-              </div>
-
-              <div class="campo">
-                <label for="frecuencia_ingresos">Frecuencia de ingresos</label>
-                <select id="frecuencia_ingresos" name="frecuencia_ingresos">
-                  <option value="">Seleccione...</option>
-                  <% ['Diario','Semanal','Quincenal','Mensual','Variable'].forEach(function (f) { %>
-                    <option value="<%= f %>" <%= jefe.frecuencia_ingresos === f ? 'selected' : '' %>><%= f %></option>
-                  <% }); %>
-                </select>
+                <label for="ingreso_mensual_bs">Ingreso mensual (Bs.)</label>
+                <input
+                  type="number"
+                  id="ingreso_mensual_bs"
+                  name="ingreso_mensual_bs"
+                  min="0"
+                  step="0.01"
+                  value="<%= jefe.ingreso_mensual_bs !== null && jefe.ingreso_mensual_bs !== undefined ? jefe.ingreso_mensual_bs : '' %>"
+                >
               </div>
             </div>
           </div>
@@ -207,9 +323,7 @@
   </footer>
 
   <script>
-    // Al elegir «Sin cédula» el número deja de ser obligatorio.
-    document.addEventListener('change', (evento) => {
-      const select = evento.target.closest('[data-cedula-tipo]');
+    function actualizarEstadoCedula(select) {
       if (!select) return;
       const campo = select.closest('.campos-dobles') || select.closest('.campo');
       const numero = campo && campo.querySelector('input[name="cedula_numero"]');
@@ -218,7 +332,22 @@
       numero.required = !sinCedula;
       numero.disabled = sinCedula;
       if (sinCedula) numero.value = '';
+    }
+
+    document.querySelectorAll('[data-cedula-tipo]').forEach(actualizarEstadoCedula);
+    document.addEventListener('change', (evento) => {
+      const select = evento.target.closest('[data-cedula-tipo]');
+      if (select) actualizarEstadoCedula(select);
     });
+
+    const toggleAnexo = document.getElementById('es_anexo');
+    const bloqueAnexo = document.getElementById('bloque-editar-anexo');
+    if (toggleAnexo && bloqueAnexo) {
+      toggleAnexo.addEventListener('change', () => {
+        bloqueAnexo.hidden = !toggleAnexo.checked;
+      });
+    }
   </script>
+  <script src="/popups.js" defer></script>
 </body>
 </html>

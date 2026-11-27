@@ -4,6 +4,7 @@ import {
   CAMPOS_OPCIONES,
   actualizarCampo,
   actualizarConfigCampo,
+  actualizarConsejoComunal,
   actualizarIntegrante,
   actualizarJefeFamilia,
   actualizarOpcionCampo,
@@ -27,6 +28,8 @@ import {
   crearViviendaCompleta,
   db,
   eliminarCampo,
+  eliminarConsejoComunal,
+  eliminarConsejoEnNeon,
   eliminarIntegrante,
   eliminarJefeFamilia,
   eliminarOpcionCampo,
@@ -37,6 +40,8 @@ import {
   eliminarUsuario,
   eliminarUsuarioEnNeon,
   eliminarVivienda,
+  encolarEliminacionConsejoNeon,
+  encolarEliminacionTerritorioNeon,
   encolarEliminacionUsuarioNeon,
   guardarConfigCamposEnNeon,
   guardarConsejoEnNeon,
@@ -50,6 +55,7 @@ import {
   listarCamposConOpciones,
   listarConfigCampos,
   listarConsejosComunales,
+  listarConsejosComunalesConConteo,
   listarOpcionesFormulario,
   listarTerritorios,
   listarUsuarios,
@@ -95,6 +101,7 @@ import {
   TIPOS_TERRITORIO_VALIDOS,
   claveAdministracionValida,
   construirCensoFiltrado,
+  esFechaFutura,
   generarCsvDesdeTabla,
   leerFiltrosPersonas,
   leerNuevoCampo,
@@ -322,7 +329,7 @@ export function crearRouterSocioeconomico(): Router {
           return res.redirect(303, destino('error', 'La persona solicitada no existe.'));
         }
 
-        if (!claveAdministracionValida(req.body.clave)) {
+        if (!claveAdministracionValida(req.body.clave, (res.locals.usuario as any)?.id)) {
           return res.redirect(303, destino('error', 'Contraseña incorrecta. La persona no se eliminó.'));
         }
 
@@ -379,8 +386,13 @@ export function crearRouterSocioeconomico(): Router {
         });
       }
 
+      const consejoLocal = expediente.vivienda?.consejo_comunal_id
+        ? obtenerConsejoComunalPorId(expediente.vivienda.consejo_comunal_id)
+        : null;
+
       return res.render('vivienda', {
         ...expediente,
+        consejoNombre: consejoLocal?.nombre || null,
         ok: mensajeQuery(req, 'ok'),
         error: mensajeQuery(req, 'error'),
         formatearFecha,
@@ -408,7 +420,7 @@ export function crearRouterSocioeconomico(): Router {
           return res.redirect(303, destino('error', 'La vivienda solicitada no existe.'));
         }
 
-        if (!claveAdministracionValida(req.body.clave)) {
+        if (!claveAdministracionValida(req.body.clave, (res.locals.usuario as any)?.id)) {
           return res.redirect(303, destino('error', 'Contraseña incorrecta. La vivienda no se eliminó.'));
         }
 
@@ -449,7 +461,12 @@ export function crearRouterSocioeconomico(): Router {
         ...expediente,
         ok: mensajeQuery(req, 'ok'),
         error: mensajeQuery(req, 'error'),
+        consejos: listarConsejosComunales({ soloActivos: false }),
+        opciones: listarOpcionesFormulario(),
         territorios: {
+          estados: listarTerritorios({ tipo: 'estado' }),
+          municipios: listarTerritorios({ tipo: 'municipio' }),
+          parroquias: listarTerritorios({ tipo: 'parroquia' }),
           comunidades: listarTerritorios({ tipo: 'comunidad' }),
           etapas: listarTerritorios({ tipo: 'etapa' }),
           manzanas: listarTerritorios({ tipo: 'manzana' }),
@@ -460,7 +477,7 @@ export function crearRouterSocioeconomico(): Router {
     }
   });
 
-  router.post('/viviendas/:id/editar', (req: Request, res: Response, next: NextFunction) => {
+  router.post('/viviendas/:id/editar', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Number(req.params.id);
       const expediente = Number.isInteger(id) && id > 0 ? obtenerExpedienteVivienda(id) : null;
@@ -472,57 +489,112 @@ export function crearRouterSocioeconomico(): Router {
         });
       }
 
+      const redirigirError = (mensaje: string) =>
+        res.redirect(`/viviendas/${id}/editar?error=` + encodeURIComponent(mensaje));
+
       const comunidad = normalizarNombre(req.body.comunidad);
       const direccion = normalizarNombre(req.body.direccion);
       if (!comunidad || !direccion) {
-        return res.redirect(
-          `/viviendas/${id}/editar?error=` + encodeURIComponent('Comunidad y dirección son obligatorias.')
-        );
+        return redirigirError('Comunidad y dirección son obligatorias.');
       }
 
-      actualizarVivienda({
-        id,
-        estado: normalizarNombre(req.body.estado) || undefined,
-        municipio: normalizarNombre(req.body.municipio) || undefined,
-        parroquia: normalizarNombre(req.body.parroquia) || undefined,
-        comunidad,
-        etapa: normalizarNombre(req.body.etapa) || null,
-        manzana: normalizarNombre(req.body.manzana) || null,
-        direccion,
-        numero_casa: normalizarNombre(req.body.numero_casa) || null,
-      });
+      const consejoRaw = valorSimple(req.body.consejo_comunal_id);
+      const consejoNum = consejoRaw ? Number(consejoRaw) : null;
+      const consejoComunalId =
+        consejoNum && Number.isInteger(consejoNum) && obtenerConsejoComunalPorId(consejoNum)
+          ? consejoNum
+          : null;
+
+      const esAnexo = ['1', 'on', 'true'].includes(valorSimple(req.body.es_anexo));
+      const numeroAnexo = esAnexo ? normalizarNombre(req.body.numero_anexo) || null : null;
 
       if (expediente.jefe) {
-        const jefe = expediente.jefe;
         const cedulaTipo = normalizarTipoCedula(req.body.cedula_tipo);
-        const cedulaNumero = cedulaTipo === 'S' ? null : normalizarCedula(req.body.cedula_numero);
+        const cedulaNumero = cedulaTipo === 'S' ? null : normalizarCedula(req.body.cedula_numero) || null;
         const nombres = normalizarNombre(req.body.nombres);
         const apellidos = normalizarNombre(req.body.apellidos);
 
-        if ((cedulaTipo === 'S' || cedulaNumero) && nombres && apellidos) {
-          actualizarJefeFamilia({
-            id: jefe.id,
-            cedula_tipo: cedulaTipo,
-            cedula_numero: cedulaNumero,
-            nombres,
-            apellidos,
-            fecha_nacimiento: valorSimple(req.body.fecha_nacimiento) || undefined,
-            sexo: valorSimple(req.body.sexo) === 'F' ? 'F' : 'M',
-            telefono_movil: normalizarNombre(req.body.telefono_movil) || null,
-            telefono_habitacion: normalizarNombre(req.body.telefono_habitacion) || null,
-            telefono_trabajo: normalizarNombre(req.body.telefono_trabajo) || null,
-            correo: normalizarNombre(req.body.correo) || null,
-            nivel_instruccion: normalizarNombre(req.body.nivel_instruccion) || undefined,
-            estado_civil: normalizarNombre(req.body.estado_civil) || undefined,
-            profesion: normalizarNombre(req.body.profesion) || null,
-            trabaja_actual: valorSimple(req.body.trabaja_actual) === 'No' ? 'No' : 'Sí',
-            clasificacion_ingresos: normalizarNombre(req.body.clasificacion_ingresos) || undefined,
-            frecuencia_ingresos: normalizarNombre(req.body.frecuencia_ingresos) || null,
-          });
+        if (!nombres || !apellidos) {
+          return redirigirError('Los nombres y apellidos del jefe de familia son obligatorios.');
         }
+        if (cedulaTipo !== 'S' && !validarFormatoCedula(`${cedulaTipo}-${cedulaNumero || ''}`)) {
+          return redirigirError('Formato de cédula inválido (use 6 a 8 dígitos) o seleccione «Sin cédula».');
+        }
+
+        const fechaValida = normalizarFecha(req.body.fecha_nacimiento);
+        if (fechaValida === false || (fechaValida && esFechaFutura(fechaValida))) {
+          return redirigirError('La fecha de nacimiento del jefe de familia no es válida.');
+        }
+
+        const ingresoJefe = parsearNumeroOpcional(req.body.ingreso_mensual_bs);
+
+        try {
+          db.transaction(() => {
+            actualizarVivienda({
+              id,
+              estado: normalizarNombre(req.body.estado) || undefined,
+              municipio: normalizarNombre(req.body.municipio) || undefined,
+              parroquia: normalizarNombre(req.body.parroquia) || undefined,
+              comunidad,
+              etapa: normalizarNombre(req.body.etapa) || null,
+              manzana: normalizarNombre(req.body.manzana) || null,
+              direccion,
+              numero_casa: normalizarNombre(req.body.numero_casa) || null,
+              consejo_comunal_id: consejoComunalId,
+              es_anexo: esAnexo,
+              numero_anexo: numeroAnexo,
+              vivienda_principal_id: esAnexo ? expediente.vivienda?.vivienda_principal_id ?? null : null,
+            });
+
+            actualizarJefeFamilia({
+              id: expediente.jefe!.id,
+              cedula_tipo: cedulaTipo,
+              cedula_numero: cedulaNumero,
+              nombres,
+              apellidos,
+              fecha_nacimiento: fechaValida ? fechaValida.slice(0, 10) : undefined,
+              sexo: valorSimple(req.body.sexo) === 'F' ? 'F' : 'M',
+              telefono_movil: normalizarNombre(req.body.telefono_movil) || null,
+              telefono_habitacion: normalizarNombre(req.body.telefono_habitacion) || null,
+              telefono_trabajo: normalizarNombre(req.body.telefono_trabajo) || null,
+              correo: valorSimple(req.body.correo) || null,
+              nivel_instruccion: normalizarNombre(req.body.nivel_instruccion) || undefined,
+              estado_civil: normalizarNombre(req.body.estado_civil) || undefined,
+              profesion: normalizarNombre(req.body.profesion) || null,
+              trabaja_actual: valorSimple(req.body.trabaja_actual) === 'No' ? 'No' : 'Sí',
+              clasificacion_ingresos: normalizarNombre(req.body.clasificacion_ingresos) || undefined,
+              frecuencia_ingresos: normalizarNombre(req.body.frecuencia_ingresos) || null,
+              ingreso_mensual_bs: req.body.ingreso_mensual_bs !== undefined ? ingresoJefe : undefined,
+            });
+          })();
+        } catch (error: any) {
+          if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return redirigirError('La cédula ingresada ya pertenece a otro jefe de familia registrado.');
+          }
+          throw error;
+        }
+      } else {
+        actualizarVivienda({
+          id,
+          estado: normalizarNombre(req.body.estado) || undefined,
+          municipio: normalizarNombre(req.body.municipio) || undefined,
+          parroquia: normalizarNombre(req.body.parroquia) || undefined,
+          comunidad,
+          etapa: normalizarNombre(req.body.etapa) || null,
+          manzana: normalizarNombre(req.body.manzana) || null,
+          direccion,
+          numero_casa: normalizarNombre(req.body.numero_casa) || null,
+          consejo_comunal_id: consejoComunalId,
+          es_anexo: esAnexo,
+          numero_anexo: numeroAnexo,
+          vivienda_principal_id: esAnexo ? expediente.vivienda?.vivienda_principal_id ?? null : null,
+        });
       }
 
-      return res.redirect(`/viviendas/${id}?ok=` + encodeURIComponent('Vivienda actualizada correctamente.'));
+      const sufijoNeon = await propagarActualizacionNeon(id);
+      return res.redirect(
+        `/viviendas/${id}?ok=` + encodeURIComponent(`Vivienda actualizada correctamente.${sufijoNeon}`)
+      );
     } catch (error) {
       return next(error);
     }
@@ -700,7 +772,7 @@ export function crearRouterSocioeconomico(): Router {
         if (!Number.isInteger(id) || id <= 0) {
           return renderizar(res, { status: 404, error: 'El registro que intenta eliminar no existe.' });
         }
-        if (!claveAdministracionValida(req.body.clave)) {
+        if (!claveAdministracionValida(req.body.clave, (res.locals.usuario as any)?.id)) {
           return renderizar(res, { status: 403, error: 'Contraseña incorrecta. El registro no se eliminó.' });
         }
         if (!eliminarRegistro(id)) {
@@ -721,7 +793,7 @@ export function crearRouterSocioeconomico(): Router {
     requerirAdmin,
     (req: Request, res: Response, next: NextFunction) => {
       try {
-        if (!claveAdministracionValida(req.body.clave)) {
+        if (!claveAdministracionValida(req.body.clave, (res.locals.usuario as any)?.id)) {
           return renderizar(res, { status: 403, error: 'Contraseña incorrecta. No se eliminó ningún registro.' });
         }
         const eliminados = vaciarRegistros();
@@ -891,7 +963,7 @@ export function crearRouterSocioeconomico(): Router {
       }
 
       const fechaValida = normalizarFecha(jefe.fecha_nacimiento);
-      if (fechaValida === false) {
+      if (fechaValida === false || (fechaValida && esFechaFutura(fechaValida))) {
         return res.status(400).json({ error: 'Fecha de nacimiento del jefe de familia inválida.' });
       }
       if (esRequerido('w-j-fecha-nacimiento') && !fechaValida) {
@@ -918,6 +990,11 @@ export function crearRouterSocioeconomico(): Router {
         return res.status(400).json({ error: 'El formato del grupo familiar es inválido.' });
       }
 
+      const cedulasUsadas = new Set<string>();
+      if (cedulaTipo !== 'S' && cedulaNumero) {
+        cedulasUsadas.add(`${cedulaTipo}-${cedulaNumero}`);
+      }
+
       const listaIntegrantesRaw = Array.isArray(integrantes) ? integrantes : [];
       const integrantesValidados: any[] = [];
       for (let index = 0; index < listaIntegrantesRaw.length; index++) {
@@ -936,17 +1013,33 @@ export function crearRouterSocioeconomico(): Router {
         }
 
         const fechaInt = normalizarFecha(integrante.fecha_nacimiento);
-        if (fechaInt === false) {
+        if (fechaInt === false || (fechaInt && esFechaFutura(fechaInt))) {
           return res.status(400).json({
             error: `La fecha de nacimiento del integrante N.º ${index + 1} es inválida.`,
           });
+        }
+
+        const cedulaInt = normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero);
+        if (cedulaInt.cedula_tipo && cedulaInt.cedula_tipo !== 'S') {
+          if (!validarFormatoCedula(`${cedulaInt.cedula_tipo}-${cedulaInt.cedula_numero || ''}`)) {
+            return res.status(400).json({
+              error: `La cédula del integrante N.º ${index + 1} es inválida (use 6 a 8 dígitos o «Sin cédula»).`,
+            });
+          }
+          const claveCedulaInt = `${cedulaInt.cedula_tipo}-${cedulaInt.cedula_numero}`;
+          if (cedulasUsadas.has(claveCedulaInt)) {
+            return res.status(400).json({
+              error: `La cédula ${claveCedulaInt} está duplicada dentro del mismo grupo familiar.`,
+            });
+          }
+          cedulasUsadas.add(claveCedulaInt);
         }
 
         integrantesValidados.push({
           numero: index + 1,
           apellidos: apellidosInt,
           nombres: nombresInt,
-          ...normalizarCedulaPersona(integrante.cedula_tipo, integrante.cedula_numero),
+          ...cedulaInt,
           fecha_nacimiento: fechaInt ? fechaInt.slice(0, 10) : null,
           sexo: normalizarSexoOpcional(integrante.sexo),
           parentesco: parentescoInt,
@@ -1279,15 +1372,28 @@ export function crearRouterSocioeconomico(): Router {
     }
   });
 
-  router.put('/api/viviendas/:id', (req: Request, res: Response, next: NextFunction) => {
+  router.put('/api/viviendas/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) {
         return res.status(400).json({ error: 'ID de vivienda inválido.' });
       }
 
-      const { vivienda, jefe, integrantes } = req.body;
+      const expedienteActual = obtenerExpedienteVivienda(id);
+      if (!expedienteActual) {
+        return res.status(404).json({ error: 'Vivienda no encontrada.' });
+      }
+
+      const { vivienda, jefe, integrantes } = req.body ?? {};
       if (vivienda) {
+        const consejoId = Number(vivienda.consejo_comunal_id);
+        const consejoValido =
+          vivienda.consejo_comunal_id === undefined
+            ? undefined
+            : Number.isInteger(consejoId) && consejoId > 0 && obtenerConsejoComunalPorId(consejoId)
+              ? consejoId
+              : null;
+
         actualizarVivienda({
           id,
           estado: vivienda.estado,
@@ -1298,31 +1404,51 @@ export function crearRouterSocioeconomico(): Router {
           manzana: vivienda.manzana,
           direccion: vivienda.direccion,
           numero_casa: vivienda.numero_casa,
+          consejo_comunal_id: consejoValido,
+          es_anexo: vivienda.es_anexo,
+          numero_anexo: vivienda.numero_anexo,
         });
       }
 
-      const expedienteActual = obtenerExpedienteVivienda(id);
-      if (jefe && expedienteActual?.jefe) {
+      if (jefe && expedienteActual.jefe) {
         const cedulaJefe = normalizarCedulaPersona(jefe.cedula_tipo, jefe.cedula_numero);
-        actualizarJefeFamilia({
-          id: expedienteActual.jefe.id,
-          cedula_tipo: (cedulaJefe.cedula_tipo || 'V') as TipoCedula,
-          cedula_numero: cedulaJefe.cedula_numero,
-          nombres: jefe.nombres,
-          apellidos: jefe.apellidos,
-          fecha_nacimiento: jefe.fecha_nacimiento,
-          sexo: jefe.sexo,
-          telefono_movil: jefe.telefono_movil,
-          telefono_habitacion: jefe.telefono_habitacion,
-          telefono_trabajo: jefe.telefono_trabajo,
-          correo: jefe.correo,
-          nivel_instruccion: jefe.nivel_instruccion,
-          estado_civil: jefe.estado_civil,
-          profesion: jefe.profesion,
-          trabaja_actual: jefe.trabaja_actual,
-          clasificacion_ingresos: jefe.clasificacion_ingresos,
-          frecuencia_ingresos: jefe.frecuencia_ingresos,
-        });
+        if (
+          cedulaJefe.cedula_tipo &&
+          cedulaJefe.cedula_tipo !== 'S' &&
+          !validarFormatoCedula(`${cedulaJefe.cedula_tipo}-${cedulaJefe.cedula_numero || ''}`)
+        ) {
+          return res.status(400).json({ error: 'Formato de cédula inválido.' });
+        }
+        try {
+          actualizarJefeFamilia({
+            id: expedienteActual.jefe.id,
+            cedula_tipo: (cedulaJefe.cedula_tipo || 'V') as TipoCedula,
+            cedula_numero: cedulaJefe.cedula_numero,
+            nombres: jefe.nombres,
+            apellidos: jefe.apellidos,
+            fecha_nacimiento: jefe.fecha_nacimiento,
+            sexo: jefe.sexo,
+            telefono_movil: jefe.telefono_movil,
+            telefono_habitacion: jefe.telefono_habitacion,
+            telefono_trabajo: jefe.telefono_trabajo,
+            correo: jefe.correo,
+            nivel_instruccion: jefe.nivel_instruccion,
+            estado_civil: jefe.estado_civil,
+            profesion: jefe.profesion,
+            trabaja_actual: jefe.trabaja_actual,
+            clasificacion_ingresos: jefe.clasificacion_ingresos,
+            frecuencia_ingresos: jefe.frecuencia_ingresos,
+            ingreso_mensual_bs:
+              jefe.ingreso_mensual_bs !== undefined
+                ? parsearNumeroOpcional(jefe.ingreso_mensual_bs)
+                : undefined,
+          });
+        } catch (error: any) {
+          if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(409).json({ error: 'La cédula del jefe de familia ya está registrada.' });
+          }
+          throw error;
+        }
       }
 
       if (Array.isArray(integrantes)) {
@@ -1345,6 +1471,10 @@ export function crearRouterSocioeconomico(): Router {
               parentesco: integrante.parentesco,
               nivel_instruccion: integrante.nivel_instruccion || null,
               profesion: integrante.profesion || null,
+              ingreso_mensual:
+                integrante.ingreso_mensual !== undefined
+                  ? parsearNumeroOpcional(integrante.ingreso_mensual)
+                  : undefined,
             });
             idsEnviados.add(integrante.id);
           } else {
@@ -1360,6 +1490,7 @@ export function crearRouterSocioeconomico(): Router {
               parentesco: integrante.parentesco,
               nivel_instruccion: integrante.nivel_instruccion || null,
               profesion: integrante.profesion || null,
+              ingreso_mensual: parsearNumeroOpcional(integrante.ingreso_mensual),
             });
             idsEnviados.add(nuevoId);
           }
@@ -1370,7 +1501,12 @@ export function crearRouterSocioeconomico(): Router {
         }
       }
 
-      return res.json({ ok: true, expediente: obtenerExpedienteVivienda(id) });
+      const sufijoNeon = await propagarActualizacionNeon(id);
+      return res.json({
+        ok: true,
+        expediente: obtenerExpedienteVivienda(id),
+        mensaje: `Vivienda actualizada.${sufijoNeon}`,
+      });
     } catch (error) {
       return next(error);
     }
@@ -1385,7 +1521,7 @@ export function crearRouterSocioeconomico(): Router {
         if (!Number.isInteger(id) || id <= 0) {
           return res.status(400).json({ error: 'ID de vivienda inválido.' });
         }
-        if (!claveAdministracionValida(req.body.clave || req.query.clave)) {
+        if (!claveAdministracionValida(req.body.clave || req.query.clave, (res.locals.usuario as any)?.id)) {
           return res.status(403).json({ error: 'Contraseña de administración requerida.' });
         }
 
@@ -1580,7 +1716,7 @@ export function crearRouterSocioeconomico(): Router {
   router.get('/admin/consejos', requerirAdmin, async (req: Request, res: Response) => {
     const configNeon = await sincronizarConfiguracionNeon();
     return res.render('admin/consejos', {
-      consejos: listarConsejosComunales({ soloActivos: false }),
+      consejos: listarConsejosComunalesConConteo({ soloActivos: false }),
       ok: mensajeQuery(req, 'ok'),
       error: mensajeQuery(req, 'error'),
       configNeon,
@@ -1596,12 +1732,19 @@ export function crearRouterSocioeconomico(): Router {
       return res.redirect('/admin/consejos?error=' + encodeURIComponent('El nombre del consejo es obligatorio.'));
     }
 
+    const repetido = listarConsejosComunales({ soloActivos: false }).some(
+      (consejo: any) => consejo.nombre.toLowerCase() === nombre.toLowerCase()
+    );
+    if (repetido) {
+      return res.redirect('/admin/consejos?error=' + encodeURIComponent('Ya existe un consejo comunal con ese nombre.'));
+    }
+
     try {
       const neon = await guardarConsejoEnNeon({ nombre, sector, activo });
-      crearConsejoComunal({ nombre, sector, activo });
+      crearConsejoComunal({ nombre, sector, activo, pendiente_neon: !neon.ok });
       const mensaje = neon.ok
         ? 'Consejo comunal creado y sincronizado con Neon.'
-        : `Consejo guardado localmente. ${neon.mensaje}`;
+        : `Consejo guardado localmente (pendiente de sincronizar). ${neon.mensaje}`;
       return res.redirect('/admin/consejos?ok=' + encodeURIComponent(mensaje));
     } catch {
       return res.redirect('/admin/consejos?error=' + encodeURIComponent('No se pudo crear el consejo comunal.'));
@@ -1630,17 +1773,24 @@ export function crearRouterSocioeconomico(): Router {
         return res.redirect('/admin/consejos?error=' + encodeURIComponent('Ya existe otro consejo con ese nombre.'));
       }
 
-      const neon = await guardarConsejoEnNeon({ nombre, sector, activo });
-      db.prepare('UPDATE consejos_comunales SET nombre = ?, sector = ?, activo = ? WHERE id = ?').run(
+      const neon = await guardarConsejoEnNeon({
+        nombre,
+        nombreOriginal: actual.nombre,
+        sector,
+        activo,
+      });
+      actualizarConsejoComunal({
+        id,
         nombre,
         sector,
-        activo ? 1 : 0,
-        id
-      );
+        activo,
+        pendiente_neon: !neon.ok,
+        nombre_original_neon: actual.nombre,
+      });
 
       const mensaje = neon.ok
         ? 'Consejo comunal actualizado en Neon.'
-        : `Consejo actualizado localmente. ${neon.mensaje}`;
+        : `Consejo actualizado localmente (pendiente de sincronizar). ${neon.mensaje}`;
       return res.redirect('/admin/consejos?ok=' + encodeURIComponent(mensaje));
     } catch {
       return res.redirect('/admin/consejos?error=' + encodeURIComponent('No se pudo actualizar el consejo comunal.'));
@@ -1656,15 +1806,50 @@ export function crearRouterSocioeconomico(): Router {
       }
 
       const activo = !actual.activo;
-      const neon = await guardarConsejoEnNeon({ nombre: actual.nombre, sector: actual.sector, activo });
-      db.prepare('UPDATE consejos_comunales SET activo = ? WHERE id = ?').run(activo ? 1 : 0, id);
+      const neon = await guardarConsejoEnNeon({
+        nombre: actual.nombre,
+        nombreOriginal: actual.nombre,
+        sector: actual.sector,
+        activo,
+      });
+      actualizarConsejoComunal({
+        id,
+        nombre: actual.nombre,
+        sector: actual.sector,
+        activo,
+        pendiente_neon: !neon.ok,
+        nombre_original_neon: actual.nombre,
+      });
 
       const mensaje = neon.ok
         ? `Consejo ${activo ? 'activado' : 'desactivado'} en Neon.`
-        : `Estado actualizado localmente. ${neon.mensaje}`;
+        : `Estado actualizado localmente (pendiente de sincronizar). ${neon.mensaje}`;
       return res.redirect('/admin/consejos?ok=' + encodeURIComponent(mensaje));
     } catch {
       return res.redirect('/admin/consejos?error=' + encodeURIComponent('No se pudo cambiar el estado del consejo.'));
+    }
+  });
+
+  router.post('/admin/consejos/:id/eliminar', requerirAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const actual = Number.isInteger(id) && id > 0 ? obtenerConsejoComunalPorId(id) : null;
+      if (!actual) {
+        return res.redirect('/admin/consejos?error=' + encodeURIComponent('Consejo comunal no encontrado.'));
+      }
+
+      const neon = await eliminarConsejoEnNeon(actual.nombre);
+      if (!neon.ok) {
+        encolarEliminacionConsejoNeon(actual.nombre);
+      }
+      eliminarConsejoComunal(id);
+
+      const mensaje = neon.ok
+        ? `Consejo comunal «${actual.nombre}» eliminado correctamente.`
+        : `Consejo comunal «${actual.nombre}» eliminado localmente (se sincronizará con Neon luego). ${neon.mensaje}`;
+      return res.redirect('/admin/consejos?ok=' + encodeURIComponent(mensaje));
+    } catch {
+      return res.redirect('/admin/consejos?error=' + encodeURIComponent('No se pudo eliminar el consejo comunal.'));
     }
   });
 
@@ -1913,43 +2098,89 @@ export function crearRouterSocioeconomico(): Router {
     }
   });
 
-  router.get('/admin/territorio', requerirAdmin, (req: Request, res: Response) => {
+  router.get('/admin/territorio', requerirAdmin, async (req: Request, res: Response) => {
+    const configNeon = await sincronizarConfiguracionNeon();
     return res.render('admin/territorio', {
       territorios: listarTerritorios({ soloActivos: false }),
       ok: mensajeQuery(req, 'ok'),
       error: mensajeQuery(req, 'error'),
+      configNeon,
     });
   });
 
   router.post('/admin/territorio', requerirAdmin, async (req: Request, res: Response) => {
     try {
+      const tipo = valorSimple(req.body.tipo).toLowerCase();
+      const nombre = normalizarNombre(req.body.nombre);
+      const padreRaw = valorSimple(req.body.padre_id);
+      const padreId = padreRaw ? Number(padreRaw) : null;
+      const activo = req.body.activo === undefined || ['on', '1', 'true'].includes(valorSimple(req.body.activo));
+
+      if (tipo || nombre) {
+        if (!TIPOS_TERRITORIO_VALIDOS.includes(tipo)) {
+          return res.redirect('/admin/territorio?error=' + encodeURIComponent('Seleccione un nivel territorial válido.'));
+        }
+        if (!nombre) {
+          return res.redirect('/admin/territorio?error=' + encodeURIComponent('El nombre del territorio es obligatorio.'));
+        }
+
+        const repetido = listarTerritorios({ tipo: tipo as any, soloActivos: false }).some(
+          (t: any) => t.nombre.toLowerCase() === nombre.toLowerCase()
+        );
+        if (repetido) {
+          return res.redirect('/admin/territorio?error=' + encodeURIComponent(`Ya existe ${tipo} con ese nombre.`));
+        }
+
+        const padre =
+          Number.isInteger(padreId as number) && padreId ? obtenerTerritorioPorId(padreId) : null;
+        const neon = await guardarTerritorioEnNeon({
+          tipo,
+          nombre,
+          padreNombre: padre?.nombre || null,
+          activo,
+        });
+        crearTerritorio({
+          tipo: tipo as any,
+          nombre,
+          padre_id: padre ? padre.id : null,
+          activo,
+          pendiente_neon: !neon.ok,
+        });
+
+        const mensaje = neon.ok
+          ? `Territorio (${tipo}) «${nombre}» agregado y sincronizado con Neon.`
+          : `Territorio (${tipo}) «${nombre}» guardado localmente (pendiente de sincronizar). ${neon.mensaje}`;
+        return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
+      }
+
+      // Compatibilidad con envíos directos de etapa / manzana
       const etapaNombre = normalizarNombre(req.body.etapa);
       const manzanaNombre = normalizarNombre(req.body.manzana);
 
       if (!etapaNombre && !manzanaNombre) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Escriba una etapa o una manzana.'));
+        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Escriba el territorio a agregar.'));
       }
 
       const agregados: string[] = [];
       let neonFallido = false;
 
       if (etapaNombre) {
-        const existente = listarTerritorios({ tipo: 'etapa' })
+        const existente = listarTerritorios({ tipo: 'etapa', soloActivos: false })
           .find((t: any) => t.nombre.toLowerCase() === etapaNombre.toLowerCase());
         if (!existente) {
-          crearTerritorio({ tipo: 'etapa', nombre: etapaNombre });
           const neon = await guardarTerritorioEnNeon({ tipo: 'etapa', nombre: etapaNombre });
+          crearTerritorio({ tipo: 'etapa', nombre: etapaNombre, pendiente_neon: !neon.ok });
           neonFallido = neonFallido || !neon.ok;
           agregados.push('etapa');
         }
       }
 
       if (manzanaNombre) {
-        const existente = listarTerritorios({ tipo: 'manzana' })
+        const existente = listarTerritorios({ tipo: 'manzana', soloActivos: false })
           .find((t: any) => t.nombre.toLowerCase() === manzanaNombre.toLowerCase());
         if (!existente) {
-          crearTerritorio({ tipo: 'manzana', nombre: manzanaNombre });
           const neon = await guardarTerritorioEnNeon({ tipo: 'manzana', nombre: manzanaNombre });
+          crearTerritorio({ tipo: 'manzana', nombre: manzanaNombre, pendiente_neon: !neon.ok });
           neonFallido = neonFallido || !neon.ok;
           agregados.push('manzana');
         }
@@ -1965,7 +2196,7 @@ export function crearRouterSocioeconomico(): Router {
           encodeURIComponent('Se agregó: ' + agregados.join(' y ') + '.' + sufijo)
       );
     } catch {
-      return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo agregar.'));
+      return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo agregar el territorio.'));
     }
   });
 
@@ -1981,26 +2212,42 @@ export function crearRouterSocioeconomico(): Router {
       if (!actual) {
         return res.redirect('/admin/territorio?error=' + encodeURIComponent('Territorio no encontrado.'));
       }
+      if (!nombre) {
+        return res.redirect('/admin/territorio?error=' + encodeURIComponent('El nombre del territorio es obligatorio.'));
+      }
+      if (padreId === id) {
+        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Un territorio no puede depender de sí mismo.'));
+      }
+
+      const repetido = listarTerritorios({ tipo: actual.tipo, soloActivos: false }).some(
+        (t: any) => t.id !== id && t.nombre.toLowerCase() === nombre.toLowerCase()
+      );
+      if (repetido) {
+        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Ya existe otro elemento con ese nombre en este nivel.'));
+      }
 
       const padre = Number.isInteger(padreId as number) && padreId ? obtenerTerritorioPorId(padreId) : null;
 
-      actualizarTerritorio({
-        id,
-        nombre: nombre || undefined,
-        padre_id: Number.isInteger(padreId as number) ? padreId : null,
-        activo,
-      });
-
       const neon = await guardarTerritorioEnNeon({
         tipo: actual.tipo,
-        nombre: nombre || actual.nombre,
+        nombre,
+        nombreOriginal: actual.nombre,
         padreNombre: padre?.nombre || null,
         activo,
       });
 
+      actualizarTerritorio({
+        id,
+        nombre,
+        padre_id: padre ? padre.id : null,
+        activo,
+        pendiente_neon: !neon.ok,
+        nombre_original_neon: actual.nombre,
+      });
+
       const mensaje = neon.ok
         ? 'Territorio actualizado y sincronizado con Neon.'
-        : `Territorio actualizado localmente. ${neon.mensaje}`;
+        : `Territorio actualizado localmente (pendiente de sincronizar). ${neon.mensaje}`;
       return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
     } catch {
       return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo actualizar el territorio.'));
@@ -2015,10 +2262,13 @@ export function crearRouterSocioeconomico(): Router {
         return res.redirect('/admin/territorio?error=' + encodeURIComponent('Territorio no encontrado.'));
       }
       const neon = await eliminarTerritorioEnNeon({ tipo: actual.tipo, nombre: actual.nombre });
+      if (!neon.ok) {
+        encolarEliminacionTerritorioNeon(actual.tipo, actual.nombre);
+      }
       eliminarTerritorio(id);
       const mensaje = neon.ok
         ? 'Territorio eliminado de Neon.'
-        : `Territorio eliminado localmente. ${neon.mensaje}`;
+        : `Territorio eliminado localmente (pendiente en Neon). ${neon.mensaje}`;
       return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
     } catch {
       return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo eliminar el territorio.'));

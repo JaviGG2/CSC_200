@@ -362,3 +362,13 @@ CREATE TABLE IF NOT EXISTS beneficios_entregas (
 
 CREATE INDEX IF NOT EXISTS idx_beneficios_entregas_estado
   ON beneficios_entregas (estado, fecha_entrega DESC);
+
+-- ---------------------------------------------------------------------------
+-- Banderas de configuración interna del sistema
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS config_sistema (
+  clave VARCHAR(120) PRIMARY KEY,
+  valor TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+

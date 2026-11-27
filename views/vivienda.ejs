@@ -46,6 +46,11 @@
             <dt>Municipio</dt><dd><%= vivienda.municipio %></dd>
             <dt>Parroquia</dt><dd><%= vivienda.parroquia %></dd>
             <dt>Comunidad</dt><dd><%= vivienda.comunidad %></dd>
+            <dt>Consejo comunal</dt><dd><%= (typeof consejoNombre !== 'undefined' && consejoNombre) ? consejoNombre : '—' %></dd>
+            <% if (vivienda.es_anexo) { %>
+              <dt>Tipo de vivienda</dt>
+              <dd><span class="insignia insignia--anexo">Anexo<%= vivienda.numero_anexo ? ' · ' + vivienda.numero_anexo : '' %></span></dd>
+            <% } %>
             <dt>Etapa</dt><dd><%= vivienda.etapa || '—' %></dd>
             <dt>Manzana</dt><dd><%= vivienda.manzana || '—' %></dd>
             <dt>Dirección</dt><dd><%= vivienda.direccion %></dd>

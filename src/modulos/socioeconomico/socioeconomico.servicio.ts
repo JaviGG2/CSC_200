@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { verificarClave } from '../../nucleo/autenticacion';
 import {
   CAMPOS_OPCIONES,
   CLAVES_RESERVADAS,
@@ -17,6 +18,7 @@ import {
   obtenerEstadisticasViviendas,
   obtenerExpedienteVivienda,
   obtenerRegistroPorId,
+  obtenerUsuarioConHashPorId,
   obtenerViviendas,
 } from '../../nucleo/base-datos';
 import {
@@ -52,10 +54,35 @@ export const TIPOS_TERRITORIO_VALIDOS = [
   'manzana',
 ];
 
-const CLAVE_ADMIN = process.env.CLAVE_ADMIN || 'csc200';
+export function claveAdministracionValida(
+  valor: unknown,
+  usuarioId?: number | null
+): boolean {
+  const claveIngresada = valorSimple(valor);
+  if (!claveIngresada) return false;
 
-export function claveAdministracionValida(valor: unknown): boolean {
-  return valorSimple(valor) === CLAVE_ADMIN;
+  if (process.env.CLAVE_ADMIN && claveIngresada === process.env.CLAVE_ADMIN) {
+    return true;
+  }
+
+  if (usuarioId && Number.isInteger(usuarioId) && usuarioId > 0) {
+    const usuario = obtenerUsuarioConHashPorId(usuarioId);
+    if (usuario && verificarClave(claveIngresada, usuario.clave_hash)) {
+      return true;
+    }
+    return false;
+  }
+
+  return !process.env.CLAVE_ADMIN && claveIngresada === 'csc200';
+}
+
+export function esFechaFutura(fechaIso: string | null | undefined): boolean {
+  if (!fechaIso) return false;
+  const dia = String(fechaIso).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return false;
+  const hoy = new Date();
+  const hoyIso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  return dia > hoyIso;
 }
 
 export function personaCoincide(persona: any, busqueda: string): boolean {

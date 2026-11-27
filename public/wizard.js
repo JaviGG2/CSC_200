@@ -57,12 +57,31 @@
     actualizarContador();
   };
 
+  const obtenerHoyIso = () => {
+    const ahora = new Date();
+    const anio = ahora.getFullYear();
+    const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+    const dia = String(ahora.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  };
+
+  const esFechaFutura = (fechaIso) => {
+    const limpio = String(fechaIso || '').trim().slice(0, 10);
+    if (!limpio) return false;
+    return limpio > obtenerHoyIso();
+  };
+
   const configurarCalculoEdad = (inputFecha, inputEdad) => {
     if (!inputFecha || !inputEdad) return;
+    inputFecha.max = obtenerHoyIso();
     inputFecha.addEventListener('change', () => {
       if (inputFecha.value) {
+        if (esFechaFutura(inputFecha.value)) {
+          inputEdad.value = '';
+          return;
+        }
         const hoy = new Date();
-        const nacimiento = new Date(inputFecha.value);
+        const nacimiento = new Date(inputFecha.value + 'T00:00:00');
         let edad = hoy.getFullYear() - nacimiento.getFullYear();
         const mesDiff = hoy.getMonth() - nacimiento.getMonth();
         if (mesDiff < 0 || (mesDiff === 0 && hoy.getDate() < nacimiento.getDate())) {
@@ -201,12 +220,21 @@
     if (numero === 2) {
       const tipo = document.getElementById('w-j-cedula-tipo');
       const numeroCedula = document.getElementById('w-j-cedula-numero');
-      if (tipo && numeroCedula && !validarFormatoCedula(tipo, numeroCedula)) {
+      if (tipo && !tipo.disabled && numeroCedula && !numeroCedula.disabled && !validarFormatoCedula(tipo, numeroCedula)) {
         numeroCedula.classList.add('error');
         notificar('El formato de cédula es inválido. Use V-12345678 o E-12345678.');
         return false;
       } else if (numeroCedula) {
         numeroCedula.classList.remove('error');
+      }
+
+      const fechaNacJefe = document.getElementById('w-j-fecha-nacimiento');
+      if (fechaNacJefe && esFechaFutura(fechaNacJefe.value)) {
+        fechaNacJefe.classList.add('error');
+        notificar('La fecha de nacimiento del jefe de familia no puede ser futura.');
+        return false;
+      } else if (fechaNacJefe) {
+        fechaNacJefe.classList.remove('error');
       }
     }
 
@@ -215,21 +243,68 @@
       if (filas.length === 0) {
         notificar('Atención: no se agregó ningún integrante. Puede continuar igual.', 'warn');
       }
-      filas.forEach((fila) => {
+
+      const cedulasUsadas = new Set();
+      const tipoJefe = document.getElementById('w-j-cedula-tipo');
+      const numJefe = document.getElementById('w-j-cedula-numero');
+      if (tipoJefe && numJefe && tipoJefe.value !== 'S' && numJefe.value.trim()) {
+        cedulasUsadas.add(`${tipoJefe.value}-${numJefe.value.trim()}`);
+      }
+
+      let primerError = '';
+
+      filas.forEach((fila, indice) => {
         const apellidos = fila.querySelector('input[name="apellidos"]');
         const nombres = fila.querySelector('input[name="nombres"]');
         const parentesco = fila.querySelector('select[name="parentesco"]');
+        const fechaInt = fila.querySelector('input[name="fecha_nacimiento"]');
+        const tipoInt = fila.querySelector('select[name="cedula_tipo"]');
+        const numInt = fila.querySelector('input[name="cedula_numero"]');
+
         if (!apellidos.value.trim() || !nombres.value.trim() || !parentesco.value) {
-          if (apellidos) apellidos.classList.add('error');
-          if (nombres) nombres.classList.add('error');
-          if (parentesco) parentesco.classList.add('error');
+          if (apellidos && !apellidos.value.trim()) apellidos.classList.add('error');
+          if (nombres && !nombres.value.trim()) nombres.classList.add('error');
+          if (parentesco && !parentesco.value) parentesco.classList.add('error');
+          if (!primerError) primerError = `Complete apellidos, nombres y parentesco del integrante ${indice + 1}.`;
           valido = false;
         } else {
           if (apellidos) apellidos.classList.remove('error');
           if (nombres) nombres.classList.remove('error');
           if (parentesco) parentesco.classList.remove('error');
         }
+
+        if (fechaInt && esFechaFutura(fechaInt.value)) {
+          fechaInt.classList.add('error');
+          if (!primerError) primerError = `La fecha de nacimiento del integrante ${indice + 1} no puede ser futura.`;
+          valido = false;
+        } else if (fechaInt) {
+          fechaInt.classList.remove('error');
+        }
+
+        if (tipoInt && numInt && tipoInt.value !== 'S') {
+          if (!validarFormatoCedula(tipoInt, numInt)) {
+            numInt.classList.add('error');
+            if (!primerError) primerError = `La cédula del integrante ${indice + 1} es inválida (use 6 a 8 dígitos o «Sin cédula»).`;
+            valido = false;
+          } else {
+            const clave = `${tipoInt.value}-${numInt.value.trim()}`;
+            if (cedulasUsadas.has(clave)) {
+              numInt.classList.add('error');
+              if (!primerError) primerError = `La cédula ${clave} está repetida dentro del grupo familiar.`;
+              valido = false;
+            } else {
+              cedulasUsadas.add(clave);
+              numInt.classList.remove('error');
+            }
+          }
+        } else if (numInt) {
+          numInt.classList.remove('error');
+        }
       });
+
+      if (!valido && primerError) {
+        notificar(primerError, 'error');
+      }
     }
 
     return valido;
@@ -273,6 +348,15 @@
         return false;
       }
       if (numeroCedula) numeroCedula.classList.remove('error');
+
+      const fechaNacJefe = document.getElementById('w-j-fecha-nacimiento');
+      if (fechaNacJefe && !fechaNacJefe.disabled && esFechaFutura(fechaNacJefe.value)) {
+        fechaNacJefe.classList.add('error');
+        notificar('La fecha de nacimiento del jefe de familia no puede ser futura.', 'error');
+        fechaNacJefe.focus();
+        return false;
+      }
+      if (fechaNacJefe) fechaNacJefe.classList.remove('error');
     }
 
     return true;
@@ -327,6 +411,9 @@
         fila.remove();
         renumerarIntegrantes();
       });
+
+      const selectCedulaInt = fila.querySelector('[data-cedula-tipo]');
+      if (selectCedulaInt) aplicarTipoCedula(selectCedulaInt);
 
       lista.appendChild(contenido);
       renumerarIntegrantes();
@@ -434,6 +521,17 @@
         lista.innerHTML = '';
         contadorIntegrantes = 0;
         edadJefe.value = '';
+        document.querySelectorAll('[data-cedula-tipo]').forEach(aplicarTipoCedula);
+
+        const bloqueAnexoEl = document.getElementById('bloque-anexo');
+        if (bloqueAnexoEl) bloqueAnexoEl.hidden = true;
+        const principalIdEl = document.getElementById('w-vivienda-principal');
+        if (principalIdEl) principalIdEl.value = '';
+        const resultadosEl = document.getElementById('resultados-principal');
+        if (resultadosEl) resultadosEl.innerHTML = '';
+        const principalTxtEl = document.getElementById('principal-seleccionada');
+        if (principalTxtEl) principalTxtEl.textContent = 'Ninguna vivienda principal seleccionada.';
+
         mostrarPaso(1);
         btnSubmit.disabled = false;
         btnSubmit.textContent = textoOriginal;

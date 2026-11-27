@@ -85,71 +85,56 @@
             <div class="campos">
               <div class="campo campo-ancho">
                 <label for="w-estado">Estado <span class="requerido">*</span></label>
-                <select id="w-estado" name="estado" required>
-                  <option value="FALCÓN" selected>FALCÓN</option>
-                  <option value="AMAZONAS">Amazonas</option>
-                  <option value="ANZOATEGUI">Anzoátegui</option>
-                  <option value="APURE">Apure</option>
-                  <option value="ARAGUA">Aragua</option>
-                  <option value="BARINAS">Barinas</option>
-                  <option value="BOLIVAR">Bolívar</option>
-                  <option value="CARABOBO">Carabobo</option>
-                  <option value="COJEDES">Cojedes</option>
-                  <option value="DELTA AMACURO">Delta Amacuro</option>
-                  <option value="DISTRITO CAPITAL">Distrito Capital</option>
-                  <option value="FALCON">Falcón</option>
-                  <option value="GUARICO">Guárico</option>
-                  <option value="LARA">Lara</option>
-                  <option value="MERIDA">Mérida</option>
-                  <option value="MIRANDA">Miranda</option>
-                  <option value="MONAGAS">Monagas</option>
-                  <option value="NUEVA ESPARTA">Nueva Esparta</option>
-                  <option value="PORTUGUESA">Portuguesa</option>
-                  <option value="SUCRE">Sucre</option>
-                  <option value="TACHIRA">Táchira</option>
-                  <option value="TRUJILLO">Trujillo</option>
-                  <option value="VARGAS">Vargas</option>
-                  <option value="YARACUY">Yaracuy</option>
-                  <option value="ZULIA">Zulia</option>
-                </select>
+                <% if (territorios.estados && territorios.estados.length) { %>
+                  <% const tieneFalcon = territorios.estados.some((e) => /^falc[oó]n$/i.test(e.nombre)); %>
+                  <select id="w-estado" name="estado" required>
+                    <% if (!tieneFalcon && territorios.estados.length > 1) { %>
+                      <option value="">Seleccione...</option>
+                    <% } %>
+                    <% territorios.estados.forEach(function (e) { %>
+                      <option value="<%= e.nombre %>" <%= /^falc[oó]n$/i.test(e.nombre) ? 'selected' : '' %>><%= e.nombre %></option>
+                    <% }); %>
+                  </select>
+                <% } else { %>
+                  <input type="text" id="w-estado" name="estado" maxlength="80" placeholder="Ej.: FALCÓN" required>
+                  <p class="ayuda">No hay estados configurados. Agréguelos en Administración → Territorio.</p>
+                <% } %>
               </div>
 
               <div class="campo campo-ancho">
                 <label for="w-municipio">Municipio <span class="requerido">*</span></label>
-                <select id="w-municipio" name="municipio" required>
-                  <option value="MIRANDA" selected>MIRANDA</option>
-                  <option value="ACOSTA">Acosta</option>
-                  <option value="BOLIVAR">Bolívar</option>
-                  <option value="BUCHIVACO">Buchivacoa</option>
-                  <option value="CARIRUBANA">Carirubana</option>
-                  <option value="FALCON">Falcón</option>
-                  <option value="FEDERACION">Federación</option>
-                  <option value="JACURA">Jacura</option>
-                  <option value="LOS TAQUES">Los Taques</option>
-                  <option value="MAUROA">Mauroa</option>
-                  <option value="MIRANDA">Miranda</option>
-                  <option value="MONSEÑOR ITURRIZA">Monseñor Iturriza</option>
-                  <option value="PEDRO CAUCA">Pedro Cauca</option>
-                  <option value="PUNTO FIJO">Punto Fijo</option>
-                  <option value="SAN FRANCISCO">San Francisco</option>
-                  <option value="SANTA ANA">Santa Ana</option>
-                  <option value="SILVA">Silva</option>
-                  <option value="SUCARE">Sucre</option>
-                  <option value="TOCOPERO">Tocopero</option>
-                  <option value="URIBARRI">Uribarrí</option>
-                </select>
+                <% if (territorios.municipios && territorios.municipios.length) { %>
+                  <% const tieneMiranda = territorios.municipios.some((m) => /^miranda$/i.test(m.nombre)); %>
+                  <select id="w-municipio" name="municipio" required>
+                    <% if (!tieneMiranda && territorios.municipios.length > 1) { %>
+                      <option value="">Seleccione...</option>
+                    <% } %>
+                    <% territorios.municipios.forEach(function (m) { %>
+                      <option value="<%= m.nombre %>" <%= /^miranda$/i.test(m.nombre) ? 'selected' : '' %>><%= m.nombre %></option>
+                    <% }); %>
+                  </select>
+                <% } else { %>
+                  <input type="text" id="w-municipio" name="municipio" maxlength="80" placeholder="Ej.: MIRANDA" required>
+                  <p class="ayuda">No hay municipios configurados. Agréguelos en Administración → Territorio.</p>
+                <% } %>
               </div>
 
               <div class="campo campo-ancho">
                 <label for="w-parroquia">Parroquia <span class="requerido">*</span></label>
-                <select id="w-parroquia" name="parroquia" required>
-                  <option value="SAN ANTONIO" selected>SAN ANTONIO</option>
-                  <option value="SAN ANTONIO">San Antonio</option>
-                  <option value="SANTA ANA">Santa Ana</option>
-                  <option value="URIBARRI">Uribarrí</option>
-                  <option value="SAN JUAN">San Juan</option>
-                  <option value="SAN JOSE">San José</option>
-                </select>
+                <% if (territorios.parroquias && territorios.parroquias.length) { %>
+                  <% const tieneSanAntonio = territorios.parroquias.some((p) => /^san antonio$/i.test(p.nombre)); %>
+                  <select id="w-parroquia" name="parroquia" required>
+                    <% if (!tieneSanAntonio && territorios.parroquias.length > 1) { %>
+                      <option value="">Seleccione...</option>
+                    <% } %>
+                    <% territorios.parroquias.forEach(function (p) { %>
+                      <option value="<%= p.nombre %>" <%= /^san antonio$/i.test(p.nombre) ? 'selected' : '' %>><%= p.nombre %></option>
+                    <% }); %>
+                  </select>
+                <% } else { %>
+                  <input type="text" id="w-parroquia" name="parroquia" maxlength="80" placeholder="Ej.: SAN ANTONIO" required>
+                  <p class="ayuda">No hay parroquias configuradas. Agréguelas en Administración → Territorio.</p>
+                <% } %>
               </div>
 
               <div class="campo">
