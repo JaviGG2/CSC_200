@@ -647,9 +647,12 @@ async function aplicarRegistrosDesdeNeon(cliente: Client): Promise<number> {
     'SELECT id, cedula, nombres, apellidos, fecha_nacimiento, datos_extras FROM registros_censo'
   );
 
+  const neonIdsPresentes = new Set<number>();
+
   const transaccion = db.transaction(() => {
     for (const fila of rows) {
       const neonId = Number(fila.id);
+      neonIdsPresentes.add(neonId);
       const datos = (fila.datos_extras || {}) as any;
       const comunidad = datos.comunidad || 'Carabobo 200';
       const etapa = datos.etapa || null;
@@ -725,6 +728,13 @@ async function aplicarRegistrosDesdeNeon(cliente: Client): Promise<number> {
             integ.parentesco || 'Otro', integ.nivel_instruccion || null, integ.profesion || null
           );
         }
+      }
+    }
+
+    const todasLocales = db.prepare('SELECT id, neon_id FROM viviendas WHERE neon_id IS NOT NULL').all() as Array<{ id: number; neon_id: number }>;
+    for (const loc of todasLocales) {
+      if (!neonIdsPresentes.has(loc.neon_id)) {
+        db.prepare('DELETE FROM viviendas WHERE id = ?').run(loc.id);
       }
     }
   });
