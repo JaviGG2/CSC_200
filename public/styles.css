@@ -2722,6 +2722,86 @@ tbody tr.selected {
   padding: 20px 22px 22px;
 }
 
+/* Territorio por nivel */
+.territorio-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 22px 20px;
+}
+
+.territorio-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.territorio-tab:hover {
+  border-color: #cbd5e1;
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.territorio-tab--activo {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.territorio-tab-conteo {
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.territorio-cabecera-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.territorio-predeterminado {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.territorio-alta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.territorio-alta .campo {
+  flex: 1 1 200px;
+}
+
+.territorio-alta-accion {
+  flex: 0 0 auto;
+}
+
+.territorio-vacio {
+  padding: 18px 22px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* Campos dinámicos (campos.ejs) */
 .pagina-cabecera {
   display: flex;

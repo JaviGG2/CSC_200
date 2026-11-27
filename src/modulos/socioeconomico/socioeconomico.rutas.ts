@@ -2108,10 +2108,28 @@ export function crearRouterSocioeconomico(): Router {
     }
   });
 
+  const redirigirTerritorio = (
+    res: Response,
+    params: { ok?: string; error?: string },
+    volverNivelRaw?: unknown
+  ) => {
+    const query = new URLSearchParams();
+    if (params.ok) query.set('ok', params.ok);
+    if (params.error) query.set('error', params.error);
+    const nivel = valorSimple(volverNivelRaw).toLowerCase();
+    if (TIPOS_TERRITORIO_VALIDOS.includes(nivel)) {
+      query.set('nivel', nivel);
+    }
+    return res.redirect('/admin/territorio?' + query.toString());
+  };
+
   router.get('/admin/territorio', requerirAdmin, async (req: Request, res: Response) => {
     const configNeon = await sincronizarConfiguracionNeon();
+    const nivelSolicitado = valorSimple(req.query.nivel).toLowerCase();
+    const nivelActivo = TIPOS_TERRITORIO_VALIDOS.includes(nivelSolicitado) ? nivelSolicitado : 'todos';
     return res.render('admin/territorio', {
       territorios: listarTerritorios({ soloActivos: false }),
+      nivelActivo,
       ok: mensajeQuery(req, 'ok'),
       error: mensajeQuery(req, 'error'),
       configNeon,
@@ -2119,6 +2137,7 @@ export function crearRouterSocioeconomico(): Router {
   });
 
   router.post('/admin/territorio', requerirAdmin, async (req: Request, res: Response) => {
+    const volverNivel = req.body.volver_nivel;
     try {
       const tipo = valorSimple(req.body.tipo).toLowerCase();
       const nombre = normalizarNombre(req.body.nombre);
@@ -2128,17 +2147,17 @@ export function crearRouterSocioeconomico(): Router {
 
       if (tipo || nombre) {
         if (!TIPOS_TERRITORIO_VALIDOS.includes(tipo)) {
-          return res.redirect('/admin/territorio?error=' + encodeURIComponent('Seleccione un nivel territorial válido.'));
+          return redirigirTerritorio(res, { error: 'Seleccione un nivel territorial válido.' }, volverNivel);
         }
         if (!nombre) {
-          return res.redirect('/admin/territorio?error=' + encodeURIComponent('El nombre del territorio es obligatorio.'));
+          return redirigirTerritorio(res, { error: 'El nombre del territorio es obligatorio.' }, volverNivel);
         }
 
         const repetido = listarTerritorios({ tipo: tipo as any, soloActivos: false }).some(
           (t: any) => t.nombre.toLowerCase() === nombre.toLowerCase()
         );
         if (repetido) {
-          return res.redirect('/admin/territorio?error=' + encodeURIComponent(`Ya existe ${tipo} con ese nombre.`));
+          return redirigirTerritorio(res, { error: `Ya existe ${tipo} con ese nombre.` }, volverNivel);
         }
 
         const padre =
@@ -2160,7 +2179,7 @@ export function crearRouterSocioeconomico(): Router {
         const mensaje = neon.ok
           ? `Territorio (${tipo}) «${nombre}» agregado y sincronizado con Neon.`
           : `Territorio (${tipo}) «${nombre}» guardado localmente (pendiente de sincronizar). ${neon.mensaje}`;
-        return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
+        return redirigirTerritorio(res, { ok: mensaje }, volverNivel);
       }
 
       // Compatibilidad con envíos directos de etapa / manzana
@@ -2168,7 +2187,7 @@ export function crearRouterSocioeconomico(): Router {
       const manzanaNombre = normalizarNombre(req.body.manzana);
 
       if (!etapaNombre && !manzanaNombre) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Escriba el territorio a agregar.'));
+        return redirigirTerritorio(res, { error: 'Escriba el territorio a agregar.' }, volverNivel);
       }
 
       const agregados: string[] = [];
@@ -2197,20 +2216,22 @@ export function crearRouterSocioeconomico(): Router {
       }
 
       if (!agregados.length) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Ya existían los valores indicados.'));
+        return redirigirTerritorio(res, { error: 'Ya existían los valores indicados.' }, volverNivel);
       }
 
       const sufijo = neonFallido ? ' No se pudo sincronizar con Neon; se reintentará.' : ' Sincronizado con Neon.';
-      return res.redirect(
-        '/admin/territorio?ok=' +
-          encodeURIComponent('Se agregó: ' + agregados.join(' y ') + '.' + sufijo)
+      return redirigirTerritorio(
+        res,
+        { ok: 'Se agregó: ' + agregados.join(' y ') + '.' + sufijo },
+        volverNivel
       );
     } catch {
-      return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo agregar el territorio.'));
+      return redirigirTerritorio(res, { error: 'No se pudo agregar el territorio.' }, volverNivel);
     }
   });
 
   router.post('/admin/territorio/:id/editar', requerirAdmin, async (req: Request, res: Response) => {
+    const volverNivel = req.body.volver_nivel;
     try {
       const id = Number(req.params.id);
       const nombre = normalizarNombre(req.body.nombre);
@@ -2220,20 +2241,20 @@ export function crearRouterSocioeconomico(): Router {
       const actual = obtenerTerritorioPorId(id);
 
       if (!actual) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Territorio no encontrado.'));
+        return redirigirTerritorio(res, { error: 'Territorio no encontrado.' }, volverNivel);
       }
       if (!nombre) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('El nombre del territorio es obligatorio.'));
+        return redirigirTerritorio(res, { error: 'El nombre del territorio es obligatorio.' }, volverNivel);
       }
       if (padreId === id) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Un territorio no puede depender de sí mismo.'));
+        return redirigirTerritorio(res, { error: 'Un territorio no puede depender de sí mismo.' }, volverNivel);
       }
 
       const repetido = listarTerritorios({ tipo: actual.tipo, soloActivos: false }).some(
         (t: any) => t.id !== id && t.nombre.toLowerCase() === nombre.toLowerCase()
       );
       if (repetido) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Ya existe otro elemento con ese nombre en este nivel.'));
+        return redirigirTerritorio(res, { error: 'Ya existe otro elemento con ese nombre en este nivel.' }, volverNivel);
       }
 
       const padre = Number.isInteger(padreId as number) && padreId ? obtenerTerritorioPorId(padreId) : null;
@@ -2258,18 +2279,19 @@ export function crearRouterSocioeconomico(): Router {
       const mensaje = neon.ok
         ? 'Territorio actualizado y sincronizado con Neon.'
         : `Territorio actualizado localmente (pendiente de sincronizar). ${neon.mensaje}`;
-      return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
+      return redirigirTerritorio(res, { ok: mensaje }, volverNivel);
     } catch {
-      return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo actualizar el territorio.'));
+      return redirigirTerritorio(res, { error: 'No se pudo actualizar el territorio.' }, volverNivel);
     }
   });
 
   router.post('/admin/territorio/:id/eliminar', requerirAdmin, async (req: Request, res: Response) => {
+    const volverNivel = req.body.volver_nivel;
     try {
       const id = Number(req.params.id);
       const actual = obtenerTerritorioPorId(id);
       if (!actual) {
-        return res.redirect('/admin/territorio?error=' + encodeURIComponent('Territorio no encontrado.'));
+        return redirigirTerritorio(res, { error: 'Territorio no encontrado.' }, volverNivel);
       }
       const neon = await eliminarTerritorioEnNeon({ tipo: actual.tipo, nombre: actual.nombre });
       if (!neon.ok) {
@@ -2279,9 +2301,9 @@ export function crearRouterSocioeconomico(): Router {
       const mensaje = neon.ok
         ? 'Territorio eliminado de Neon.'
         : `Territorio eliminado localmente (pendiente en Neon). ${neon.mensaje}`;
-      return res.redirect('/admin/territorio?ok=' + encodeURIComponent(mensaje));
+      return redirigirTerritorio(res, { ok: mensaje }, volverNivel);
     } catch {
-      return res.redirect('/admin/territorio?error=' + encodeURIComponent('No se pudo eliminar el territorio.'));
+      return redirigirTerritorio(res, { error: 'No se pudo eliminar el territorio.' }, volverNivel);
     }
   });
 

@@ -78,60 +78,60 @@
           <div class="grupo">
             <h3 class="grupo-titulo">A. Ubicación Geográfica de la Comunidad y Casa</h3>
 
+            <%
+              const estadoPredeterminado =
+                (territorios.estados && territorios.estados.find((e) => /^falc[oó]n$/i.test(e.nombre))?.nombre) ||
+                (territorios.estados && territorios.estados.length === 1 ? territorios.estados[0].nombre : 'FALCÓN');
+              const municipioPredeterminado =
+                (territorios.municipios && territorios.municipios.find((m) => /^miranda$/i.test(m.nombre))?.nombre) ||
+                (territorios.municipios && territorios.municipios.length === 1 ? territorios.municipios[0].nombre : 'MIRANDA');
+              const parroquiaPredeterminado =
+                (territorios.parroquias && territorios.parroquias.find((p) => /^san antonio$/i.test(p.nombre))?.nombre) ||
+                (territorios.parroquias && territorios.parroquias.length === 1 ? territorios.parroquias[0].nombre : 'SAN ANTONIO');
+            %>
+
             <div class="campos">
-              <div class="campo campo-ancho">
-                <label for="w-estado">Estado <span class="requerido">*</span></label>
-                <% if (territorios.estados && territorios.estados.length) { %>
-                  <% const tieneFalcon = territorios.estados.some((e) => /^falc[oó]n$/i.test(e.nombre)); %>
-                  <select id="w-estado" name="estado" required>
-                    <% if (!tieneFalcon && territorios.estados.length > 1) { %>
-                      <option value="">Seleccione...</option>
-                    <% } %>
-                    <% territorios.estados.forEach(function (e) { %>
-                      <option value="<%= e.nombre %>" <%= /^falc[oó]n$/i.test(e.nombre) ? 'selected' : '' %>><%= e.nombre %></option>
-                    <% }); %>
-                  </select>
-                <% } else { %>
-                  <input type="text" id="w-estado" name="estado" maxlength="80" placeholder="Ej.: FALCÓN" required>
-                  <p class="ayuda">No hay estados configurados. Agréguelos en Administración → Territorio.</p>
-                <% } %>
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="w-estado">Estado <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="w-estado"
+                    name="estado"
+                    maxlength="80"
+                    value="<%= estadoPredeterminado %>"
+                    readonly
+                    required
+                  >
+                </div>
+
+                <div class="campo">
+                  <label for="w-municipio">Municipio <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="w-municipio"
+                    name="municipio"
+                    maxlength="80"
+                    value="<%= municipioPredeterminado %>"
+                    readonly
+                    required
+                  >
+                </div>
               </div>
 
-              <div class="campo campo-ancho">
-                <label for="w-municipio">Municipio <span class="requerido">*</span></label>
-                <% if (territorios.municipios && territorios.municipios.length) { %>
-                  <% const tieneMiranda = territorios.municipios.some((m) => /^miranda$/i.test(m.nombre)); %>
-                  <select id="w-municipio" name="municipio" required>
-                    <% if (!tieneMiranda && territorios.municipios.length > 1) { %>
-                      <option value="">Seleccione...</option>
-                    <% } %>
-                    <% territorios.municipios.forEach(function (m) { %>
-                      <option value="<%= m.nombre %>" <%= /^miranda$/i.test(m.nombre) ? 'selected' : '' %>><%= m.nombre %></option>
-                    <% }); %>
-                  </select>
-                <% } else { %>
-                  <input type="text" id="w-municipio" name="municipio" maxlength="80" placeholder="Ej.: MIRANDA" required>
-                  <p class="ayuda">No hay municipios configurados. Agréguelos en Administración → Territorio.</p>
-                <% } %>
-              </div>
-
-              <div class="campo campo-ancho">
-                <label for="w-parroquia">Parroquia <span class="requerido">*</span></label>
-                <% if (territorios.parroquias && territorios.parroquias.length) { %>
-                  <% const tieneSanAntonio = territorios.parroquias.some((p) => /^san antonio$/i.test(p.nombre)); %>
-                  <select id="w-parroquia" name="parroquia" required>
-                    <% if (!tieneSanAntonio && territorios.parroquias.length > 1) { %>
-                      <option value="">Seleccione...</option>
-                    <% } %>
-                    <% territorios.parroquias.forEach(function (p) { %>
-                      <option value="<%= p.nombre %>" <%= /^san antonio$/i.test(p.nombre) ? 'selected' : '' %>><%= p.nombre %></option>
-                    <% }); %>
-                  </select>
-                <% } else { %>
-                  <input type="text" id="w-parroquia" name="parroquia" maxlength="80" placeholder="Ej.: SAN ANTONIO" required>
-                  <p class="ayuda">No hay parroquias configuradas. Agréguelas en Administración → Territorio.</p>
-                <% } %>
-              </div>
+              <div class="campos-dobles">
+                <div class="campo">
+                  <label for="w-parroquia">Parroquia <span class="requerido">*</span></label>
+                  <input
+                    type="text"
+                    id="w-parroquia"
+                    name="parroquia"
+                    maxlength="80"
+                    value="<%= parroquiaPredeterminado %>"
+                    readonly
+                    required
+                  >
+                </div>
 
               <div class="campo">
                 <label for="w-comunidad">Comunidad <span class="requerido">*</span></label>
@@ -146,6 +146,7 @@
                   <input type="text" id="w-comunidad" name="comunidad" maxlength="120" placeholder="Ej.: Comunidad 20 de Julio" required>
                   <p class="ayuda">No hay comunidades configuradas. Agréguelas en Administración → Territorio.</p>
                 <% } %>
+              </div>
               </div>
 
               <div class="campo campo-ancho">

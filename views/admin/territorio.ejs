@@ -1,5 +1,68 @@
 <%
   const config = typeof configNeon !== 'undefined' ? configNeon : null;
+  const nivelActual = typeof nivelActivo === 'string' && nivelActivo ? nivelActivo : 'todos';
+
+  const niveles = [
+    {
+      tipo: 'comunidad',
+      titulo: 'Comunidades',
+      singular: 'comunidad',
+      tipoPadre: 'parroquia',
+      etiquetaPadre: 'Parroquia',
+      placeholder: 'Ej.: Comunidad 20 de Julio',
+      predeterminado: '',
+    },
+    {
+      tipo: 'etapa',
+      titulo: 'Etapas',
+      singular: 'etapa',
+      tipoPadre: 'comunidad',
+      etiquetaPadre: 'Comunidad',
+      placeholder: 'Ej.: Etapa 4',
+      predeterminado: '',
+    },
+    {
+      tipo: 'manzana',
+      titulo: 'Manzanas',
+      singular: 'manzana',
+      tipoPadre: 'etapa',
+      etiquetaPadre: 'Etapa',
+      placeholder: 'Ej.: Manzana A',
+      predeterminado: '',
+    },
+    {
+      tipo: 'estado',
+      titulo: 'Estados',
+      singular: 'estado',
+      tipoPadre: '',
+      etiquetaPadre: '',
+      placeholder: 'Ej.: FALCÓN',
+      predeterminado: 'Predeterminado: FALCÓN',
+    },
+    {
+      tipo: 'municipio',
+      titulo: 'Municipios',
+      singular: 'municipio',
+      tipoPadre: 'estado',
+      etiquetaPadre: 'Estado',
+      placeholder: 'Ej.: MIRANDA',
+      predeterminado: 'Predeterminado: MIRANDA',
+    },
+    {
+      tipo: 'parroquia',
+      titulo: 'Parroquias',
+      singular: 'parroquia',
+      tipoPadre: 'municipio',
+      etiquetaPadre: 'Municipio',
+      placeholder: 'Ej.: SAN ANTONIO',
+      predeterminado: 'Predeterminado: SAN ANTONIO',
+    },
+  ];
+
+  const porTipo = {};
+  niveles.forEach(function (n) {
+    porTipo[n.tipo] = territorios.filter(function (t) { return t.tipo === n.tipo; });
+  });
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -23,6 +86,7 @@
       <div class="panel-head panel-head--fila">
         <div>
           <h2>Gestión de Territorio</h2>
+          <p><%= territorios.length %> registro(s) organizados por nivel territorial.</p>
         </div>
         <% if (config) { %>
           <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
@@ -31,124 +95,167 @@
         <% } %>
       </div>
 
-      <form method="post" action="/admin/territorio" class="formulario">
-        <div class="campos">
-          <div class="campos-dobles">
-            <div class="campo">
-              <label for="tipo-territorio">Nivel territorial <span class="requerido">*</span></label>
-              <select id="tipo-territorio" name="tipo" required>
-                <option value="">Seleccione un nivel...</option>
-                <option value="estado">Estado</option>
-                <option value="municipio">Municipio</option>
-                <option value="parroquia">Parroquia</option>
-                <option value="comunidad">Comunidad</option>
-                <option value="etapa">Etapa</option>
-                <option value="manzana">Manzana</option>
-              </select>
-            </div>
-            <div class="campo">
-              <label for="nombre-territorio">Nombre <span class="requerido">*</span></label>
-              <input
-                type="text"
-                id="nombre-territorio"
-                name="nombre"
-                maxlength="120"
-                placeholder="Ej.: Comunidad 20 de Julio, Etapa 4, Manzana A"
-                required
-              >
-            </div>
+      <div class="territorio-tabs" role="tablist" aria-label="Filtrar por nivel territorial">
+        <button
+          type="button"
+          class="territorio-tab <%= nivelActual === 'todos' ? 'territorio-tab--activo' : '' %>"
+          data-nivel-tab="todos"
+          role="tab"
+          aria-selected="<%= nivelActual === 'todos' ? 'true' : 'false' %>"
+        >
+          <span>Todos</span>
+          <span class="territorio-tab-conteo"><%= territorios.length %></span>
+        </button>
+        <% niveles.forEach(function (nivel) { %>
+          <button
+            type="button"
+            class="territorio-tab <%= nivelActual === nivel.tipo ? 'territorio-tab--activo' : '' %>"
+            data-nivel-tab="<%= nivel.tipo %>"
+            role="tab"
+            aria-selected="<%= nivelActual === nivel.tipo ? 'true' : 'false' %>"
+          >
+            <span><%= nivel.titulo %></span>
+            <span class="territorio-tab-conteo"><%= porTipo[nivel.tipo].length %></span>
+          </button>
+        <% }); %>
+      </div>
+    </section>
+
+    <% niveles.forEach(function (nivel) { %>
+      <%
+        const registros = porTipo[nivel.tipo] || [];
+        const padresDisponibles = nivel.tipoPadre ? (porTipo[nivel.tipoPadre] || []) : [];
+        const ocultoInicial = nivelActual !== 'todos' && nivelActual !== nivel.tipo;
+      %>
+      <section class="panel" data-nivel-panel="<%= nivel.tipo %>" <%= ocultoInicial ? 'hidden' : '' %>>
+        <div class="panel-head panel-head--fila">
+          <div class="territorio-cabecera-meta">
+            <h2><%= nivel.titulo %></h2>
+            <span class="tipo-badge"><%= registros.length %></span>
+            <% if (nivel.predeterminado) { %>
+              <span class="territorio-predeterminado"><%= nivel.predeterminado %></span>
+            <% } %>
+          </div>
+        </div>
+
+        <form method="post" action="/admin/territorio" class="territorio-alta">
+          <input type="hidden" name="tipo" value="<%= nivel.tipo %>">
+          <input type="hidden" name="volver_nivel" value="<%= nivelActual !== 'todos' ? nivelActual : '' %>" data-volver-nivel>
+
+          <div class="campo">
+            <label for="nombre-<%= nivel.tipo %>">Nombre de <%= nivel.singular %> <span class="requerido">*</span></label>
+            <input
+              type="text"
+              id="nombre-<%= nivel.tipo %>"
+              name="nombre"
+              maxlength="120"
+              placeholder="<%= nivel.placeholder %>"
+              required
+            >
           </div>
 
-          <div class="campos-dobles">
+          <% if (nivel.tipoPadre) { %>
             <div class="campo">
-              <label for="padre-territorio">Pertenece a (opcional)</label>
-              <select id="padre-territorio" name="padre_id">
-                <option value="">— Ninguno (nivel independiente) —</option>
-                <% territorios.forEach(function (padre) { %>
-                  <option value="<%= padre.id %>"><%= padre.tipo %> · <%= padre.nombre %></option>
+              <label for="padre-<%= nivel.tipo %>"><%= nivel.etiquetaPadre %> (opcional)</label>
+              <select id="padre-<%= nivel.tipo %>" name="padre_id">
+                <option value="">— Sin <%= nivel.etiquetaPadre.toLowerCase() %> —</option>
+                <% padresDisponibles.forEach(function (padre) { %>
+                  <option value="<%= padre.id %>"><%= padre.nombre %></option>
                 <% }); %>
               </select>
             </div>
-            <div class="campo">
-              <label for="activo-territorio">Estado</label>
-              <select id="activo-territorio" name="activo">
-                <option value="1" selected>Activo</option>
-                <option value="0">Inactivo</option>
-              </select>
-            </div>
+          <% } %>
+
+          <div class="campo">
+            <label for="activo-<%= nivel.tipo %>">Estado</label>
+            <select id="activo-<%= nivel.tipo %>" name="activo">
+              <option value="1" selected>Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
           </div>
-        </div>
 
-        <div class="acciones-form--fila">
-          <button type="submit" class="boton boton--primario">Agregar territorio</button>
-        </div>
-      </form>
-    </section>
+          <div class="territorio-alta-accion">
+            <button type="submit" class="boton boton--primario">Agregar <%= nivel.singular %></button>
+          </div>
+        </form>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Territorios registrados</h2>
-        <p><%= territorios.length %> elemento(s).</p>
-      </div>
+        <% if (registros.length) { %>
+          <div class="tabla-scroll">
+            <table class="tabla-personas">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <% if (nivel.tipoPadre) { %>
+                    <th><%= nivel.etiquetaPadre %></th>
+                  <% } %>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% registros.forEach(function (t) { %>
+                  <%
+                    const padreActualInvalido =
+                      t.padre_id && !padresDisponibles.some(function (p) { return p.id === t.padre_id; })
+                        ? territorios.find(function (p) { return p.id === t.padre_id; })
+                        : null;
+                  %>
+                  <tr>
+                    <td>
+                      <input form="terr-<%= t.id %>" type="text" name="nombre" value="<%= t.nombre %>" class="input-tabla" required>
+                    </td>
+                    <% if (nivel.tipoPadre) { %>
+                      <td>
+                        <select form="terr-<%= t.id %>" name="padre_id" class="input-tabla">
+                          <option value="">— Ninguno —</option>
+                          <% if (padreActualInvalido) { %>
+                            <option value="<%= padreActualInvalido.id %>" selected><%= padreActualInvalido.tipo %> · <%= padreActualInvalido.nombre %></option>
+                          <% } %>
+                          <% padresDisponibles.forEach(function (padre) { %>
+                            <% if (padre.id !== t.id) { %>
+                              <option value="<%= padre.id %>" <%= t.padre_id === padre.id ? 'selected' : '' %>><%= padre.nombre %></option>
+                            <% } %>
+                          <% }); %>
+                        </select>
+                      </td>
+                    <% } %>
+                    <td>
+                      <label class="check-inline">
+                        <input form="terr-<%= t.id %>" type="checkbox" name="activo" value="1" <%= t.activo ? 'checked' : '' %>>
+                        Activo
+                      </label>
+                    </td>
+                    <td class="col-acciones">
+                      <div class="acciones-fila">
+                        <button form="terr-<%= t.id %>" type="submit" class="boton boton--mini boton--primario">Guardar</button>
+                        <form
+                          method="post"
+                          action="/admin/territorio/<%= t.id %>/eliminar"
+                          data-confirmar="¿Eliminar <%= nivel.singular %> «<%= t.nombre %>»?"
+                          data-confirmar-titulo="Eliminar <%= nivel.singular %>"
+                          data-confirmar-boton="Eliminar"
+                        >
+                          <input type="hidden" name="volver_nivel" value="<%= nivelActual !== 'todos' ? nivelActual : '' %>" data-volver-nivel>
+                          <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
 
-      <div class="tabla-scroll">
-        <table class="tabla-personas">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Nombre</th>
-              <th>Pertenece a</th>
-              <th>Activo</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% territorios.forEach(function (t) { %>
-              <tr>
-                <td><span class="tipo-badge"><%= t.tipo %></span></td>
-                <td>
-                  <input form="terr-<%= t.id %>" type="text" name="nombre" value="<%= t.nombre %>" class="input-tabla" required>
-                </td>
-                <td>
-                  <select form="terr-<%= t.id %>" name="padre_id" class="input-tabla">
-                    <option value="">— Ninguno —</option>
-                    <% territorios.forEach(function (padre) { %>
-                      <% if (padre.id !== t.id) { %>
-                        <option value="<%= padre.id %>" <%= t.padre_id === padre.id ? 'selected' : '' %>><%= padre.tipo %> · <%= padre.nombre %></option>
-                      <% } %>
-                    <% }); %>
-                  </select>
-                </td>
-                <td>
-                  <label class="check-inline">
-                    <input form="terr-<%= t.id %>" type="checkbox" name="activo" value="1" <%= t.activo ? 'checked' : '' %>>
-                    Activo
-                  </label>
-                </td>
-                <td class="col-acciones">
-                  <div class="acciones-fila">
-                    <button form="terr-<%= t.id %>" type="submit" class="boton boton--mini boton--primario">Guardar</button>
-                    <form
-                      method="post"
-                      action="/admin/territorio/<%= t.id %>/eliminar"
-                      data-confirmar="¿Eliminar <%= t.tipo %> «<%= t.nombre %>»?"
-                      data-confirmar-titulo="Eliminar territorio"
-                      data-confirmar-boton="Eliminar"
-                    >
-                      <button type="submit" class="boton boton--mini boton--peligro">Eliminar</button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            <% }); %>
-          </tbody>
-        </table>
-      </div>
-
-      <% territorios.forEach(function (t) { %>
-        <form id="terr-<%= t.id %>" method="post" action="/admin/territorio/<%= t.id %>/editar"></form>
-      <% }); %>
-    </section>
+          <% registros.forEach(function (t) { %>
+            <form id="terr-<%= t.id %>" method="post" action="/admin/territorio/<%= t.id %>/editar">
+              <input type="hidden" name="volver_nivel" value="<%= nivelActual !== 'todos' ? nivelActual : '' %>" data-volver-nivel>
+            </form>
+          <% }); %>
+        <% } else { %>
+          <p class="territorio-vacio">No hay registros en <%= nivel.titulo.toLowerCase() %>.</p>
+        <% } %>
+      </section>
+    <% }); %>
   </main>
 
   <footer class="pie">
@@ -157,5 +264,46 @@
 
   <%- include('../partials/dialogo-confirmacion') %>
   <script src="/popups.js" defer></script>
+  <script>
+    (function () {
+      const botones = document.querySelectorAll('[data-nivel-tab]');
+      const paneles = document.querySelectorAll('[data-nivel-panel]');
+      const camposVolver = document.querySelectorAll('[data-volver-nivel]');
+      if (!botones.length || !paneles.length) return;
+
+      const activarNivel = (nivel, actualizarUrl) => {
+        botones.forEach((btn) => {
+          const activo = btn.dataset.nivelTab === nivel;
+          btn.classList.toggle('territorio-tab--activo', activo);
+          btn.setAttribute('aria-selected', activo ? 'true' : 'false');
+        });
+
+        paneles.forEach((panel) => {
+          const visible = nivel === 'todos' || panel.dataset.nivelPanel === nivel;
+          panel.hidden = !visible;
+        });
+
+        camposVolver.forEach((input) => {
+          input.value = nivel === 'todos' ? '' : nivel;
+        });
+
+        if (actualizarUrl && window.history && typeof window.history.replaceState === 'function') {
+          const url = new URL(window.location.href);
+          if (nivel === 'todos') {
+            url.searchParams.delete('nivel');
+          } else {
+            url.searchParams.set('nivel', nivel);
+          }
+          window.history.replaceState({}, '', url.pathname + url.search);
+        }
+      };
+
+      botones.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          activarNivel(btn.dataset.nivelTab || 'todos', true);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

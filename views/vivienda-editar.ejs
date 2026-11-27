@@ -42,7 +42,7 @@
             <div class="campos-dobles">
               <div class="campo">
                 <label for="estado">Estado <span class="requerido">*</span></label>
-                <input type="text" id="estado" name="estado" list="lista-estados" value="<%= vivienda.estado %>" required>
+                <input type="text" id="estado" name="estado" list="lista-estados" value="<%= vivienda.estado || 'FALCÓN' %>" required>
                 <datalist id="lista-estados">
                   <% (terr.estados || []).forEach(function (t) { %>
                     <option value="<%= t.nombre %>"></option>
@@ -51,7 +51,7 @@
               </div>
               <div class="campo">
                 <label for="municipio">Municipio <span class="requerido">*</span></label>
-                <input type="text" id="municipio" name="municipio" list="lista-municipios" value="<%= vivienda.municipio %>" required>
+                <input type="text" id="municipio" name="municipio" list="lista-municipios" value="<%= vivienda.municipio || 'MIRANDA' %>" required>
                 <datalist id="lista-municipios">
                   <% (terr.municipios || []).forEach(function (t) { %>
                     <option value="<%= t.nombre %>"></option>
@@ -62,7 +62,7 @@
 
             <div class="campo">
               <label for="parroquia">Parroquia <span class="requerido">*</span></label>
-              <input type="text" id="parroquia" name="parroquia" list="lista-parroquias" value="<%= vivienda.parroquia %>" required>
+              <input type="text" id="parroquia" name="parroquia" list="lista-parroquias" value="<%= vivienda.parroquia || 'SAN ANTONIO' %>" required>
               <datalist id="lista-parroquias">
                 <% (terr.parroquias || []).forEach(function (t) { %>
                   <option value="<%= t.nombre %>"></option>
