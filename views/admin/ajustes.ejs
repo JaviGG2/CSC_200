@@ -1,0 +1,75 @@
+<%
+  const config = typeof configNeon !== 'undefined' ? configNeon : null;
+  const botActivo = typeof asistenteHabilitado !== 'undefined' ? Boolean(asistenteHabilitado) : true;
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <title>Ajustes | Administración</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <%- include('../partials/topbar', { activo: 'admin' }) %>
+
+  <main class="contenedor pagina">
+    <%- include('../partials/admin-nav') %>
+
+    <% if (ok) { %><div class="alerta alerta--exito" role="status"><%= ok %></div><% } %>
+    <% if (error) { %><div class="alerta alerta--error" role="alert"><%= error %></div><% } %>
+
+    <section class="panel">
+      <div class="panel-head panel-head--fila">
+        <div>
+          <h2>Ajustes de la Plataforma</h2>
+          <p>Active o desactive herramientas de apoyo para los usuarios.</p>
+        </div>
+        <% if (config) { %>
+          <span class="insignia <%= config.ok ? 'insignia--sincronizado' : 'insignia--pendiente' %>">
+            <%= config.ok ? 'Sincronizado con Neon' : 'Sin conexión a Neon' %>
+          </span>
+        <% } %>
+      </div>
+
+      <form method="post" action="/admin/ajustes" class="formulario">
+        <div class="ajustes-lista">
+          <label class="ajuste-item" for="asistente_habilitado">
+            <div class="ajuste-item-info">
+              <div class="ajuste-item-titulo">
+                <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">voice_chat</span>
+                <strong>Asistente de orientación (Bot)</strong>
+                <span class="estado <%= botActivo ? 'estado--activo' : 'estado--oculto' %>">
+                  <%= botActivo ? 'Habilitado' : 'Deshabilitado' %>
+                </span>
+              </div>
+              <p class="ayuda">
+                Muestra el botón «Guía» en la barra superior para responder dudas sobre registros, censos y gestión sin cubrir el formulario.
+              </p>
+            </div>
+            <div class="ajuste-item-control">
+              <input
+                type="checkbox"
+                id="asistente_habilitado"
+                name="asistente_habilitado"
+                value="1"
+                <%= botActivo ? 'checked' : '' %>
+              >
+              <span>Habilitado</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="acciones-form--fila">
+          <button type="submit" class="boton boton--primario">Guardar ajustes</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">Comuna Socialista Carabobo 200 · Ajustes</div>
+  </footer>
+</body>
+</html>

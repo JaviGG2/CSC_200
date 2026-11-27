@@ -12,6 +12,7 @@ import {
   listarEliminacionesTerritorioNeon,
   eliminarEliminacionTerritorioNeon,
   obtenerConfigSistema,
+  guardarConfigSistema,
   listarConfigCampos,
   listarUsuariosConHash,
   marcarUsuarioSincronizado,
@@ -651,6 +652,16 @@ async function ejecutarSincronizacion(): Promise<ResultadoConfiguracionNeon> {
       const territorios = await aplicarTerritorios(cliente);
       const usuarios = await aplicarUsuarios(cliente);
       await aplicarIngresos(cliente);
+
+      const asistenteNeon = await cliente.query(
+        'SELECT valor FROM config_sistema WHERE clave = $1 LIMIT 1',
+        ['asistente_habilitado']
+      );
+      if (asistenteNeon.rowCount) {
+        const valorNeon = String(asistenteNeon.rows[0].valor) === '0' ? '0' : '1';
+        guardarConfigSistema('asistente_habilitado', valorNeon);
+      }
+
       return { consejos, opciones, campos, territorios, usuarios };
     });
 
@@ -1011,6 +1022,25 @@ export async function eliminarUsuarioEnNeon(
       ok: false,
       configurado: Boolean(process.env.DATABASE_URL),
       mensaje: `No se pudo eliminar el usuario de Neon: ${detalleError(error)}`,
+    };
+  }
+}
+
+export async function guardarConfigSistemaEnNeon(
+  clave: string,
+  valor: string
+): Promise<ResultadoConfiguracionNeon> {
+  try {
+    await conCliente(async (cliente) => {
+      await guardarBanderaNeon(cliente, clave, valor);
+    });
+    invalidarCacheConfiguracion();
+    return { ok: true, configurado: true, mensaje: 'Ajuste guardado en Neon.' };
+  } catch (error) {
+    return {
+      ok: false,
+      configurado: Boolean(process.env.DATABASE_URL),
+      mensaje: `Ajuste guardado localmente (pendiente en Neon): ${detalleError(error)}`,
     };
   }
 }

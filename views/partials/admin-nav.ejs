@@ -8,6 +8,7 @@
     { href: '/admin/territorio', etiqueta: 'Territorio y sectores' },
     { href: '/admin/usuarios', etiqueta: 'Usuarios' },
     { href: '/campos', etiqueta: 'Campos adicionales' },
+    { href: '/admin/ajustes', etiqueta: 'Ajustes' },
   ];
   const esActivo = (item) => (item.exacto ? rutaAdmin === item.href : rutaAdmin.startsWith(item.href));
   const itemActivo = itemsAdmin.find(esActivo) || itemsAdmin[0];

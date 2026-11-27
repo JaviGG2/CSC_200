@@ -44,6 +44,8 @@ import {
   encolarEliminacionTerritorioNeon,
   encolarEliminacionUsuarioNeon,
   guardarConfigCamposEnNeon,
+  guardarConfigSistema,
+  guardarConfigSistemaEnNeon,
   guardarConsejoEnNeon,
   guardarOpcionEnNeon,
   guardarTerritorioEnNeon,
@@ -62,6 +64,7 @@ import {
   listarUsuarios,
   marcarSoloLocalParaSincronizar,
   marcarUsuarioSincronizado,
+  obtenerAsistenteHabilitado,
   obtenerCamposFormulario,
   obtenerConsejoComunalPorId,
   obtenerEstadisticasIngresos,
@@ -1703,6 +1706,7 @@ export function crearRouterSocioeconomico(): Router {
   router.get('/admin', requerirAdmin, (_req: Request, res: Response) => {
     const ingresos = obtenerEstadisticasIngresos();
     return res.render('admin/index', {
+      asistenteHabilitado: obtenerAsistenteHabilitado(),
       stats: {
         viviendas: contarViviendas(),
         personas: contarPersonas(),
@@ -1718,6 +1722,34 @@ export function crearRouterSocioeconomico(): Router {
         opciones: listarCamposConOpciones().length,
       },
     });
+  });
+
+  router.get('/admin/ajustes', requerirAdmin, async (req: Request, res: Response) => {
+    const configNeon = await sincronizarConfiguracionNeon();
+    return res.render('admin/ajustes', {
+      asistenteHabilitado: obtenerAsistenteHabilitado(),
+      ok: mensajeQuery(req, 'ok'),
+      error: mensajeQuery(req, 'error'),
+      configNeon,
+    });
+  });
+
+  router.post('/admin/ajustes', requerirAdmin, async (req: Request, res: Response) => {
+    try {
+      const habilitado = ['on', '1', 'true'].includes(valorSimple(req.body.asistente_habilitado));
+      const valor = habilitado ? '1' : '0';
+
+      guardarConfigSistema('asistente_habilitado', valor);
+      const neon = await guardarConfigSistemaEnNeon('asistente_habilitado', valor);
+
+      const estadoTexto = habilitado ? 'habilitado' : 'deshabilitado';
+      const mensaje = neon.ok
+        ? `Asistente de orientación ${estadoTexto} y sincronizado con Neon.`
+        : `Asistente de orientación ${estadoTexto} en este equipo.`;
+      return res.redirect('/admin/ajustes?ok=' + encodeURIComponent(mensaje));
+    } catch {
+      return res.redirect('/admin/ajustes?error=' + encodeURIComponent('No se pudieron guardar los ajustes.'));
+    }
   });
 
   router.get('/admin/consejos', requerirAdmin, async (req: Request, res: Response) => {

@@ -95,6 +95,9 @@ export {
   contarViviendas,
   obtenerEstadisticasViviendas,
   vaciarBaseDatos,
+  obtenerConfigSistema,
+  guardarConfigSistema,
+  obtenerAsistenteHabilitado,
 } from '../../db';
 
 export {
@@ -117,6 +120,7 @@ export {
   eliminarTerritorioEnNeon,
   guardarUsuarioEnNeon,
   eliminarUsuarioEnNeon,
+  guardarConfigSistemaEnNeon,
 } from '../../configuracion-neon';
 
 export {

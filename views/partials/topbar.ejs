@@ -3,6 +3,8 @@
   const subseccionActual = typeof subseccion !== 'undefined' ? subseccion : (typeof activo !== 'undefined' ? activo : 'inicio');
   const usuarioActual = typeof usuario !== 'undefined' ? usuario : null;
   const esAdminActual = typeof esAdmin !== 'undefined' ? esAdmin : Boolean(usuarioActual && usuarioActual.rol === 'admin');
+  const botHabilitado = typeof asistenteHabilitado !== 'undefined' ? Boolean(asistenteHabilitado) : false;
+  const rutaActualVista = typeof ruta !== 'undefined' ? ruta : '/';
 
   const titulosModulo = {
     portal: { nombre: 'Portal de Módulos', ruta: '/inicio' },
@@ -33,6 +35,19 @@
       </span>
 
       <div class="app-header-right">
+        <% if (usuarioActual && botHabilitado) { %>
+          <button
+            type="button"
+            class="boton boton--mini boton--secundario asistente-trigger"
+            data-abrir-asistente
+            aria-haspopup="dialog"
+            aria-controls="panel-asistente"
+          >
+            <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">voice_chat</span>
+            <span>Guía</span>
+          </button>
+        <% } %>
+
         <% if (moduloActual !== 'portal') { %>
           <a href="/inicio" class="boton boton--mini boton--secundario">
             <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">apps</span>
@@ -140,6 +155,18 @@
             </a>
           <% } %>
 
+          <% if (usuarioActual && botHabilitado) { %>
+            <button
+              type="button"
+              class="menu-desplegable-item"
+              data-abrir-asistente
+              data-cerrar-menu
+            >
+              <span class="material-symbols-rounded material-symbols-rounded--sm" aria-hidden="true">voice_chat</span>
+              <span>Guía de uso</span>
+            </button>
+          <% } %>
+
           <% if (usuarioActual) { %>
             <div class="menu-desplegable-sep" role="separator"></div>
             <div class="menu-cabecera-usuario">
@@ -228,6 +255,66 @@
   <% } %>
 </header>
 
+<% if (usuarioActual && botHabilitado) { %>
+  <div class="asistente-backdrop" id="asistente-backdrop" hidden></div>
+  <aside
+    class="asistente-drawer"
+    id="panel-asistente"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="asistente-titulo"
+    data-ruta-actual="<%= rutaActualVista %>"
+    hidden
+  >
+    <div class="asistente-head">
+      <div class="asistente-head-titulo">
+        <span class="asistente-head-icono" aria-hidden="true">
+          <span class="material-symbols-rounded">voice_chat</span>
+        </span>
+        <div>
+          <h2 id="asistente-titulo">Guía de la plataforma</h2>
+          <p>Orientación rápida sobre registros y gestión</p>
+        </div>
+      </div>
+      <div class="asistente-head-acciones">
+        <button
+          type="button"
+          class="boton boton--mini boton--texto"
+          id="asistente-limpiar"
+          title="Nueva conversación"
+        >Nueva</button>
+        <button
+          type="button"
+          class="cerrar"
+          id="asistente-cerrar"
+          aria-label="Cerrar guía"
+        >×</button>
+      </div>
+    </div>
+
+    <div class="asistente-mensajes" id="asistente-mensajes" aria-live="polite"></div>
+
+    <div class="asistente-sugerencias" id="asistente-sugerencias">
+      <button type="button" class="asistente-sugerencia" data-sugerencia="¿Cómo registro una nueva vivienda paso a paso?">¿Cómo registrar una vivienda?</button>
+      <button type="button" class="asistente-sugerencia" data-sugerencia="¿Cómo agrego o edito etapas, manzanas y consejos comunales?">¿Cómo gestionar territorio?</button>
+      <button type="button" class="asistente-sugerencia" data-sugerencia="¿Cómo funciona el guardado local y la sincronización con Neon?">Guardado local y Neon</button>
+    </div>
+
+    <form class="asistente-form" id="asistente-form">
+      <label class="solo-lectura" for="asistente-input">Escriba su consulta</label>
+      <textarea
+        id="asistente-input"
+        rows="1"
+        maxlength="1500"
+        placeholder="Pregunte cómo usar cualquier sección..."
+        required
+      ></textarea>
+      <button type="submit" class="boton boton--primario boton--mini" id="asistente-enviar">Enviar</button>
+    </form>
+  </aside>
+  <script src="/asistente.js" defer></script>
+<% } %>
+
 <script>
   (function () {
     if (window.__comunaMenusInit) return;
@@ -300,7 +387,7 @@
 
       var panel = evento.target.closest('[data-menu-panel]');
       if (panel) {
-        if (evento.target.closest('a, button[data-cerrar-menu], button[data-abrir-popup], button[data-abrir-password], button[data-editar-expediente], button[data-ver-expediente], button[data-ver-beneficio], button#btn-sincronizar-neon, button#btn-sincronizar-locales')) {
+        if (evento.target.closest('a, button[data-cerrar-menu], button[data-abrir-asistente], button[data-abrir-popup], button[data-abrir-password], button[data-editar-expediente], button[data-ver-expediente], button[data-ver-beneficio], button#btn-sincronizar-neon, button#btn-sincronizar-locales')) {
           cerrarTodosMenus(null);
         }
         return;

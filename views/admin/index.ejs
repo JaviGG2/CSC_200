@@ -73,6 +73,12 @@
           <h3>Listas de opciones</h3>
           <a href="/admin/opciones" class="boton boton--mini boton--secundario">Configurar</a>
         </article>
+
+        <article class="admin-card">
+          <span class="admin-card-num"><%= typeof asistenteHabilitado !== 'undefined' && asistenteHabilitado ? 'Activo' : 'Inactivo' %></span>
+          <h3>Asistente de orientación</h3>
+          <a href="/admin/ajustes" class="boton boton--mini boton--secundario">Ajustes</a>
+        </article>
       </div>
     </section>
 

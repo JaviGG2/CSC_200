@@ -43,6 +43,7 @@ type ViviendaLocal = {
   vivienda_principal_id: number | null;
   fecha_registro: string;
   sincronizar_neon: number;
+  neon_id?: number | null;
 };
 
 type JefeLocal = {
@@ -243,6 +244,18 @@ async function resolverViviendaPrincipal(
 ): Promise<number | null> {
   if (!vivienda.vivienda_principal_id) return null;
 
+  const localPrincipal = db
+    .prepare('SELECT id, neon_id FROM viviendas WHERE id = ?')
+    .get(vivienda.vivienda_principal_id) as { id: number; neon_id: number | null } | undefined;
+
+  if (localPrincipal?.neon_id) {
+    const porNeonId = await cliente.query(
+      'SELECT id FROM viviendas WHERE id = $1 LIMIT 1',
+      [localPrincipal.neon_id]
+    );
+    if (porNeonId.rowCount) return Number(porNeonId.rows[0].id);
+  }
+
   const fila = await cliente.query(
     `SELECT id FROM viviendas WHERE origen = 'local' AND origen_id = $1 LIMIT 1`,
     [vivienda.vivienda_principal_id]
@@ -263,50 +276,97 @@ export async function guardarViviendaConCliente(
   const consejoId = await resolverConsejo(cliente, vivienda);
   const principalId = await resolverViviendaPrincipal(cliente, vivienda);
 
-  const viviendaGuardada = await cliente.query(
-    `
-      INSERT INTO viviendas
-        (origen, origen_id, estado, municipio, parroquia, comunidad, etapa, manzana,
-         direccion, numero_casa, consejo_comunal_id, es_anexo, numero_anexo,
-         vivienda_principal_id, fecha_registro, updated_at)
-      VALUES
-        ('local', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-         COALESCE(($14)::timestamp AT TIME ZONE 'America/Caracas', now()), now())
-      ON CONFLICT (origen, origen_id) DO UPDATE SET
-        estado = EXCLUDED.estado,
-        municipio = EXCLUDED.municipio,
-        parroquia = EXCLUDED.parroquia,
-        comunidad = EXCLUDED.comunidad,
-        etapa = EXCLUDED.etapa,
-        manzana = EXCLUDED.manzana,
-        direccion = EXCLUDED.direccion,
-        numero_casa = EXCLUDED.numero_casa,
-        consejo_comunal_id = EXCLUDED.consejo_comunal_id,
-        es_anexo = EXCLUDED.es_anexo,
-        numero_anexo = EXCLUDED.numero_anexo,
-        vivienda_principal_id = EXCLUDED.vivienda_principal_id,
-        updated_at = now()
-      RETURNING id
-    `,
-    [
-      viviendaId,
-      vivienda.estado,
-      vivienda.municipio,
-      vivienda.parroquia,
-      vivienda.comunidad,
-      textoONulo(vivienda.etapa),
-      textoONulo(vivienda.manzana),
-      vivienda.direccion,
-      textoONulo(vivienda.numero_casa),
-      consejoId,
-      Boolean(vivienda.es_anexo),
-      textoONulo(vivienda.numero_anexo),
-      principalId,
-      vivienda.fecha_registro,
-    ]
-  );
+  let viviendaNeonId: number | null = null;
+  if (vivienda.neon_id) {
+    const existente = await cliente.query(
+      'SELECT id FROM viviendas WHERE id = $1 LIMIT 1',
+      [vivienda.neon_id]
+    );
+    if (existente.rowCount) {
+      const actualizada = await cliente.query(
+        `
+          UPDATE viviendas SET
+            estado = $2,
+            municipio = $3,
+            parroquia = $4,
+            comunidad = $5,
+            etapa = $6,
+            manzana = $7,
+            direccion = $8,
+            numero_casa = $9,
+            consejo_comunal_id = $10,
+            es_anexo = $11,
+            numero_anexo = $12,
+            vivienda_principal_id = $13,
+            updated_at = now()
+          WHERE id = $1
+          RETURNING id
+        `,
+        [
+          vivienda.neon_id,
+          vivienda.estado,
+          vivienda.municipio,
+          vivienda.parroquia,
+          vivienda.comunidad,
+          textoONulo(vivienda.etapa),
+          textoONulo(vivienda.manzana),
+          vivienda.direccion,
+          textoONulo(vivienda.numero_casa),
+          consejoId,
+          Boolean(vivienda.es_anexo),
+          textoONulo(vivienda.numero_anexo),
+          principalId,
+        ]
+      );
+      viviendaNeonId = Number(actualizada.rows[0].id);
+    }
+  }
 
-  const viviendaNeonId = Number(viviendaGuardada.rows[0].id);
+  if (viviendaNeonId === null) {
+    const viviendaGuardada = await cliente.query(
+      `
+        INSERT INTO viviendas
+          (origen, origen_id, estado, municipio, parroquia, comunidad, etapa, manzana,
+           direccion, numero_casa, consejo_comunal_id, es_anexo, numero_anexo,
+           vivienda_principal_id, fecha_registro, updated_at)
+        VALUES
+          ('local', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+           COALESCE(($14)::timestamp AT TIME ZONE 'America/Caracas', now()), now())
+        ON CONFLICT (origen, origen_id) DO UPDATE SET
+          estado = EXCLUDED.estado,
+          municipio = EXCLUDED.municipio,
+          parroquia = EXCLUDED.parroquia,
+          comunidad = EXCLUDED.comunidad,
+          etapa = EXCLUDED.etapa,
+          manzana = EXCLUDED.manzana,
+          direccion = EXCLUDED.direccion,
+          numero_casa = EXCLUDED.numero_casa,
+          consejo_comunal_id = EXCLUDED.consejo_comunal_id,
+          es_anexo = EXCLUDED.es_anexo,
+          numero_anexo = EXCLUDED.numero_anexo,
+          vivienda_principal_id = EXCLUDED.vivienda_principal_id,
+          updated_at = now()
+        RETURNING id
+      `,
+      [
+        viviendaId,
+        vivienda.estado,
+        vivienda.municipio,
+        vivienda.parroquia,
+        vivienda.comunidad,
+        textoONulo(vivienda.etapa),
+        textoONulo(vivienda.manzana),
+        vivienda.direccion,
+        textoONulo(vivienda.numero_casa),
+        consejoId,
+        Boolean(vivienda.es_anexo),
+        textoONulo(vivienda.numero_anexo),
+        principalId,
+        vivienda.fecha_registro,
+      ]
+    );
+    viviendaNeonId = Number(viviendaGuardada.rows[0].id);
+  }
 
   const jefeGuardado = await cliente.query(
     `
@@ -487,15 +547,17 @@ export async function guardarViviendaEnNeon(
     await cliente.connect();
     await asegurarEsquema(cliente);
     await cliente.query('BEGIN');
+    let viviendaNeonId: number | null = null;
     try {
-      await guardarViviendaConCliente(cliente, viviendaId);
+      const guardado = await guardarViviendaConCliente(cliente, viviendaId);
+      viviendaNeonId = guardado.viviendaNeonId;
       await cliente.query('COMMIT');
     } catch (error) {
       await cliente.query('ROLLBACK');
       throw error;
     }
 
-    marcarViviendaSincronizada(viviendaId);
+    marcarViviendaSincronizada(viviendaId, viviendaNeonId);
 
     return {
       ok: true,

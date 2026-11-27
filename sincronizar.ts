@@ -262,46 +262,56 @@ function prepararUpsert(registros: ViviendaPendiente[]): {
 async function upsertRegistros(
   cliente: Client,
   registros: ViviendaPendiente[]
-): Promise<number> {
-  if (!registros.length) return 0;
+): Promise<Map<number, number>> {
+  const mapaNeonIds = new Map<number, number>();
+  if (!registros.length) return mapaNeonIds;
 
   const { texto, valores } = prepararUpsert(registros);
 
   await cliente.query('BEGIN');
   try {
-    const resultado = await cliente.query(texto, valores);
+    await cliente.query(texto, valores);
     for (const registro of registros) {
-      await guardarViviendaConCliente(cliente, registro.id);
+      const guardado = await guardarViviendaConCliente(cliente, registro.id);
+      mapaNeonIds.set(registro.id, guardado.viviendaNeonId);
     }
     await cliente.query('COMMIT');
-    return resultado.rowCount ?? registros.length;
+    return mapaNeonIds;
   } catch (error) {
     await cliente.query('ROLLBACK');
     throw error;
   }
 }
 
+type ViviendaSubida = {
+  id: number;
+  viviendaNeonId: number;
+};
+
 // Si el lote falla completo (por ejemplo, por un dato inválido), reintenta
 // registro por registro para aislar el error y no bloquear al resto.
 async function subirLote(
   cliente: Client,
   lote: ViviendaPendiente[]
-): Promise<{ subidas: ViviendaPendiente[]; fallidas: ViviendaFallida[] }> {
+): Promise<{ subidas: ViviendaSubida[]; fallidas: ViviendaFallida[] }> {
   try {
-    await upsertRegistros(cliente, lote);
-    return { subidas: lote, fallidas: [] };
+    const mapa = await upsertRegistros(cliente, lote);
+    return {
+      subidas: lote.map((r) => ({ id: r.id, viviendaNeonId: mapa.get(r.id) || 0 })),
+      fallidas: [],
+    };
   } catch (errorLote) {
     if (lote.length === 1) {
       return { subidas: [], fallidas: [{ id: lote[0].id, motivo: detalleError(errorLote) }] };
     }
 
-    const subidas: ViviendaPendiente[] = [];
+    const subidas: ViviendaSubida[] = [];
     const fallidas: ViviendaFallida[] = [];
 
     for (const registro of lote) {
       try {
-        await upsertRegistros(cliente, [registro]);
-        subidas.push(registro);
+        const mapa = await upsertRegistros(cliente, [registro]);
+        subidas.push({ id: registro.id, viviendaNeonId: mapa.get(registro.id) || 0 });
       } catch (error) {
         fallidas.push({ id: registro.id, motivo: detalleError(error) });
       }
@@ -314,35 +324,52 @@ async function subirLote(
 export type SolicitudEliminacionNeon = {
   cedula?: string | null;
   viviendaId?: number | null;
+  neonId?: number | null;
   tipo?: 'vivienda' | 'jefe';
 };
 
 function normalizarSolicitudEliminacion(
   entrada: string | SolicitudEliminacionNeon
-): { cedula: string | null; viviendaId: number | null; tipo: 'vivienda' | 'jefe' } {
+): {
+  cedula: string | null;
+  viviendaId: number | null;
+  neonId: number | null;
+  tipo: 'vivienda' | 'jefe';
+} {
   if (typeof entrada === 'string') {
     const cedula = entrada.trim() || null;
     const matchLocal = cedula ? /^(?:S|VIVIENDA)-(\d+)$/i.exec(cedula) : null;
+    const matchNeon = cedula ? /^NEON-(\d+)$/i.exec(cedula) : null;
     return {
-      cedula: cedula && !/^VIVIENDA-/i.test(cedula) ? cedula : null,
+      cedula: cedula && !/^(?:VIVIENDA|NEON)-/i.test(cedula) ? cedula : null,
       viviendaId: matchLocal ? Number(matchLocal[1]) : null,
+      neonId: matchNeon ? Number(matchNeon[1]) : null,
       tipo: 'vivienda',
     };
   }
 
   const cedulaRaw = entrada.cedula ? String(entrada.cedula).trim() : null;
   const matchLocal = cedulaRaw ? /^(?:S|VIVIENDA)-(\d+)$/i.exec(cedulaRaw) : null;
+  const matchNeon = cedulaRaw ? /^NEON-(\d+)$/i.exec(cedulaRaw) : null;
   const viviendaIdNum = Number(entrada.viviendaId);
+  const neonIdNum = Number(entrada.neonId);
   const viviendaId =
     Number.isInteger(viviendaIdNum) && viviendaIdNum > 0
       ? viviendaIdNum
       : matchLocal
         ? Number(matchLocal[1])
         : null;
+  const neonId =
+    Number.isInteger(neonIdNum) && neonIdNum > 0
+      ? neonIdNum
+      : matchNeon
+        ? Number(matchNeon[1])
+        : null;
 
   return {
-    cedula: cedulaRaw && !/^VIVIENDA-/i.test(cedulaRaw) ? cedulaRaw : null,
+    cedula: cedulaRaw && !/^(?:VIVIENDA|NEON)-/i.test(cedulaRaw) ? cedulaRaw : null,
     viviendaId,
+    neonId,
     tipo: entrada.tipo === 'jefe' ? 'jefe' : 'vivienda',
   };
 }
@@ -351,13 +378,19 @@ async function ejecutarEliminacionEnNeon(
   cliente: Client,
   entrada: string | SolicitudEliminacionNeon
 ): Promise<number> {
-  const { cedula, viviendaId, tipo } = normalizarSolicitudEliminacion(entrada);
+  const { cedula, viviendaId, neonId, tipo } = normalizarSolicitudEliminacion(entrada);
   const matchVE = cedula ? /^([VE])-(.+)$/i.exec(cedula) : null;
   const cedulaTipo = matchVE ? matchVE[1].toUpperCase() : null;
   const cedulaNumero = matchVE ? matchVE[2].trim() : null;
 
   const cedulasRegistro = Array.from(
-    new Set([cedula, viviendaId ? `S-${viviendaId}` : null].filter(Boolean) as string[])
+    new Set(
+      [
+        cedula,
+        viviendaId ? `S-${viviendaId}` : null,
+        neonId ? `S-${neonId}` : null,
+      ].filter(Boolean) as string[]
+    )
   );
 
   let eliminados = 0;
@@ -365,6 +398,14 @@ async function ejecutarEliminacionEnNeon(
   await cliente.query('BEGIN');
   try {
     if (tipo === 'jefe') {
+      if (neonId) {
+        const resJefeNeon = await cliente.query(
+          'DELETE FROM jefes_familia WHERE vivienda_id = $1',
+          [neonId]
+        );
+        eliminados += resJefeNeon.rowCount ?? 0;
+      }
+
       if (viviendaId) {
         const resJefeViv = await cliente.query(
           `
@@ -386,6 +427,11 @@ async function ejecutarEliminacionEnNeon(
         eliminados += resJefeCed.rowCount ?? 0;
       }
     } else {
+      if (neonId) {
+        const resVivNeon = await cliente.query('DELETE FROM viviendas WHERE id = $1', [neonId]);
+        eliminados += resVivNeon.rowCount ?? 0;
+      }
+
       if (viviendaId) {
         const resVivOrigen = await cliente.query(
           "DELETE FROM viviendas WHERE origen = 'local' AND origen_id = $1",
@@ -433,6 +479,7 @@ async function procesarEliminacionesNeon(cliente: Client): Promise<number> {
     await ejecutarEliminacionEnNeon(cliente, {
       cedula: eliminacion.cedula,
       viviendaId: eliminacion.vivienda_id,
+      neonId: eliminacion.neon_id,
       tipo: eliminacion.tipo,
     });
     eliminarEliminacionNeon(eliminacion.id);
@@ -531,8 +578,9 @@ export async function actualizarViviendaEnNeon(viviendaId: number): Promise<Resu
 
   try {
     await cliente.connect();
-    await upsertRegistros(cliente, [registro]);
-    marcarViviendaSincronizada(viviendaId);
+    await asegurarEsquema(cliente);
+    const mapa = await upsertRegistros(cliente, [registro]);
+    marcarViviendaSincronizada(viviendaId, mapa.get(viviendaId) ?? null);
 
     return {
       ok: true,
@@ -621,8 +669,8 @@ export async function sincronizarConNeon(): Promise<ResultadoSincronizacion> {
       const lote = pendientes.slice(inicio, inicio + TAMANO_LOTE);
       const resultado = await subirLote(cliente, lote);
 
-      for (const registro of resultado.subidas) {
-        marcarViviendaSincronizada(registro.id);
+      for (const item of resultado.subidas) {
+        marcarViviendaSincronizada(item.id, item.viviendaNeonId || null);
       }
 
       procesados += resultado.subidas.length;

@@ -17,6 +17,7 @@ db.pragma('busy_timeout = 5000');
 
 export type Vivienda = {
   id: number;
+  neon_id?: number | null;
   estado: string;
   municipio: string;
   parroquia: string;
@@ -382,6 +383,12 @@ function asegurarColumnasNuevas() {
       'ALTER TABLE viviendas ADD COLUMN vivienda_principal_id INTEGER REFERENCES viviendas(id) ON DELETE SET NULL'
     );
   }
+  if (!viviendas.includes('neon_id')) {
+    db.exec('ALTER TABLE viviendas ADD COLUMN neon_id INTEGER');
+  }
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_viviendas_neon_id ON viviendas(neon_id) WHERE neon_id IS NOT NULL'
+  );
 
   if (!columnasDe('jefes_familia').includes('ingreso_mensual_bs')) {
     db.exec('ALTER TABLE jefes_familia ADD COLUMN ingreso_mensual_bs REAL');
@@ -393,6 +400,9 @@ function asegurarColumnasNuevas() {
   const eliminaciones = columnasDe('neon_eliminaciones');
   if (!eliminaciones.includes('vivienda_id')) {
     db.exec('ALTER TABLE neon_eliminaciones ADD COLUMN vivienda_id INTEGER');
+  }
+  if (!eliminaciones.includes('neon_id')) {
+    db.exec('ALTER TABLE neon_eliminaciones ADD COLUMN neon_id INTEGER');
   }
   if (!eliminaciones.includes('tipo')) {
     db.exec("ALTER TABLE neon_eliminaciones ADD COLUMN tipo TEXT NOT NULL DEFAULT 'vivienda'");
@@ -659,6 +669,11 @@ export function guardarConfigSistema(clave: string, valor: string): void {
   `).run(clave, valor);
 }
 
+export function obtenerAsistenteHabilitado(): boolean {
+  const valor = obtenerConfigSistema('asistente_habilitado');
+  return valor !== '0';
+}
+
 const CONFIG_CAMPOS_INICIALES: Array<{
   clave: string;
   etiqueta: string;
@@ -892,10 +907,38 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tabla TEXT NOT NULL CHECK (tabla IN ('expedientes_medicos', 'beneficios_entregas')),
     origen_id INTEGER NOT NULL,
+    neon_id INTEGER,
     creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     UNIQUE (tabla, origen_id)
   );
 `);
+
+function asegurarColumnasModulosNeon() {
+  const colsDe = (tabla: string) =>
+    (db.prepare(`PRAGMA table_info(${tabla})`).all() as Array<{ name: string }>).map(
+      (c) => c.name
+    );
+
+  if (!colsDe('expedientes_medicos').includes('neon_id')) {
+    db.exec('ALTER TABLE expedientes_medicos ADD COLUMN neon_id INTEGER');
+  }
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_expedientes_neon_id ON expedientes_medicos(neon_id) WHERE neon_id IS NOT NULL'
+  );
+
+  if (!colsDe('beneficios_entregas').includes('neon_id')) {
+    db.exec('ALTER TABLE beneficios_entregas ADD COLUMN neon_id INTEGER');
+  }
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_beneficios_neon_id ON beneficios_entregas(neon_id) WHERE neon_id IS NOT NULL'
+  );
+
+  if (!colsDe('neon_modulos_eliminaciones').includes('neon_id')) {
+    db.exec('ALTER TABLE neon_modulos_eliminaciones ADD COLUMN neon_id INTEGER');
+  }
+}
+
+asegurarColumnasModulosNeon();
 
 db.exec(`
   DROP VIEW IF EXISTS vista_personas_individuales;
@@ -1565,6 +1608,7 @@ export type EliminacionNeon = {
   id: number;
   cedula: string;
   vivienda_id: number | null;
+  neon_id: number | null;
   tipo: 'vivienda' | 'jefe';
 };
 
@@ -1573,7 +1617,7 @@ export type EliminacionNeon = {
 export function encolarEliminacionNeon(
   entrada:
     | string
-    | { cedula?: string | null; viviendaId?: number | null; tipo?: 'vivienda' | 'jefe' }
+    | { cedula?: string | null; viviendaId?: number | null; neonId?: number | null; tipo?: 'vivienda' | 'jefe' }
 ): void {
   const cedulaRaw = typeof entrada === 'string' ? entrada : entrada.cedula ?? null;
   const viviendaId =
@@ -1582,26 +1626,33 @@ export function encolarEliminacionNeon(
       : Number.isInteger(Number(entrada.viviendaId)) && Number(entrada.viviendaId) > 0
         ? Number(entrada.viviendaId)
         : null;
+  const neonId =
+    typeof entrada === 'string'
+      ? null
+      : Number.isInteger(Number(entrada.neonId)) && Number(entrada.neonId) > 0
+        ? Number(entrada.neonId)
+        : null;
   const tipo: 'vivienda' | 'jefe' =
     typeof entrada === 'string' || entrada.tipo !== 'jefe' ? 'vivienda' : 'jefe';
 
   const clave =
     (cedulaRaw && String(cedulaRaw).trim()) ||
-    (viviendaId ? `VIVIENDA-${viviendaId}` : '');
+    (neonId ? `NEON-${neonId}` : viviendaId ? `VIVIENDA-${viviendaId}` : '');
   if (!clave) return;
 
   db.prepare(`
-    INSERT INTO neon_eliminaciones (cedula, vivienda_id, tipo)
-    VALUES (?, ?, ?)
+    INSERT INTO neon_eliminaciones (cedula, vivienda_id, neon_id, tipo)
+    VALUES (?, ?, ?, ?)
     ON CONFLICT(cedula) DO UPDATE SET
       vivienda_id = COALESCE(excluded.vivienda_id, neon_eliminaciones.vivienda_id),
+      neon_id = COALESCE(excluded.neon_id, neon_eliminaciones.neon_id),
       tipo = excluded.tipo
-  `).run(clave, viviendaId, tipo);
+  `).run(clave, viviendaId, neonId, tipo);
 }
 
 export function listarEliminacionesNeon(): EliminacionNeon[] {
   return db
-    .prepare("SELECT id, cedula, vivienda_id, COALESCE(tipo, 'vivienda') AS tipo FROM neon_eliminaciones ORDER BY id")
+    .prepare("SELECT id, cedula, vivienda_id, neon_id, COALESCE(tipo, 'vivienda') AS tipo FROM neon_eliminaciones ORDER BY id")
     .all() as EliminacionNeon[];
 }
 
@@ -1620,7 +1671,24 @@ export function marcarViviendaPendienteSincronizacion(id: number): boolean {
     .run(id).changes > 0;
 }
 
-export function marcarViviendaSincronizada(id: number): boolean {
+export function marcarViviendaSincronizada(id: number, neonId?: number | null): boolean {
+  const neonIdValido =
+    neonId !== undefined && neonId !== null && Number.isInteger(Number(neonId)) && Number(neonId) > 0
+      ? Number(neonId)
+      : null;
+
+  if (neonIdValido !== null) {
+    return db
+      .prepare(`
+        UPDATE viviendas
+        SET sincronizado = 1,
+            sincronizado_en = datetime('now', 'localtime'),
+            neon_id = ?
+        WHERE id = ?
+      `)
+      .run(neonIdValido, id).changes > 0;
+  }
+
   return db
     .prepare(`
       UPDATE viviendas
@@ -1640,14 +1708,39 @@ export function obtenerViviendas({
   page?: number;
   limit?: number;
 }): { viviendas: Vivienda[]; total: number } {
-  const like = `%${q}%`;
+  const qLimpio = String(q || '').trim();
   const offset = (page - 1) * limit;
+
+  if (!qLimpio) {
+    const filas = db
+      .prepare(`
+        SELECT * FROM viviendas
+        ORDER BY fecha_registro DESC, id DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(limit, offset) as any[];
+
+    const totalFila = db
+      .prepare('SELECT COUNT(*) AS total FROM viviendas')
+      .get() as { total: number };
+
+    return {
+      viviendas: filas as Vivienda[],
+      total: totalFila.total,
+    };
+  }
+
+  const like = `%${qLimpio}%`;
 
   const filas = db
     .prepare(`
       SELECT * FROM viviendas
-      WHERE comunidad LIKE ? OR manzana LIKE ? OR etapa LIKE ? OR direccion LIKE ? OR numero_casa LIKE ?
-      ORDER BY fecha_registro DESC
+      WHERE COALESCE(comunidad, '') LIKE ?
+         OR COALESCE(manzana, '') LIKE ?
+         OR COALESCE(etapa, '') LIKE ?
+         OR COALESCE(direccion, '') LIKE ?
+         OR COALESCE(numero_casa, '') LIKE ?
+      ORDER BY fecha_registro DESC, id DESC
       LIMIT ? OFFSET ?
     `)
     .all(like, like, like, like, like, limit, offset) as any[];
@@ -1655,7 +1748,11 @@ export function obtenerViviendas({
   const totalFila = db
     .prepare(`
       SELECT COUNT(*) AS total FROM viviendas
-      WHERE comunidad LIKE ? OR manzana LIKE ? OR etapa LIKE ? OR direccion LIKE ? OR numero_casa LIKE ?
+      WHERE COALESCE(comunidad, '') LIKE ?
+         OR COALESCE(manzana, '') LIKE ?
+         OR COALESCE(etapa, '') LIKE ?
+         OR COALESCE(direccion, '') LIKE ?
+         OR COALESCE(numero_casa, '') LIKE ?
     `)
     .get(like, like, like, like, like) as { total: number };
 
@@ -3494,6 +3591,7 @@ module.exports = {
   eliminarEliminacionConsejoNeon,
   obtenerConfigSistema,
   guardarConfigSistema,
+  obtenerAsistenteHabilitado,
   buscarViviendasPrincipales,
   listarUsuarios,
   listarUsuariosConHash,

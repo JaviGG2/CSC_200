@@ -10,11 +10,13 @@ import {
   contarPersonas,
   contarViviendas,
   db,
+  obtenerAsistenteHabilitado,
   obtenerEstadisticasIngresos,
   obtenerUsuarioPorUsuario,
   registrarIngresoSistema,
   sincronizarConfiguracionNeon,
 } from '../../nucleo/base-datos';
+import { consultarAsistenteGemini } from '../../nucleo/asistente';
 import { rutaLocalSegura, valorSimple } from '../../nucleo/http';
 
 export type ModuloPortal = {
@@ -142,6 +144,42 @@ export function crearRouterPortal(): Router {
       ok: true,
       ...obtenerEstadisticasIngresos(),
     });
+  });
+
+  router.post('/api/asistente/chat', requerirAuth, async (req: Request, res: Response) => {
+    try {
+      if (!obtenerAsistenteHabilitado()) {
+        return res.status(403).json({
+          error: 'El asistente de orientación está deshabilitado en los ajustes.',
+        });
+      }
+
+      const mensaje = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+      if (!mensaje) {
+        return res.status(400).json({ error: 'Escriba una consulta para el asistente.' });
+      }
+      if (mensaje.length > 1500) {
+        return res.status(400).json({ error: 'La consulta excede el máximo de 1500 caracteres.' });
+      }
+
+      const reply = await consultarAsistenteGemini({
+        mensaje,
+        historial: req.body?.history,
+        rutaActual: typeof req.body?.rutaActual === 'string' ? req.body.rutaActual : '',
+      });
+
+      return res.json({
+        ok: true,
+        reply,
+      });
+    } catch (error: any) {
+      const status = Number(error?.statusCode) || 502;
+      return res.status(status).json({
+        error:
+          error?.message ||
+          'No se pudo obtener respuesta del asistente en este momento.',
+      });
+    }
   });
 
   router.get('/login', (req: Request, res: Response) => {

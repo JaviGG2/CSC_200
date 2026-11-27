@@ -8,6 +8,7 @@ dotenv.config({ quiet: true });
 import { leerCookie, verificarToken } from './src/nucleo/autenticacion';
 import {
   inicializarEsquemaNeon,
+  obtenerAsistenteHabilitado,
   obtenerUsuarioPorId,
   registrarActividadUsuario,
   rutaBaseDatos,
@@ -85,6 +86,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.locals.modulo = modulo;
   res.locals.subseccion = subseccion;
   res.locals.ruta = req.path;
+  res.locals.asistenteHabilitado = obtenerAsistenteHabilitado();
   next();
 });
 
