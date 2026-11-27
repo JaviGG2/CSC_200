@@ -684,6 +684,11 @@ async function aplicarRegistrosDesdeNeon(cliente: Client): Promise<number> {
         const cedulaTipo = (matchVE ? matchVE[1].toUpperCase() : 'V') as any;
         const cedulaNumero = matchVE ? matchVE[2].trim() : cedulaCompleta;
 
+        const existentePorCedula = db.prepare('SELECT id, vivienda_id FROM jefes_familia WHERE cedula_tipo = ? AND cedula_numero = ?').get(cedulaTipo, cedulaNumero) as { id: number; vivienda_id: number } | undefined;
+        if (existentePorCedula && existentePorCedula.vivienda_id !== viviendaId) {
+          db.prepare('DELETE FROM jefes_familia WHERE id = ?').run(existentePorCedula.id);
+        }
+
         const existenteJefe = db.prepare('SELECT id FROM jefes_familia WHERE vivienda_id = ?').get(viviendaId) as { id: number } | undefined;
         if (existenteJefe) {
           db.prepare(`
